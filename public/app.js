@@ -46,6 +46,8 @@ const WEIGHT_CLASS_LABELS = {
   assault: "Assault",
 };
 
+const MAX_COMPARE_MECHS = 3;
+
 const state = {
   index: null,
   mechs: [],
@@ -54,6 +56,8 @@ const state = {
   omnipods: {},
   activeMainTab: "mechlab",
   infoApplyQuirks: true,
+  compareMode: false,
+  compareMechIds: [],
   selectedMech: null,
   selectedChassis: "",
   selectedItemId: null,
@@ -78,6 +82,10 @@ function itemById(id) {
 function itemName(id) {
   const item = itemById(id);
   return item ? item.display_name || item.name : `Item ${id}`;
+}
+
+function mechById(id) {
+  return state.mechs.find((mech) => String(mech.id) === String(id)) || null;
 }
 
 function itemSlots(item) {
@@ -197,8 +205,8 @@ function loadBuild(mech) {
   return buildFromLoadout(mech);
 }
 
-function currentDefinition() {
-  return state.selectedMech?.definition || {};
+function currentDefinition(mech = state.selectedMech) {
+  return mech?.definition || {};
 }
 
 function setMainTab(tabName) {
@@ -233,14 +241,14 @@ function addQuirk(collector, quirk, source) {
   if (source) entry.sources.add(source);
 }
 
-function effectiveQuirks() {
+function effectiveQuirks(mech = state.selectedMech, build = state.currentBuild) {
   const collector = new Map();
-  const definition = currentDefinition();
+  const definition = currentDefinition(mech);
   (definition.quirks || []).forEach((quirk) => addQuirk(collector, quirk, "Variant"));
 
   const setCounts = {};
   const setBonuses = {};
-  for (const [component, buildComponent] of Object.entries(state.currentBuild?.components || {})) {
+  for (const [component, buildComponent] of Object.entries(build?.components || {})) {
     const podId = buildComponent.omnipod;
     if (!podId) continue;
     const pod = state.omnipods[String(podId)];
@@ -269,9 +277,9 @@ function effectiveQuirks() {
     .sort((a, b) => a.display_name.localeCompare(b.display_name));
 }
 
-function effectiveQuirkValues() {
+function effectiveQuirkValues(mech = state.selectedMech, build = state.currentBuild) {
   const values = {};
-  effectiveQuirks().forEach((quirk) => {
+  effectiveQuirks(mech, build).forEach((quirk) => {
     values[quirk.name.toLowerCase()] = number(quirk.value);
   });
   return values;
@@ -285,14 +293,14 @@ function quirkMultiplier(values, names) {
   return 1 + names.reduce((sum, name) => sum + number(values[name]), 0);
 }
 
-function baseMaxArmor(componentName) {
+function baseMaxArmor(componentName, mech = state.selectedMech) {
   if (componentName === "head") return 18;
-  return number(currentDefinition().components?.[componentName]?.hp) * 2;
+  return number(currentDefinition(mech).components?.[componentName]?.hp) * 2;
 }
 
-function armorInfoRows(values) {
+function armorInfoRows(values, mech = state.selectedMech) {
   return INFO_COMPONENTS.map((component) => {
-    const frontBase = baseMaxArmor(component.key);
+    const frontBase = baseMaxArmor(component.key, mech);
     const front = frontBase + quirkAdd(values, "armorresist", component.suffix);
     const rearBase = 0;
     const rear = component.rearSuffix
@@ -310,9 +318,9 @@ function armorInfoRows(values) {
   });
 }
 
-function structureInfoRows(values) {
+function structureInfoRows(values, mech = state.selectedMech) {
   return INFO_COMPONENTS.map((component) => {
-    const base = number(currentDefinition().components?.[component.key]?.hp);
+    const base = number(currentDefinition(mech).components?.[component.key]?.hp);
     return {
       label: component.label,
       base,
@@ -401,9 +409,9 @@ function specValueList(baseValues, finalValues, digits = 1, unit = "") {
   `;
 }
 
-function movementInfo(values) {
-  const stats = currentDefinition().stats || {};
-  const movement = currentDefinition().movement || {};
+function movementInfo(values, mech = state.selectedMech) {
+  const stats = currentDefinition(mech).stats || {};
+  const movement = currentDefinition(mech).movement || {};
   const tons = number(stats.MaxTons);
   const maxEngine = number(stats.MaxEngineRating);
   const baseSpeed = tons ? number(movement.MaxMovementSpeed) * maxEngine / tons : 0;
@@ -510,7 +518,174 @@ function renderInfoQuirks(quirks) {
   `;
 }
 
+function compareMechs() {
+  return state.compareMechIds.map((id) => mechById(id)).filter(Boolean);
+}
+
+function compareBuildForMech(mech) {
+  if (state.selectedMech && String(state.selectedMech.id) === String(mech.id)) {
+    return state.currentBuild || loadBuild(mech);
+  }
+  return loadBuild(mech);
+}
+
+function infoDataForMech(mech) {
+  const build = compareBuildForMech(mech);
+  const values = state.infoApplyQuirks ? effectiveQuirkValues(mech, build) : {};
+  const armorRows = armorInfoRows(values, mech);
+  const structureRows = structureInfoRows(values, mech);
+  const combinedRows = combinedDurabilityRows(armorRows, structureRows);
+  const stats = currentDefinition(mech).stats || {};
+
+  return {
+    mech,
+    stats,
+    quirks: effectiveQuirks(mech, build),
+    armorRows,
+    structureRows,
+    combinedRows,
+    armorTotal: armorRows.reduce((sum, row) => sum + number(row.total), 0),
+    armorBaseTotal: armorRows.reduce((sum, row) => sum + number(row.totalBase), 0),
+    structureTotal: structureRows.reduce((sum, row) => sum + number(row.total), 0),
+    structureBaseTotal: structureRows.reduce((sum, row) => sum + number(row.base), 0),
+    combinedTotal: combinedRows.reduce((sum, row) => sum + number(row.total), 0),
+    combinedBaseTotal: combinedRows.reduce((sum, row) => sum + number(row.totalBase), 0),
+    movement: movementInfo(values, mech),
+  };
+}
+
+function compareText(value) {
+  return { text: value || "-", rank: null };
+}
+
+function compareNumber(value, digits = 1, unit = "") {
+  return {
+    text: `${formatInfoNumber(value, digits)}${unit}`,
+    rank: Number.isFinite(value) ? value : null,
+  };
+}
+
+function compareNumberList(values, digits = 1, unit = "") {
+  const numericValues = values.filter((value) => Number.isFinite(value));
+  return {
+    text: `${values.map((value) => formatInfoNumber(value, digits)).join(" / ")}${unit}`,
+    rank: numericValues.length ? numericValues.reduce((sum, value) => sum + value, 0) : null,
+  };
+}
+
+function renderCompareCell(row, data, entry) {
+  const cell = row.value(entry);
+  const ranks = data
+    .map((dataEntry) => row.value(dataEntry).rank)
+    .filter((rank) => Number.isFinite(rank));
+  if (data.length < 2 || !Number.isFinite(cell.rank) || ranks.length < 2) {
+    return `<td>${cell.text}</td>`;
+  }
+
+  const minRank = Math.min(...ranks);
+  const maxRank = Math.max(...ranks);
+  const minCount = ranks.filter((rank) => rank === minRank).length;
+  const maxCount = ranks.filter((rank) => rank === maxRank).length;
+  const className = cell.rank === maxRank && maxCount === 1
+    ? "compare-high"
+    : cell.rank === minRank && minCount === 1
+      ? "compare-low"
+      : "";
+  return `<td class="${className}">${cell.text}</td>`;
+}
+
+function renderCompareTable(mechs) {
+  if (!mechs.length) {
+    return `<div class="empty compare-empty">왼쪽 리스트에서 비교할 멕을 선택하세요.</div>`;
+  }
+
+  const data = mechs.map(infoDataForMech);
+  const bodyRows = INFO_COMPONENTS.map((component, index) => ({
+    label: component.label,
+    combined: (entry) => compareNumber(entry.combinedRows[index].total, 0),
+    armor: (entry) => compareNumber(entry.armorRows[index].total, 0),
+    structure: (entry) => compareNumber(entry.structureRows[index].total, 0),
+  }));
+  const rows = [
+    { group: "기본 정보" },
+    { label: "톤수", value: (entry) => compareNumber(number(entry.stats.MaxTons), 0, "t") },
+    { label: "진영", value: (entry) => compareText(entry.mech.faction || "Unknown") },
+    { label: "체급", value: (entry) => compareText(WEIGHT_CLASS_LABELS[entry.mech.weight_class] || entry.mech.weight_class || "Unknown") },
+    { label: "최소 엔진", value: (entry) => compareNumber(number(entry.stats.MinEngineRating), 0) },
+    { label: "최대 엔진", value: (entry) => compareNumber(number(entry.stats.MaxEngineRating), 0) },
+    { group: "종합 내구" },
+    { label: "아머 + 스트럭쳐 총합", value: (entry) => compareNumber(entry.combinedTotal, 0) },
+    ...bodyRows.map((row) => ({ label: row.label, value: row.combined })),
+    { group: "아머 정보" },
+    { label: "최대 아머 포인트 총합", value: (entry) => compareNumber(entry.armorTotal, 0) },
+    ...bodyRows.map((row) => ({ label: row.label, value: row.armor })),
+    { group: "스트럭쳐 정보" },
+    { label: "스트럭쳐 총합", value: (entry) => compareNumber(entry.structureTotal, 0) },
+    ...bodyRows.map((row) => ({ label: row.label, value: row.structure })),
+    { group: "기동성" },
+    { label: "최대 속도", value: (entry) => compareNumber(entry.movement.maxSpeed, 1, " kph") },
+    { label: "가속도", value: (entry) => compareNumberList(entry.movement.acceleration, 1) },
+    { label: "감속도", value: (entry) => compareNumberList(entry.movement.deceleration, 1) },
+    { label: "몸통 회전각 X/Y", value: (entry) => compareNumberList(entry.movement.torsoAngle, 1) },
+    { label: "몸통 회전 속도 X/Y", value: (entry) => compareNumberList(entry.movement.torsoSpeed, 1) },
+    { label: "회전 속도", value: (entry) => compareNumberList(entry.movement.turnSpeed, 2) },
+    { group: "쿼크" },
+    { label: "쿼크 수", value: (entry) => compareNumber(entry.quirks.length, 0) },
+  ];
+
+  return `
+    <div class="compare-table-wrap">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th scope="col">항목</th>
+            ${data
+              .map((entry) => `
+                <th scope="col">
+                  <span class="compare-title">
+                    <strong>${entry.mech.display_name}</strong>
+                    <button class="compare-remove" data-remove-compare="${entry.mech.id}" type="button" aria-label="${entry.mech.display_name} 비교에서 제거">x</button>
+                  </span>
+                  <span class="compare-meta">${entry.mech.faction || "Unknown"} - ${entry.stats.MaxTons || "?"}t</span>
+                </th>
+              `)
+              .join("")}
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map((row) => {
+              if (row.group) {
+                return `<tr class="compare-group"><th scope="row" colspan="${data.length + 1}">${row.group}</th></tr>`;
+              }
+              return `
+                <tr>
+                  <th scope="row">${row.label}</th>
+                  ${data.map((entry) => renderCompareCell(row, data, entry)).join("")}
+                </tr>
+              `;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function renderInfoPanel() {
+  $("info-apply-quirks").checked = state.infoApplyQuirks;
+  $("info-compare-mode").checked = state.compareMode;
+
+  if (state.compareMode) {
+    const mechs = compareMechs();
+    $("info-variant-name").textContent = "멕 비교";
+    $("info-variant-meta").textContent = `${mechs.length}/${MAX_COMPARE_MECHS} 선택됨`;
+    $("mech-info").className = "compare-grid";
+    $("mech-info").innerHTML = renderCompareTable(mechs);
+    return;
+  }
+
+  $("mech-info").className = "info-grid";
   const mech = state.selectedMech;
   if (!mech) {
     $("info-variant-name").textContent = "No mech selected";
@@ -534,7 +709,6 @@ function renderInfoPanel() {
 
   $("info-variant-name").textContent = mech.display_name;
   $("info-variant-meta").textContent = `${mech.faction || "Unknown"} - ${WEIGHT_CLASS_LABELS[mech.weight_class] || mech.weight_class || "Unknown"} - ${stats.MaxTons || "?"} tons`;
-  $("info-apply-quirks").checked = state.infoApplyQuirks;
   $("mech-info").innerHTML = [
     renderInfoTable("아머 정보", ["부위", "수치"], [
       ["최대 아머 포인트 총합", specValue(armorBaseTotal, armorTotal, 0)],
@@ -691,7 +865,8 @@ function renderMechList() {
     return matchesSearch && matchesFaction;
   });
   const grouped = groupMechsForList(filtered);
-  const activeChassis = state.selectedChassis || state.selectedMech?.chassis || "";
+  const firstCompareMech = compareMechs()[0];
+  const activeChassis = state.selectedChassis || (state.compareMode ? firstCompareMech?.chassis : state.selectedMech?.chassis) || "";
   const classNames = Array.from(grouped.keys()).sort((a, b) => {
     const aIndex = WEIGHT_CLASS_ORDER.indexOf(a);
     const bIndex = WEIGHT_CLASS_ORDER.indexOf(b);
@@ -722,11 +897,10 @@ function renderMechList() {
             ${chassisGroups
               .map((group) => {
                 const active = group.chassis === activeChassis ? " active" : "";
-                const firstMech = group.variants[0];
                 const factions = Array.from(new Set(group.variants.map((mech) => mech.faction).filter(Boolean))).join(", ");
                 return `
                   <div class="chassis-group${active}">
-                    <button class="chassis-row${active}" data-chassis="${group.chassis}" data-first-mech="${firstMech.id}" type="button">
+                    <button class="chassis-row${active}" data-chassis="${group.chassis}" type="button">
                       <span class="row-title"><strong>${group.label}</strong><span>${group.tons}t</span></span>
                       <span class="badge-line">
                         <span class="badge">${group.variants.length} variants</span>
@@ -737,7 +911,10 @@ function renderMechList() {
                       <div class="variant-list">
                         ${group.variants
                           .map((mech) => {
-                            const selected = state.selectedMech?.id === mech.id ? " active" : "";
+                            const isSelected = state.compareMode
+                              ? state.compareMechIds.some((id) => String(id) === String(mech.id))
+                              : state.selectedMech?.id === mech.id;
+                            const selected = isSelected ? " active" : "";
                             return `
                               <button class="mech-row variant-row${selected}" data-mech="${mech.id}" type="button">
                                 <span class="row-title"><strong>${variantCode(mech)}</strong><span>${mech.faction || "unknown"}</span></span>
@@ -895,9 +1072,41 @@ function renderAll() {
 }
 
 function selectMech(id) {
-  state.selectedMech = state.mechs.find((mech) => String(mech.id) === String(id)) || state.mechs[0];
+  state.selectedMech = mechById(id) || state.mechs[0];
   state.selectedChassis = state.selectedMech?.chassis || "";
   state.currentBuild = loadBuild(state.selectedMech);
+  renderAll();
+}
+
+function setCompareMode(enabled) {
+  state.compareMode = enabled;
+  if (enabled && !state.compareMechIds.length && state.selectedMech) {
+    state.compareMechIds = [state.selectedMech.id];
+    state.selectedChassis = state.selectedMech.chassis || state.selectedChassis;
+  }
+  renderAll();
+}
+
+function toggleCompareMech(id) {
+  const mech = mechById(id);
+  if (!mech) return;
+  const index = state.compareMechIds.findIndex((mechId) => String(mechId) === String(id));
+  if (index >= 0) {
+    state.compareMechIds.splice(index, 1);
+  } else if (state.compareMechIds.length < MAX_COMPARE_MECHS) {
+    state.compareMechIds.push(mech.id);
+  } else {
+    $("data-status").textContent = `비교는 최대 ${MAX_COMPARE_MECHS}개까지 선택할 수 있습니다.`;
+    return;
+  }
+  state.selectedChassis = mech.chassis || state.selectedChassis;
+  renderAll();
+}
+
+function removeCompareMech(id) {
+  const index = state.compareMechIds.findIndex((mechId) => String(mechId) === String(id));
+  if (index < 0) return;
+  state.compareMechIds.splice(index, 1);
   renderAll();
 }
 
@@ -939,16 +1148,29 @@ function bindEvents() {
     state.infoApplyQuirks = event.target.checked;
     renderInfoPanel();
   });
+  $("info-compare-mode").addEventListener("change", (event) => {
+    setCompareMode(event.target.checked);
+  });
+  $("mech-info").addEventListener("click", (event) => {
+    const remove = event.target.closest("[data-remove-compare]");
+    if (remove) removeCompareMech(remove.dataset.removeCompare);
+  });
 
   $("mech-list").addEventListener("click", (event) => {
     const chassis = event.target.closest("[data-chassis]");
     if (chassis) {
       state.selectedChassis = chassis.dataset.chassis;
-      selectMech(chassis.dataset.firstMech);
+      renderMechList();
       return;
     }
     const button = event.target.closest("[data-mech]");
-    if (button) selectMech(button.dataset.mech);
+    if (button) {
+      if (state.compareMode) {
+        toggleCompareMech(button.dataset.mech);
+      } else {
+        selectMech(button.dataset.mech);
+      }
+    }
   });
   $("item-list").addEventListener("click", (event) => {
     const button = event.target.closest("[data-item]");
