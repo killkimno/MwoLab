@@ -953,9 +953,16 @@ function bindEvents() {
 }
 
 async function loadJson(path) {
-  const response = await fetch(path);
-  if (!response.ok) throw new Error(`Could not load ${path}`);
-  return response.json();
+  try {
+    const response = await fetch(path);
+    if (!response.ok) throw new Error(`Could not load ${path}`);
+    return response.json();
+  } catch (error) {
+    if (location.protocol === "file:") {
+      throw new Error("Local data cannot be loaded from file://. Serve the public folder over http:// for local preview.");
+    }
+    throw error;
+  }
 }
 
 async function init() {

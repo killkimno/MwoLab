@@ -6,6 +6,16 @@ Static MechWarrior Online mechlab built from extracted local game data.
 
 Open the deployed GitHub Pages site, or serve the `public` folder with any static file server.
 
+Local preview:
+
+```powershell
+python -m http.server 8000 --directory public
+```
+
+Then open `http://localhost:8000/`.
+
+Do not open `public/index.html` directly with `file://`; browsers block `fetch()` access to local JSON files.
+
 ## Update Data
 
 ```powershell
