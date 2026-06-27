@@ -295,7 +295,9 @@ function armorInfoRows(values) {
     const frontBase = baseMaxArmor(component.key);
     const front = frontBase + quirkAdd(values, "armorresist", component.suffix);
     const rearBase = 0;
-    const rear = component.rearSuffix ? rearBase + number(values[`armorresist_${component.rearSuffix}_additive`]) : null;
+    const rear = component.rearSuffix
+      ? rearBase + number(values.armorresist_all_additive) + number(values[`armorresist_${component.rearSuffix}_additive`])
+      : null;
     return {
       label: component.label,
       totalBase: frontBase + (component.rearSuffix ? rearBase : 0),
@@ -315,6 +317,25 @@ function structureInfoRows(values) {
       label: component.label,
       base,
       total: base + quirkAdd(values, "internalresist", component.suffix),
+    };
+  });
+}
+
+function combinedDurabilityRows(armorRows, structureRows) {
+  return armorRows.map((armor, index) => {
+    const structure = structureRows[index] || { base: 0, total: 0 };
+    const frontBase = armor.frontBase + structure.base;
+    const front = armor.front + structure.total;
+    const rearBase = armor.rearBase;
+    const rear = armor.rear;
+    return {
+      label: armor.label,
+      totalBase: armor.totalBase + structure.base,
+      total: armor.total + structure.total,
+      frontBase,
+      front,
+      rearBase,
+      rear,
     };
   });
 }
@@ -439,9 +460,10 @@ function movementInfo(values) {
   };
 }
 
-function renderInfoTable(title, headers, rows) {
+function renderInfoTable(title, headers, rows, options = {}) {
+  const classes = ["info-card", options.compact ? "info-card-compact" : ""].filter(Boolean).join(" ");
   return `
-    <section class="info-card">
+    <section class="${classes}">
       <h3>${title}</h3>
       <div class="info-table">
         <div class="info-row info-head">${headers.map((header, index) => `<span>${index === 0 ? header : specHeader(header)}</span>`).join("")}</div>
@@ -505,25 +527,27 @@ function renderInfoPanel() {
   const armorBaseTotal = armorRows.reduce((sum, row) => sum + number(row.totalBase), 0);
   const structureTotal = structureRows.reduce((sum, row) => sum + number(row.total), 0);
   const structureBaseTotal = structureRows.reduce((sum, row) => sum + number(row.base), 0);
+  const combinedRows = combinedDurabilityRows(armorRows, structureRows);
+  const combinedTotal = combinedRows.reduce((sum, row) => sum + number(row.total), 0);
+  const combinedBaseTotal = combinedRows.reduce((sum, row) => sum + number(row.totalBase), 0);
   const movement = movementInfo(values);
 
   $("info-variant-name").textContent = mech.display_name;
   $("info-variant-meta").textContent = `${mech.faction || "Unknown"} - ${WEIGHT_CLASS_LABELS[mech.weight_class] || mech.weight_class || "Unknown"} - ${stats.MaxTons || "?"} tons`;
   $("info-apply-quirks").checked = state.infoApplyQuirks;
   $("mech-info").innerHTML = [
-    renderInfoTable("아머 정보", ["부위", "총합", "전방", "후방"], [
-      ["최대 아머 포인트 총합", specValue(armorBaseTotal, armorTotal, 0), "", ""],
-      ...armorRows.map((row) => [
-        row.label,
-        specValue(row.totalBase, row.total, 0),
-        specValue(row.frontBase, row.front, 0),
-        row.rear === null ? "-" : specValue(row.rearBase, row.rear, 0),
-      ]),
-    ]),
+    renderInfoTable("아머 정보", ["부위", "수치"], [
+      ["최대 아머 포인트 총합", specValue(armorBaseTotal, armorTotal, 0)],
+      ...armorRows.map((row) => [row.label, specValue(row.totalBase, row.total, 0)]),
+    ], { compact: true }),
     renderInfoTable("스트럭쳐 정보", ["부위", "수치"], [
       ["스트럭쳐 총합", specValue(structureBaseTotal, structureTotal, 0)],
       ...structureRows.map((row) => [row.label, specValue(row.base, row.total, 0)]),
-    ]),
+    ], { compact: true }),
+    renderInfoTable("종합 내구", ["부위", "수치"], [
+      ["아머 + 스트럭쳐 총합", specValue(combinedBaseTotal, combinedTotal, 0)],
+      ...combinedRows.map((row) => [row.label, specValue(row.totalBase, row.total, 0)]),
+    ], { compact: true }),
     renderInfoTable("엔진", ["항목", "수치"], [
       ["최소 엔진", formatInfoNumber(number(stats.MinEngineRating), 0)],
       ["최대 엔진", formatInfoNumber(number(stats.MaxEngineRating), 0)],
