@@ -509,9 +509,20 @@ h3 {
 }
 
 .mech-card-title strong {
+  display: inline-flex;
+  gap: 0.38rem;
+  align-items: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.mech-card-title strong > span {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: inherit;
+  text-overflow: ellipsis;
 }
 
 .mech-card-title span {
@@ -564,6 +575,45 @@ h3 {
   align-items: center;
   justify-content: space-between;
   color: var(--text);
+}
+
+.mech-title-main {
+  display: inline-flex;
+  gap: 0.38rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.mech-title-main strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.omnipod-icon {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.12rem;
+  height: 1.12rem;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.omnipod-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+  stroke: none;
+}
+
+.mech-card .omnipod-icon {
+  width: 1.22rem;
+  height: 1.22rem;
+}
+
+.mech-card-title .omnipod-icon {
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .badge-line {

@@ -242,6 +242,25 @@ def parse_quirks(parent, localization, source=""):
     return [parse_quirk_node(node, localization, source) for node in parent.findall("Quirk")]
 
 
+def parse_component_hardpoints(comp):
+    hardpoints = []
+    for child in list(comp):
+        if child.tag != "Hardpoint":
+            continue
+        hp = attrs(child)
+        hp["hardpoint_type"] = HARDPOINT_TYPES.get(str(hp.get("Type")), str(hp.get("Type", "")).lower())
+        hardpoints.append(hp)
+    return hardpoints
+
+
+def parse_component_internals(comp):
+    internals = []
+    for child in list(comp):
+        if child.tag == "Internal" and child.attrib.get("ItemID"):
+            internals.append(int(child.attrib["ItemID"]))
+    return internals
+
+
 def parse_items(game_data, localization):
     items_by_id = {}
     by_family = defaultdict(list)
@@ -331,21 +350,12 @@ def parse_mdf(data: bytes, source: str, localization):
 
     for comp in component_list.findall("Component"):
         name = comp.attrib.get("Name", "").lower()
-        hardpoints = []
-        internals = []
-        for child in list(comp):
-            if child.tag == "Hardpoint":
-                hp = attrs(child)
-                hp["hardpoint_type"] = HARDPOINT_TYPES.get(str(hp.get("Type")), str(hp.get("Type", "")).lower())
-                hardpoints.append(hp)
-            elif child.tag == "Internal" and child.attrib.get("ItemID"):
-                internals.append(int(child.attrib["ItemID"]))
         definition["components"][name] = {
             "name": name,
             "slots": maybe_num(comp.attrib.get("Slots", 0)),
             "hp": maybe_num(comp.attrib.get("HP", 0)),
-            "hardpoints": hardpoints,
-            "internals": internals,
+            "hardpoints": parse_component_hardpoints(comp),
+            "internals": parse_component_internals(comp),
         }
     return definition
 
@@ -376,6 +386,8 @@ def parse_detailed_omnipods(zf, localization):
                     "chassis": chassis,
                     "set": set_name,
                     "component": component,
+                    "hardpoints": parse_component_hardpoints(comp),
+                    "internals": parse_component_internals(comp),
                     "quirks": parse_quirks(comp, localization, "omnipod"),
                     "set_bonuses": set_bonuses,
                 }
@@ -415,6 +427,8 @@ def parse_omnipods(game_data, omnipod_details):
         pod["set"] = str(pod.get("set", "")).lower()
         pod["component"] = str(pod.get("component", "")).lower()
         detail = omnipod_details.get(f"{pod['chassis']}|{pod['set']}|{pod['component']}", {})
+        pod["hardpoints"] = detail.get("hardpoints", [])
+        pod["internals"] = detail.get("internals", [])
         pod["quirks"] = detail.get("quirks", [])
         pod["set_bonuses"] = detail.get("set_bonuses", [])
         pods[str(pod["id"])] = pod

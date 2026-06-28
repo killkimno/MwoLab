@@ -126,12 +126,13 @@ function isHeatSink(item) {
   return item?.ctype === "CHeatSinkStats" || String(item?.name || "").toLowerCase().includes("heatsink");
 }
 
-function hardpointBadges(definition) {
+function hardpointBadges(mech, build = buildFromLoadout(mech)) {
+  const definition = effectiveDefinition(mech, build);
   const counts = {};
   Object.values(definition?.components || {}).forEach((component) => {
     (component.hardpoints || []).forEach((hp) => {
       const type = hp.hardpoint_type;
-      counts[type] = (counts[type] || 0) + 1;
+      counts[type] = (counts[type] || 0) + number(hp.Slots, 1);
     });
   });
   return Object.entries(counts)
@@ -142,12 +143,7 @@ function hardpointBadges(definition) {
 
 function mechListQuirkValues(mech) {
   if (!state.infoApplyQuirks) return {};
-  const values = {};
-  (currentDefinition(mech).quirks || []).forEach((quirk) => {
-    const key = String(quirk.name || "").toLowerCase();
-    if (key) values[key] = number(values[key]) + number(quirk.value);
-  });
-  return values;
+  return effectiveQuirkValues(mech, buildFromLoadout(mech));
 }
 
 function mechListSummary(mech) {
@@ -280,26 +276,102 @@ function groupMechsForList(mechs) {
   return groups;
 }
 
+function loadoutForMech(mech) {
+  return state.loadouts[mech?.stock_loadout] || {};
+}
+
+function podById(id) {
+  return id ? state.omnipods[String(id)] || null : null;
+}
+
+function hasFixedOmnipods(mech) {
+  const loadout = loadoutForMech(mech);
+  return Object.values(loadout.components || {}).some((component) => component.omnipod);
+}
+
+function omnipodIcon(mech) {
+  if (!hasFixedOmnipods(mech)) return "";
+  return `
+    <span class="omnipod-icon" title="Omnipod" role="img" aria-label="Omnipod">
+      <svg viewBox="0 0 32 32" focusable="false" aria-hidden="true">
+        <path d="M13 3h6l1 3-2 2h-4l-2-2 1-3Z"></path>
+        <path d="M11 9h10l1.5 5-3.5 3h-6l-3.5-3L11 9Z"></path>
+        <path d="M5 9h4l-1 9-4 2-1-6 2-5Z"></path>
+        <path d="M23 9h4l2 5-1 6-4-2-1-9Z"></path>
+        <path d="M11 18h4l-1 11H8l1-7 2-4Z"></path>
+        <path d="M17 18h4l2 4 1 7h-6l-1-11Z"></path>
+      </svg>
+    </span>
+  `;
+}
+
+function findOmnipod(chassis, setName, componentName) {
+  const wantedChassis = String(chassis || "").toLowerCase();
+  const wantedSet = String(setName || "").toLowerCase();
+  const wantedComponent = String(componentName || "").toLowerCase();
+  return Object.values(state.omnipods || {}).find((pod) => (
+    String(pod.chassis || "").toLowerCase() === wantedChassis
+    && String(pod.set || "").toLowerCase() === wantedSet
+    && String(pod.component || "").toLowerCase() === wantedComponent
+  )) || null;
+}
+
+function dominantOmnipodSet(mech, build) {
+  const counts = new Map();
+  Object.values(build?.components || {}).forEach((component) => {
+    const pod = podById(component.omnipod);
+    if (!pod?.set) return;
+    counts.set(pod.set, (counts.get(pod.set) || 0) + 1);
+  });
+  if (!counts.size) return "";
+  const loadoutName = String(mech?.stock_loadout || mech?.name || "").toLowerCase();
+  return Array.from(counts.entries()).sort((a, b) => {
+    const countDiff = b[1] - a[1];
+    if (countDiff) return countDiff;
+    const aExact = a[0] === loadoutName ? 1 : 0;
+    const bExact = b[0] === loadoutName ? 1 : 0;
+    return bExact - aExact || a[0].localeCompare(b[0]);
+  })[0][0];
+}
+
+function applyFixedOmnipods(mech, build) {
+  const loadout = loadoutForMech(mech);
+  build.components ||= {};
+  for (const name of COMPONENT_ORDER) {
+    build.components[name] ||= { armor: 0, items: [] };
+    const stockPodId = loadout.components?.[name]?.omnipod;
+    if (stockPodId) build.components[name].omnipod = stockPodId;
+  }
+  const centre = build.components.centre_torso;
+  if (centre && !centre.omnipod) {
+    const setName = dominantOmnipodSet(mech, build);
+    const centrePod = findOmnipod(mech?.chassis, setName, "centre_torso");
+    if (centrePod?.id) centre.omnipod = centrePod.id;
+  }
+  return build;
+}
+
 function buildFromLoadout(mech) {
-  const loadout = state.loadouts[mech.stock_loadout] || {};
+  const loadout = loadoutForMech(mech);
   const components = {};
   for (const name of COMPONENT_ORDER) {
     const component = loadout.components?.[name] || {};
     components[name] = {
       armor: number(component.armor),
+      omnipod: component.omnipod || null,
       items: (component.items || []).map((entry) => ({ ...entry })),
     };
   }
   const rearArmor = REAR_ARMOR_COMPONENTS.reduce((sum, name) => {
     return sum + number(loadout.components?.[name]?.armor);
   }, 0);
-  return {
+  return applyFixedOmnipods(mech, {
     mechId: mech.id,
     loadoutName: mech.stock_loadout,
     components,
     rearArmor,
     upgrades: JSON.parse(JSON.stringify(loadout.upgrades || {})),
-  };
+  });
 }
 
 function savedKey(mech) {
@@ -310,7 +382,7 @@ function loadBuild(mech) {
   const saved = localStorage.getItem(savedKey(mech));
   if (saved) {
     try {
-      return JSON.parse(saved);
+      return applyFixedOmnipods(mech, JSON.parse(saved));
     } catch {
       localStorage.removeItem(savedKey(mech));
     }
@@ -320,6 +392,48 @@ function loadBuild(mech) {
 
 function currentDefinition(mech = state.selectedMech) {
   return mech?.definition || {};
+}
+
+function hardpointsFromLoadoutItems(buildComponent) {
+  const byType = new Map();
+  (buildComponent?.items || []).forEach((entry) => {
+    const item = itemById(entry.item_id);
+    if (item?.item_type !== "weapon") return;
+    const type = item.hardpoint_type || String(item.stats?.type || "").toLowerCase();
+    if (!type) return;
+    byType.set(type, (byType.get(type) || 0) + itemSlots(item));
+  });
+  return Array.from(byType.entries()).map(([type, slots]) => ({
+    hardpoint_type: type,
+    Type: type,
+    Slots: slots,
+    inferred: true,
+  }));
+}
+
+function effectiveComponentDefinition(mech = state.selectedMech, build = state.currentBuild, componentName) {
+  const base = currentDefinition(mech).components?.[componentName] || {};
+  const buildComponent = build?.components?.[componentName] || {};
+  const pod = podById(buildComponent.omnipod);
+  const hardpoints = pod?.hardpoints?.length
+    ? pod.hardpoints
+    : (base.hardpoints?.length ? base.hardpoints : hardpointsFromLoadoutItems(buildComponent));
+  return {
+    ...base,
+    hardpoints: hardpoints.map((hp) => ({ ...hp })),
+  };
+}
+
+function effectiveDefinition(mech = state.selectedMech, build = state.currentBuild) {
+  const definition = currentDefinition(mech);
+  const components = {};
+  for (const name of Object.keys(definition.components || {})) {
+    components[name] = effectiveComponentDefinition(mech, build, name);
+  }
+  return {
+    ...definition,
+    components,
+  };
 }
 
 function setMainTab(tabName) {
@@ -1126,7 +1240,7 @@ function renderInfoPanel() {
 
 function calculateBuild() {
   const mech = state.selectedMech;
-  const definition = currentDefinition();
+  const definition = effectiveDefinition(mech, state.currentBuild);
   const stats = definition.stats || {};
   const maxTons = number(stats.MaxTons);
   const baseTons = number(stats.BaseTons);
@@ -1362,8 +1476,11 @@ function renderVariantRow(mech) {
   const selected = isSelected ? " active" : "";
   return `
     <button class="mech-row variant-row${selected}" data-mech="${mech.id}" type="button">
-      <span class="row-title"><strong>${variantCode(mech)}</strong><span>${mech.faction || "unknown"}</span></span>
-      <span class="badge-line">${hardpointBadges(mech.definition)}</span>
+      <span class="row-title">
+        <span class="mech-title-main">${omnipodIcon(mech)}<strong>${variantCode(mech)}</strong></span>
+        <span>${mech.faction || "unknown"}</span>
+      </span>
+      <span class="badge-line">${hardpointBadges(mech)}</span>
     </button>
   `;
 }
@@ -1404,7 +1521,7 @@ function renderMechCard(mech, activeChassis) {
   return `
     <button class="mech-card${active}${chassisActive}" data-mech="${mech.id}" type="button">
       <span class="mech-card-title">
-        <strong>${mech.display_name || variantCode(mech)}</strong>
+        <strong>${omnipodIcon(mech)}<span>${mech.display_name || variantCode(mech)}</span></strong>
         <span>${mech.faction || "Unknown"} · ${data.stats.MaxTons || "?"}t</span>
       </span>
       <span class="mech-card-stats">
@@ -1412,7 +1529,7 @@ function renderMechCard(mech, activeChassis) {
         <span><span>가속/감속</span><strong><span class="${accelerationBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.acceleration, 1)}</span> / <span class="${decelerationBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.deceleration, 1)}</span></strong></span>
         <span><span>선회속도</span><strong class="${turnBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.turnSpeed, 2)}</strong></span>
       </span>
-      <span class="badge-line">${hardpointBadges(mech.definition)}</span>
+      <span class="badge-line">${hardpointBadges(mech)}</span>
     </button>
   `;
 }
@@ -1461,11 +1578,10 @@ function renderSelectedItem() {
 }
 
 function renderComponents() {
-  const definition = currentDefinition();
   const calc = calculateBuild();
   $("components").innerHTML = COMPONENT_ORDER.map((name) => {
-    const compDef = definition.components?.[name] || {};
     const buildComp = state.currentBuild.components[name] || { items: [] };
+    const compDef = effectiveComponentDefinition(state.selectedMech, state.currentBuild, name);
     const usage = calc.componentUsage[name] || { slots: 0, warnings: [] };
     const slotLimit = number(compDef.slots);
     const hps = (compDef.hardpoints || [])
