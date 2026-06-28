@@ -414,62 +414,107 @@ function specValueList(baseValues, finalValues, digits = 1, unit = "") {
   `;
 }
 
+function specMobilityText(finalText, hasDelta) {
+  const finalClass = state.infoApplyQuirks && hasDelta ? "" : " spec-final-base";
+  return `
+    <span class="spec-value spec-mobility-value">
+      <span class="spec-final${finalClass}">${finalText}</span>
+      <span class="spec-detail spec-detail-empty"></span>
+    </span>
+  `;
+}
+
+function specMobilityValue(base, final, digits = 1, unit = "") {
+  const hasDelta = Math.abs(final - base) >= 0.0001;
+  const value = state.infoApplyQuirks && hasDelta ? final : base;
+  return specMobilityText(`${formatInfoNumber(value, digits)}${unit}`, hasDelta);
+}
+
+function specMobilityList(baseValues, finalValues, digits = 1, unit = "") {
+  const hasDelta = finalValues.some((value, index) => Math.abs(value - baseValues[index]) >= 0.0001);
+  const values = state.infoApplyQuirks && hasDelta ? finalValues : baseValues;
+  const finalText = `${values.map((value) => formatInfoNumber(value, digits)).join(" / ")}${unit}`;
+  return specMobilityText(finalText, hasDelta);
+}
+
+function specAnglePair(baseTorso, finalTorso, arm, axis, digits = 1) {
+  const torsoChanged = Math.abs(finalTorso - baseTorso) >= 0.0001;
+  const torso = state.infoApplyQuirks && torsoChanged ? finalTorso : baseTorso;
+  const torsoClass = state.infoApplyQuirks && torsoChanged ? "spec-angle-boosted" : "";
+  return specMobilityText(`
+    <span class="${torsoClass}">${formatInfoNumber(torso, digits)}</span>
+    <span class="spec-speed-sep">/</span>
+    <span>${formatInfoNumber(arm, digits)}</span>
+  `, false);
+}
+
+function speedPairHtml(forward, reverse, forwardChanged, reverseChanged, digits = 1, unit = "") {
+  const forwardClass = forwardChanged ? "spec-speed-boosted" : "";
+  const reverseClass = reverseChanged ? "spec-speed-boosted" : "";
+  return `
+    <span class="${forwardClass}">${formatInfoNumber(forward, digits)}</span>
+    <span class="spec-speed-sep">-</span>
+    <span class="${reverseClass}">${formatInfoNumber(reverse, digits)}${unit}</span>
+  `;
+}
+
+function specMobilitySpeed(baseForward, baseReverse, finalForward, finalReverse, digits = 1, unit = "") {
+  const forwardChanged = Math.abs(finalForward - baseForward) >= 0.0001;
+  const reverseChanged = Math.abs(finalReverse - baseReverse) >= 0.0001;
+  const hasDelta = forwardChanged || reverseChanged;
+  const forward = state.infoApplyQuirks && hasDelta ? finalForward : baseForward;
+  const reverse = state.infoApplyQuirks && hasDelta ? finalReverse : baseReverse;
+  const finalText = speedPairHtml(
+    forward,
+    reverse,
+    state.infoApplyQuirks && forwardChanged,
+    state.infoApplyQuirks && reverseChanged,
+    digits,
+    unit,
+  );
+  return specMobilityText(finalText, false);
+}
+
 function movementInfo(values, mech = state.selectedMech) {
   const stats = currentDefinition(mech).stats || {};
   const movement = currentDefinition(mech).movement || {};
   const tons = number(stats.MaxTons);
   const maxEngine = number(stats.MaxEngineRating);
   const baseSpeed = tons ? number(movement.MaxMovementSpeed) * maxEngine / tons : 0;
+  const reverseMultiplier = number(movement.ReverseSpeedMultiplier);
   const speedMultiplier = quirkMultiplier(values, ["mechtopspeed_multiplier"]);
+  const reverseSpeedMultiplier = quirkMultiplier(values, ["reversespeed_multiplier"]);
   const accelMultiplier = quirkMultiplier(values, ["mechacceleration_multiplier", "accellerp_all_multiplier"]);
   const decelMultiplier = quirkMultiplier(values, ["mechdeceleration_multiplier", "decellerp_all_multiplier"]);
   const turnMultiplier = quirkMultiplier(values, ["turnrate_multiplier", "turnlerp_all_multiplier"]);
+  const baseAcceleration = number(movement.AccelLerpMidRate);
+  const baseDeceleration = tons ? number(movement.DecelLerpMidRate) / tons : 0;
+  const baseTurnSpeed = number(movement.TurnLerpMidRate) * 180 / Math.PI;
+  const baseTorsoSpeed = number(movement.TorsoTurnSpeedYaw);
+  const baseTorsoAngleYaw = number(movement.MaxTorsoAngleYaw);
+  const baseTorsoAnglePitch = number(movement.MaxTorsoAnglePitch);
+  const baseArmAngleYaw = number(movement.MaxArmRotationYaw);
+  const baseArmAnglePitch = number(movement.MaxArmRotationPitch);
   const yawAngle = (number(movement.MaxTorsoAngleYaw) + number(values.torso_yawangle_additive)) * quirkMultiplier(values, ["torso_yawangle_multiplier"]);
   const pitchAngle = number(movement.MaxTorsoAnglePitch) + number(values.torso_pitchangle_additive);
 
   return {
     baseMaxSpeed: baseSpeed,
     maxSpeed: baseSpeed * speedMultiplier,
-    baseAcceleration: [
-      number(movement.AccelLerpLowRate),
-      number(movement.AccelLerpMidRate),
-      number(movement.AccelLerpHighRate),
-    ],
-    acceleration: [
-      number(movement.AccelLerpLowRate) * accelMultiplier,
-      number(movement.AccelLerpMidRate) * accelMultiplier,
-      number(movement.AccelLerpHighRate) * accelMultiplier,
-    ],
-    baseDeceleration: [
-      number(movement.DecelLerpLowRate),
-      number(movement.DecelLerpMidRate),
-      number(movement.DecelLerpHighRate),
-    ],
-    deceleration: [
-      number(movement.DecelLerpLowRate) * decelMultiplier,
-      number(movement.DecelLerpMidRate) * decelMultiplier,
-      number(movement.DecelLerpHighRate) * decelMultiplier,
-    ],
-    baseTorsoAngle: [number(movement.MaxTorsoAngleYaw), number(movement.MaxTorsoAnglePitch)],
-    torsoAngle: [yawAngle, pitchAngle],
-    baseTorsoSpeed: [
-      number(movement.TorsoTurnSpeedYaw),
-      number(movement.TorsoTurnSpeedPitch),
-    ],
-    torsoSpeed: [
-      number(movement.TorsoTurnSpeedYaw) * quirkMultiplier(values, ["torso_yawspeed_multiplier"]),
-      number(movement.TorsoTurnSpeedPitch) * quirkMultiplier(values, ["torso_pitchspeed_multiplier"]),
-    ],
-    baseTurnSpeed: [
-      number(movement.TurnLerpLowRate),
-      number(movement.TurnLerpMidRate),
-      number(movement.TurnLerpHighRate),
-    ],
-    turnSpeed: [
-      number(movement.TurnLerpLowRate) * turnMultiplier,
-      number(movement.TurnLerpMidRate) * turnMultiplier,
-      number(movement.TurnLerpHighRate) * turnMultiplier,
-    ],
+    baseReverseSpeed: baseSpeed * reverseMultiplier,
+    reverseSpeed: baseSpeed * reverseMultiplier * speedMultiplier * reverseSpeedMultiplier,
+    baseAcceleration,
+    acceleration: baseAcceleration * accelMultiplier,
+    baseDeceleration,
+    deceleration: baseDeceleration * decelMultiplier,
+    baseAngleX: [baseTorsoAngleYaw, baseArmAngleYaw],
+    angleX: [yawAngle, baseArmAngleYaw],
+    baseAngleY: [baseTorsoAnglePitch, baseArmAnglePitch],
+    angleY: [pitchAngle, baseArmAnglePitch],
+    baseTorsoSpeed,
+    torsoSpeed: baseTorsoSpeed * quirkMultiplier(values, ["torso_yawspeed_multiplier"]),
+    baseTurnSpeed,
+    turnSpeed: baseTurnSpeed * turnMultiplier,
   };
 }
 
@@ -701,12 +746,13 @@ function renderCompareTable(mechs) {
     { label: "스트럭쳐 총합", value: (entry) => compareNumber(entry.structureTotal, 0) },
     ...bodyRows.map((row) => ({ label: row.label, value: row.structure })),
     { group: "기동성" },
-    { label: "최대 속도", value: (entry) => compareNumber(entry.movement.maxSpeed, 1, " kph") },
-    { label: "가속도", value: (entry) => compareNumberList(entry.movement.acceleration, 1) },
-    { label: "감속도", value: (entry) => compareNumberList(entry.movement.deceleration, 1) },
-    { label: "몸통 회전각 X/Y", value: (entry) => compareNumberList(entry.movement.torsoAngle, 1) },
-    { label: "몸통 회전 속도 X/Y", value: (entry) => compareNumberList(entry.movement.torsoSpeed, 1) },
-    { label: "회전 속도", value: (entry) => compareNumberList(entry.movement.turnSpeed, 2) },
+    { label: "최대 속도", value: (entry) => compareNumber(entry.movement.maxSpeed, 1) },
+    { label: "가속도", value: (entry) => compareNumber(entry.movement.acceleration, 1) },
+    { label: "감속도", value: (entry) => compareNumber(entry.movement.deceleration, 1) },
+    { label: "선회 속도", value: (entry) => compareNumber(entry.movement.turnSpeed, 2) },
+    { label: "회전각 X", value: (entry) => compareNumberList(entry.movement.angleX, 1) },
+    { label: "회전각 Y", value: (entry) => compareNumberList(entry.movement.angleY, 1) },
+    { label: "몸통 회전속도", value: (entry) => compareNumber(entry.movement.torsoSpeed, 1) },
     { group: "쿼크" },
     { label: "쿼크 수", value: (entry) => compareNumber(entry.quirks.length, 0) },
   ];
@@ -816,12 +862,13 @@ function renderInfoPanel() {
       ["최대 엔진", formatInfoNumber(number(stats.MaxEngineRating), 0)],
     ]),
     renderInfoTable("기동성", ["항목", "수치"], [
-      ["최대 속도", specValue(movement.baseMaxSpeed, movement.maxSpeed, 1, " kph")],
-      ["가속도", specValueList(movement.baseAcceleration, movement.acceleration, 1)],
-      ["감속도", specValueList(movement.baseDeceleration, movement.deceleration, 1)],
-      ["몸통 회전각 X/Y", specValueList(movement.baseTorsoAngle, movement.torsoAngle, 1)],
-      ["몸통 회전 속도 X/Y", specValueList(movement.baseTorsoSpeed, movement.torsoSpeed, 1)],
-      ["회전 속도", specValueList(movement.baseTurnSpeed, movement.turnSpeed, 2)],
+      ["최대 속도", specMobilitySpeed(movement.baseMaxSpeed, movement.baseReverseSpeed, movement.maxSpeed, movement.reverseSpeed, 1, " kph")],
+      ["가속도", specMobilityValue(movement.baseAcceleration, movement.acceleration, 1, " kph/s")],
+      ["감속도", specMobilityValue(movement.baseDeceleration, movement.deceleration, 1, " kph/s")],
+      ["선회 속도", specMobilityValue(movement.baseTurnSpeed, movement.turnSpeed, 2, " deg/s")],
+      ["회전각 X", specAnglePair(movement.baseAngleX[0], movement.angleX[0], movement.angleX[1], "X", 1)],
+      ["회전각 Y", specAnglePair(movement.baseAngleY[0], movement.angleY[0], movement.angleY[1], "Y", 1)],
+      ["몸통 회전속도", specMobilityValue(movement.baseTorsoSpeed, movement.torsoSpeed, 1, " deg/s")],
     ]),
     renderInfoQuirks(quirks),
   ].join("");

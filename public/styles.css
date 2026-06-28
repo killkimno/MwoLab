@@ -618,6 +618,7 @@ h3 {
 .info-table {
   display: grid;
   gap: 0.25rem;
+  font-size: 0.92rem;
 }
 
 .info-row {
@@ -641,7 +642,7 @@ h3 {
   gap: 0.3rem;
   min-height: 1.55rem;
   padding: 0.22rem 0.32rem;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
 }
 
 .info-card-compact .spec-value {
@@ -655,7 +656,7 @@ h3 {
 }
 
 .info-row > span:not(:first-child) {
-  color: var(--green);
+  color: var(--text);
   font-weight: 700;
   text-align: right;
 }
@@ -673,7 +674,8 @@ h3 {
 }
 
 .spec-final {
-  color: var(--red);
+  color: var(--green);
+  font-size: 1rem;
   font-weight: 800;
   text-align: right;
 }
@@ -693,7 +695,7 @@ h3 {
 }
 
 .spec-quirk {
-  color: var(--green);
+  color: var(--yellow);
   font-weight: 800;
 }
 
@@ -707,6 +709,27 @@ h3 {
 
 .spec-detail-empty {
   visibility: hidden;
+}
+
+.spec-mobility-value {
+  grid-template-columns: max-content;
+}
+
+.spec-mobility-value .spec-detail {
+  display: none;
+}
+
+.spec-speed-sep {
+  color: var(--muted);
+  padding: 0 0.18rem;
+}
+
+.spec-speed-boosted {
+  color: var(--green);
+}
+
+.spec-angle-boosted {
+  color: var(--green);
 }
 
 .spec-sep,
