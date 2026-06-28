@@ -63,6 +63,7 @@ const state = {
   compareShowDeltas: true,
   selectedMech: null,
   selectedChassis: "",
+  expandedChassis: new Set(),
   selectedItemId: null,
   currentBuild: null,
 };
@@ -947,10 +948,12 @@ function renderSummary() {
 function renderMechList() {
   const search = $("mech-search").value.trim().toLowerCase();
   const factionFilter = $("faction-filter").value;
+  const weightFilter = $("weight-filter").value;
   const filtered = state.mechs.filter((mech) => {
     const matchesSearch = !search || `${mech.display_name} ${mech.name} ${mech.chassis}`.toLowerCase().includes(search);
     const matchesFaction = !factionFilter || mech.faction === factionFilter;
-    return matchesSearch && matchesFaction;
+    const matchesWeight = !weightFilter || mech.weight_class === weightFilter;
+    return matchesSearch && matchesFaction && matchesWeight;
   });
   const grouped = groupMechsForList(filtered);
   const firstCompareMech = compareMechs()[0];
@@ -985,17 +988,21 @@ function renderMechList() {
             ${chassisGroups
               .map((group) => {
                 const active = group.chassis === activeChassis ? " active" : "";
+                const expanded = state.expandedChassis.has(group.chassis);
                 const factions = Array.from(new Set(group.variants.map((mech) => mech.faction).filter(Boolean))).join(", ");
                 return `
-                  <div class="chassis-group${active}">
-                    <button class="chassis-row${active}" data-chassis="${group.chassis}" type="button">
-                      <span class="row-title"><strong>${group.label}</strong><span>${group.tons}t</span></span>
+                  <div class="chassis-group${active}${expanded ? " expanded" : ""}">
+                    <button class="chassis-row${active}" data-chassis="${group.chassis}" type="button" aria-expanded="${expanded}">
+                      <span class="row-title">
+                        <span class="chassis-title"><span class="expand-indicator" aria-hidden="true">${expanded ? "-" : "+"}</span><strong>${group.label}</strong></span>
+                        <span>${group.tons}t</span>
+                      </span>
                       <span class="badge-line">
                         <span class="badge">${group.variants.length} variants</span>
                         ${factions ? `<span class="badge">${factions}</span>` : ""}
                       </span>
                     </button>
-                    ${active ? `
+                    ${expanded ? `
                       <div class="variant-list">
                         ${group.variants
                           .map((mech) => {
@@ -1173,6 +1180,7 @@ function renderAll() {
 function selectMech(id) {
   state.selectedMech = mechById(id) || state.mechs[0];
   state.selectedChassis = state.selectedMech?.chassis || "";
+  if (state.selectedChassis) state.expandedChassis.add(state.selectedChassis);
   state.currentBuild = loadBuild(state.selectedMech);
   renderAll();
 }
@@ -1185,6 +1193,7 @@ function setCompareMode(enabled) {
   if (enabled && !state.compareMechIds.length && state.selectedMech) {
     state.compareMechIds = [state.selectedMech.id];
     state.selectedChassis = state.selectedMech.chassis || state.selectedChassis;
+    if (state.selectedChassis) state.expandedChassis.add(state.selectedChassis);
   }
   renderAll();
 }
@@ -1205,6 +1214,7 @@ function toggleCompareMech(id) {
     return;
   }
   state.selectedChassis = mech.chassis || state.selectedChassis;
+  if (state.selectedChassis) state.expandedChassis.add(state.selectedChassis);
   renderAll();
 }
 
@@ -1257,6 +1267,7 @@ function bindEvents() {
   });
   $("mech-search").addEventListener("input", renderMechList);
   $("faction-filter").addEventListener("change", renderMechList);
+  $("weight-filter").addEventListener("change", renderMechList);
   $("item-search").addEventListener("input", renderEquipmentList);
   $("item-family").addEventListener("change", renderEquipmentList);
   $("info-apply-quirks").addEventListener("change", (event) => {
@@ -1285,6 +1296,11 @@ function bindEvents() {
     const chassis = event.target.closest("[data-chassis]");
     if (chassis) {
       state.selectedChassis = chassis.dataset.chassis;
+      if (state.expandedChassis.has(state.selectedChassis)) {
+        state.expandedChassis.delete(state.selectedChassis);
+      } else {
+        state.expandedChassis.add(state.selectedChassis);
+      }
       renderMechList();
       return;
     }

@@ -21,11 +21,19 @@
 html,
 body {
   margin: 0;
+  height: 100%;
   min-height: 100%;
   background: var(--bg);
   color: var(--text);
   font-family: "Segoe UI", Arial, sans-serif;
   letter-spacing: 0;
+}
+
+#app {
+  height: 100vh;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 button,
@@ -140,7 +148,8 @@ h3 {
 }
 
 .app-main {
-  min-height: calc(100vh - 113px);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .tab-panel[hidden] {
@@ -171,17 +180,23 @@ h3 {
 .mech-browser-layout {
   display: grid;
   grid-template-columns: 20rem minmax(0, 1fr);
-  min-height: calc(100vh - 113px);
+  height: 100%;
+  min-height: 0;
 }
 
 .tab-content {
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
 }
 
 .sidebar {
   border-right: 1px solid var(--line);
   background: var(--panel);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   min-width: 0;
+  min-height: 0;
 }
 
 .toolbar {
@@ -194,6 +209,10 @@ h3 {
 .mech-list,
 .item-list {
   overflow: auto;
+  min-height: 0;
+}
+
+.item-list {
   max-height: calc(100vh - 182px);
 }
 
@@ -239,8 +258,28 @@ h3 {
 }
 
 .chassis-row:hover,
-.chassis-row.active {
+.chassis-row.active,
+.chassis-group.expanded > .chassis-row {
   background: #22313a;
+}
+
+.chassis-title {
+  display: inline-flex;
+  gap: 0.45rem;
+  align-items: center;
+  min-width: 0;
+}
+
+.expand-indicator {
+  display: inline-grid;
+  place-items: center;
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #41616d;
+  border-radius: 3px;
+  color: var(--blue);
+  font-size: 0.78rem;
+  line-height: 1;
 }
 
 .variant-list {
@@ -862,6 +901,7 @@ h3 {
 @media (max-width: 1050px) {
   .mech-browser-layout {
     grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
   }
 
   .sidebar {
