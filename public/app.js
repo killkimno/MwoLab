@@ -60,6 +60,27 @@ const DIRECT_COOLDOWN_QUIRKS = new Set([
   "missile_cooldown_multiplier",
   "ballistic_cooldown_multiplier",
 ]);
+const DIRECT_HEAT_QUIRKS = new Set([
+  "all_heat_multiplier",
+  "energy_heat_multiplier",
+  "missile_heat_multiplier",
+  "ballistic_heat_multiplier",
+]);
+const DIRECT_VELOCITY_QUIRKS = new Set([
+  "all_velocity_multiplier",
+  "energy_velocity_multiplier",
+  "missile_velocity_multiplier",
+  "ballistic_velocity_multiplier",
+]);
+const DIRECT_DURATION_QUIRKS = new Set([
+  "all_duration_multiplier",
+  "energy_duration_multiplier",
+]);
+const DIRECT_SPREAD_QUIRKS = new Set([
+  "all_spread_multiplier",
+  "missile_spread_multiplier",
+  "ballistic_spread_multiplier",
+]);
 
 const state = {
   index: null,
@@ -825,6 +846,11 @@ function quirkReduction(quirks, name) {
   return Math.max(0, -number(quirk?.value));
 }
 
+function quirkIncrease(quirks, name) {
+  const quirk = quirks.find((entry) => entry.name.toLowerCase() === name);
+  return Math.max(0, number(quirk?.value));
+}
+
 function weaponQuirkTargets() {
   if (state.weaponQuirkTargetCache) return state.weaponQuirkTargetCache;
 
@@ -865,6 +891,30 @@ function cooldownQuirkPrefix(quirkName) {
   return normalizeLookupKey(name.replace(/_cooldown_multiplier$/, ""));
 }
 
+function heatQuirkPrefix(quirkName) {
+  const name = String(quirkName || "").toLowerCase();
+  if (!name.endsWith("_heat_multiplier") || DIRECT_HEAT_QUIRKS.has(name)) return "";
+  return normalizeLookupKey(name.replace(/_heat_multiplier$/, ""));
+}
+
+function velocityQuirkPrefix(quirkName) {
+  const name = String(quirkName || "").toLowerCase();
+  if (!name.endsWith("_velocity_multiplier") || DIRECT_VELOCITY_QUIRKS.has(name)) return "";
+  return normalizeLookupKey(name.replace(/_velocity_multiplier$/, ""));
+}
+
+function durationQuirkPrefix(quirkName) {
+  const name = String(quirkName || "").toLowerCase();
+  if (!name.endsWith("_duration_multiplier") || DIRECT_DURATION_QUIRKS.has(name)) return "";
+  return normalizeLookupKey(name.replace(/_duration_multiplier$/, ""));
+}
+
+function spreadQuirkPrefix(quirkName) {
+  const name = String(quirkName || "").toLowerCase();
+  if (!name.endsWith("_spread_multiplier") || DIRECT_SPREAD_QUIRKS.has(name)) return "";
+  return normalizeLookupKey(name.replace(/_spread_multiplier$/, ""));
+}
+
 function cooldownQuirkWeaponType(quirkName) {
   const prefix = cooldownQuirkPrefix(quirkName);
   if (!prefix) return null;
@@ -873,30 +923,73 @@ function cooldownQuirkWeaponType(quirkName) {
   return Array.from(types)[0];
 }
 
-function energyWeaponCooldownMax(quirks) {
-  const activeCooldowns = quirks
+function heatQuirkWeaponType(quirkName) {
+  const prefix = heatQuirkPrefix(quirkName);
+  if (!prefix) return null;
+  const types = weaponQuirkTypeLookup().get(prefix);
+  if (!types || types.size !== 1) return null;
+  return Array.from(types)[0];
+}
+
+function weaponStatMax(quirks, prefixForQuirkName, valueForQuirk, type) {
+  const activeStats = quirks
     .map((quirk) => ({
-      prefix: cooldownQuirkPrefix(quirk.name),
-      value: Math.max(0, -number(quirk.value)),
+      prefix: prefixForQuirkName(quirk.name),
+      value: valueForQuirk(quirk),
     }))
     .filter((quirk) => quirk.prefix && quirk.value > 0);
 
-  let maxCooldown = 0;
+  let maxStat = 0;
   for (const weapon of weaponQuirkTargets().weapons) {
-    if (weapon.type !== "energy") continue;
-    const cooldown = activeCooldowns.reduce((sum, quirk) => (
+    if (weapon.type !== type) continue;
+    const stat = activeStats.reduce((sum, quirk) => (
       weapon.keys.has(quirk.prefix) ? sum + quirk.value : sum
     ), 0);
-    maxCooldown = Math.max(maxCooldown, cooldown);
+    maxStat = Math.max(maxStat, stat);
   }
-  return maxCooldown;
+  return maxStat;
+}
+
+function energyWeaponStatMax(quirks, prefixForQuirkName) {
+  return weaponStatMax(quirks, prefixForQuirkName, (quirk) => Math.max(0, -number(quirk.value)), "energy");
+}
+
+function energyWeaponCooldownMax(quirks) {
+  return energyWeaponStatMax(quirks, cooldownQuirkPrefix);
+}
+
+function energyWeaponHeatMax(quirks) {
+  return energyWeaponStatMax(quirks, heatQuirkPrefix);
 }
 
 function formatQuirkSummaryPercent(value) {
   return value > 0 ? `${fmt(value * 100, 1)}%` : "-";
 }
 
-function attackQuirkSummary(quirks) {
+function renderQuirkSummary(title, toneClass, items) {
+  if (!items.some((item) => item.value > 0)) return "";
+
+  return `
+    <div class="quirk-summary ${toneClass}">
+      <div class="quirk-summary-title">${title}</div>
+      <div class="quirk-summary-accent" aria-hidden="true"></div>
+      <div class="quirk-summary-grid">
+        ${items
+          .map((item) => item.empty
+            ? `<div class="quirk-summary-item quirk-summary-empty" aria-hidden="true"></div>`
+            : `
+              <div class="quirk-summary-item ${item.className}">
+                <span>${item.label}</span>
+                <strong>${formatQuirkSummaryPercent(item.value)}</strong>
+              </div>
+            `)
+          .join("")}
+      </div>
+    </div>
+  `;
+}
+
+function cooldownQuirkSummary(quirks) {
   const allCooldown = quirkReduction(quirks, "all_cooldown_multiplier");
   const weaponCooldownMax = { energy: 0, missile: 0, ballistic: 0 };
 
@@ -925,27 +1018,111 @@ function attackQuirkSummary(quirks) {
     },
   ];
   const maxCooldown = Math.max(allCooldown, ...groups.map((group) => group.value));
-  if (maxCooldown <= 0) return "";
+  return renderQuirkSummary("COOLDOWN SUMMARY", "quirk-summary-cooldown", [
+    { label: "MAX COOLDOWN", className: "quirk-summary-max", value: maxCooldown },
+    ...groups,
+  ]);
+}
 
-  return `
-    <div class="quirk-summary">
-      <div class="quirk-summary-title">ATTACK SUMMARY</div>
-      <div class="quirk-summary-grid">
-        <div class="quirk-summary-item quirk-summary-max">
-          <span>MAX COOLDOWN</span>
-          <strong>${formatQuirkSummaryPercent(maxCooldown)}</strong>
-        </div>
-        ${groups
-          .map((group) => `
-            <div class="quirk-summary-item ${group.className}">
-              <span>${group.label}</span>
-              <strong>${formatQuirkSummaryPercent(group.value)}</strong>
-            </div>
-          `)
-          .join("")}
-      </div>
-    </div>
-  `;
+function heatQuirkSummary(quirks) {
+  const allHeat = quirkReduction(quirks, "all_heat_multiplier");
+  const weaponHeatMax = { energy: 0, missile: 0, ballistic: 0 };
+
+  for (const quirk of quirks) {
+    const type = heatQuirkWeaponType(quirk.name);
+    if (!type) continue;
+    weaponHeatMax[type] = Math.max(weaponHeatMax[type], Math.max(0, -number(quirk.value)));
+  }
+
+  const energyHeat = allHeat + quirkReduction(quirks, "energy_heat_multiplier") + energyWeaponHeatMax(quirks);
+  const groups = [
+    {
+      label: "ENERGY HEAT",
+      className: "quirk-tone-energy",
+      value: energyHeat,
+    },
+    {
+      label: "MISSILE HEAT",
+      className: "quirk-tone-missile",
+      value: allHeat + quirkReduction(quirks, "missile_heat_multiplier") + weaponHeatMax.missile,
+    },
+    {
+      label: "BALLISTIC HEAT",
+      className: "quirk-tone-default",
+      value: allHeat + quirkReduction(quirks, "ballistic_heat_multiplier") + weaponHeatMax.ballistic,
+    },
+  ];
+  const maxHeat = Math.max(allHeat, ...groups.map((group) => group.value));
+  const heatDissipation = Math.max(0, number(quirks.find((quirk) => quirk.name.toLowerCase() === "heatdissipation_multiplier")?.value));
+
+  return renderQuirkSummary("HEAT SUMMARY", "quirk-summary-heat", [
+    { label: "MAX HEAT RED.", className: "quirk-summary-max", value: maxHeat },
+    ...groups,
+    { label: "HEAT DISSIPATION", className: "quirk-tone-default", value: heatDissipation },
+  ]);
+}
+
+function velocityQuirkSummary(quirks) {
+  const allVelocity = quirkIncrease(quirks, "all_velocity_multiplier");
+  const groups = [
+    {
+      label: "ENERGY VELOCITY",
+      className: "quirk-tone-energy",
+      value: allVelocity + quirkIncrease(quirks, "energy_velocity_multiplier") + weaponStatMax(quirks, velocityQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "energy"),
+    },
+    {
+      label: "MISSILE VELOCITY",
+      className: "quirk-tone-missile",
+      value: allVelocity + quirkIncrease(quirks, "missile_velocity_multiplier") + weaponStatMax(quirks, velocityQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "missile"),
+    },
+    {
+      label: "BALLISTIC VELOCITY",
+      className: "quirk-tone-default",
+      value: allVelocity + quirkIncrease(quirks, "ballistic_velocity_multiplier") + weaponStatMax(quirks, velocityQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "ballistic"),
+    },
+  ];
+  const maxVelocity = Math.max(allVelocity, ...groups.map((group) => group.value));
+  return renderQuirkSummary("VELOCITY SUMMARY", "quirk-summary-velocity", [
+    { label: "MAX VELOCITY", className: "quirk-summary-max", value: maxVelocity },
+    ...groups,
+  ]);
+}
+
+function durationQuirkSummary(quirks) {
+  const allDuration = quirkReduction(quirks, "all_duration_multiplier");
+  const energyDuration = allDuration + quirkReduction(quirks, "energy_duration_multiplier") + weaponStatMax(quirks, durationQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "energy");
+  const machineGunRof = quirkIncrease(quirks, "ismachinegun_rof_multiplier") + quirkIncrease(quirks, "clanmachinegun_rof_multiplier");
+  const rotaryAcRof = quirkIncrease(quirks, "rotaryautocannon_rof_multiplier");
+  const amsRof = quirkIncrease(quirks, "clanantimissilesystem_rof_multiplier");
+  const items = [
+    { label: "MAX DURATION", className: "quirk-summary-max", value: Math.max(energyDuration, machineGunRof, rotaryAcRof, amsRof) },
+    { label: "ENERGY DURATION", className: "quirk-tone-energy", value: energyDuration },
+    { label: "MG ROF", className: "quirk-tone-default", value: machineGunRof },
+    { label: "RAC ROF", className: "quirk-tone-default", value: rotaryAcRof },
+  ];
+  if (amsRof > 0) {
+    items.push({ label: "AMS ROF", className: "quirk-tone-default", value: amsRof });
+  }
+  return renderQuirkSummary("DURATION SUMMARY", "quirk-summary-duration", [
+    ...items,
+  ]);
+}
+
+function spreadQuirkSummary(quirks) {
+  const allSpread = quirkReduction(quirks, "all_spread_multiplier");
+  const missileSpread = allSpread + quirkReduction(quirks, "missile_spread_multiplier") + weaponStatMax(quirks, spreadQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "missile");
+  const ballisticSpread = allSpread + quirkReduction(quirks, "ballistic_spread_multiplier") + weaponStatMax(quirks, spreadQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "ballistic");
+  const maxSpread = Math.max(allSpread, missileSpread, ballisticSpread);
+  return renderQuirkSummary("SPREAD SUMMARY", "quirk-summary-spread", [
+    { label: "MAX SPREAD", className: "quirk-summary-max", value: maxSpread },
+    { empty: true, value: 0 },
+    { label: "MISSILE SPREAD", className: "quirk-tone-missile", value: missileSpread },
+    { label: "BALLISTIC SPREAD", className: "quirk-tone-default", value: ballisticSpread },
+  ]);
+}
+
+function attackQuirkSummary(quirks) {
+  return `${cooldownQuirkSummary(quirks)}${heatQuirkSummary(quirks)}${velocityQuirkSummary(quirks)}${durationQuirkSummary(quirks)}${spreadQuirkSummary(quirks)}`;
 }
 
 function renderQuirkList(quirks, emptyText = "No quirks") {
