@@ -1468,6 +1468,61 @@ h3 {
   margin-top: 0.4rem;
 }
 
+.quirk-overview-card {
+  border: 1px solid #34505a;
+  border-radius: 4px;
+  background: #111719;
+  margin: 0 0 0.8rem;
+  padding: 0.75rem;
+}
+
+.info-quirk-summary-card {
+  margin: 0;
+}
+
+.quirk-overview-card h3 {
+  color: var(--blue);
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.2;
+  margin: 0 0 0.75rem;
+}
+
+.quirk-overview-table {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.quirk-overview-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(5rem, auto);
+  align-items: center;
+  min-height: 2.25rem;
+  border: 1px solid #263840;
+  background: #0b1417;
+  padding: 0.35rem 0.55rem;
+}
+
+.quirk-overview-head {
+  background: #1a2428;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.quirk-overview-row > span,
+.quirk-overview-row > strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quirk-overview-row > strong {
+  color: var(--text);
+  text-align: right;
+}
+
 .quirk-summary {
   --summary-accent: var(--blue);
   border-bottom: 1px solid #263840;
@@ -1487,12 +1542,20 @@ h3 {
   --summary-accent: #9ac95f;
 }
 
+.quirk-summary-range {
+  --summary-accent: #6fb8ff;
+}
+
 .quirk-summary-duration {
   --summary-accent: #aa73d7;
 }
 
 .quirk-summary-spread {
   --summary-accent: #3b8c95;
+}
+
+.quirk-summary-durability {
+  --summary-accent: #f3f4ee;
 }
 
 .quirk-summary-title {

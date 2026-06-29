@@ -72,6 +72,12 @@ const DIRECT_VELOCITY_QUIRKS = new Set([
   "missile_velocity_multiplier",
   "ballistic_velocity_multiplier",
 ]);
+const DIRECT_RANGE_QUIRKS = new Set([
+  "all_range_multiplier",
+  "energy_range_multiplier",
+  "missile_range_multiplier",
+  "ballistic_range_multiplier",
+]);
 const DIRECT_DURATION_QUIRKS = new Set([
   "all_duration_multiplier",
   "energy_duration_multiplier",
@@ -903,6 +909,12 @@ function velocityQuirkPrefix(quirkName) {
   return normalizeLookupKey(name.replace(/_velocity_multiplier$/, ""));
 }
 
+function rangeQuirkPrefix(quirkName) {
+  const name = String(quirkName || "").toLowerCase();
+  if (!name.endsWith("_range_multiplier") || DIRECT_RANGE_QUIRKS.has(name)) return "";
+  return normalizeLookupKey(name.replace(/_range_multiplier$/, ""));
+}
+
 function durationQuirkPrefix(quirkName) {
   const name = String(quirkName || "").toLowerCase();
   if (!name.endsWith("_duration_multiplier") || DIRECT_DURATION_QUIRKS.has(name)) return "";
@@ -966,6 +978,10 @@ function formatQuirkSummaryPercent(value) {
   return value > 0 ? `${fmt(value * 100, 1)}%` : "-";
 }
 
+function formatQuirkSummaryNumber(value) {
+  return value > 0 ? `+${fmt(value, 1)}` : "-";
+}
+
 function renderQuirkSummary(title, toneClass, items) {
   if (!items.some((item) => item.value > 0)) return "";
 
@@ -980,7 +996,7 @@ function renderQuirkSummary(title, toneClass, items) {
             : `
               <div class="quirk-summary-item ${item.className}">
                 <span>${item.label}</span>
-                <strong>${formatQuirkSummaryPercent(item.value)}</strong>
+                <strong>${item.format === "number" ? formatQuirkSummaryNumber(item.value) : formatQuirkSummaryPercent(item.value)}</strong>
               </div>
             `)
           .join("")}
@@ -1088,6 +1104,32 @@ function velocityQuirkSummary(quirks) {
   ]);
 }
 
+function rangeQuirkSummary(quirks) {
+  const allRange = quirkIncrease(quirks, "all_range_multiplier");
+  const groups = [
+    {
+      label: "ENERGY RANGE",
+      className: "quirk-tone-energy",
+      value: allRange + quirkIncrease(quirks, "energy_range_multiplier") + weaponStatMax(quirks, rangeQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "energy"),
+    },
+    {
+      label: "MISSILE RANGE",
+      className: "quirk-tone-missile",
+      value: allRange + quirkIncrease(quirks, "missile_range_multiplier") + weaponStatMax(quirks, rangeQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "missile"),
+    },
+    {
+      label: "BALLISTIC RANGE",
+      className: "quirk-tone-default",
+      value: allRange + quirkIncrease(quirks, "ballistic_range_multiplier") + weaponStatMax(quirks, rangeQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "ballistic"),
+    },
+  ];
+  const maxRange = Math.max(allRange, ...groups.map((group) => group.value));
+  return renderQuirkSummary("RANGE SUMMARY", "quirk-summary-range", [
+    { label: "MAX RANGE", className: "quirk-summary-max", value: maxRange },
+    ...groups,
+  ]);
+}
+
 function durationQuirkSummary(quirks) {
   const allDuration = quirkReduction(quirks, "all_duration_multiplier");
   const energyDuration = allDuration + quirkReduction(quirks, "energy_duration_multiplier") + weaponStatMax(quirks, durationQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "energy");
@@ -1108,6 +1150,19 @@ function durationQuirkSummary(quirks) {
   ]);
 }
 
+function durationRofSummaryValue(quirks) {
+  const allDuration = quirkReduction(quirks, "all_duration_multiplier");
+  const laserDuration = allDuration + quirkReduction(quirks, "energy_duration_multiplier") + weaponStatMax(quirks, durationQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "energy");
+  const maxRof = Math.max(
+    quirkIncrease(quirks, "ismachinegun_rof_multiplier") + quirkIncrease(quirks, "clanmachinegun_rof_multiplier"),
+    quirkIncrease(quirks, "rotaryautocannon_rof_multiplier"),
+    quirkIncrease(quirks, "clanantimissilesystem_rof_multiplier"),
+  );
+  const durationText = laserDuration > 0 ? formatQuirkSummaryPercent(laserDuration) : "-%";
+  const rofText = maxRof > 0 ? `${formatQuirkSummaryPercent(maxRof)} rof` : "- rof";
+  return `${durationText} / ${rofText}`;
+}
+
 function spreadQuirkSummary(quirks) {
   const allSpread = quirkReduction(quirks, "all_spread_multiplier");
   const missileSpread = allSpread + quirkReduction(quirks, "missile_spread_multiplier") + weaponStatMax(quirks, spreadQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "missile");
@@ -1121,8 +1176,120 @@ function spreadQuirkSummary(quirks) {
   ]);
 }
 
+function cooldownSummaryMax(quirks) {
+  const allCooldown = quirkReduction(quirks, "all_cooldown_multiplier");
+  const energyCooldown = allCooldown + quirkReduction(quirks, "energy_cooldown_multiplier") + energyWeaponCooldownMax(quirks);
+  const missileCooldown = allCooldown + quirkReduction(quirks, "missile_cooldown_multiplier") + weaponStatMax(quirks, cooldownQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "missile");
+  const ballisticCooldown = allCooldown + quirkReduction(quirks, "ballistic_cooldown_multiplier") + weaponStatMax(quirks, cooldownQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "ballistic");
+  return Math.max(allCooldown, energyCooldown, missileCooldown, ballisticCooldown);
+}
+
+function heatSummaryMax(quirks) {
+  const allHeat = quirkReduction(quirks, "all_heat_multiplier");
+  const energyHeat = allHeat + quirkReduction(quirks, "energy_heat_multiplier") + energyWeaponHeatMax(quirks);
+  const missileHeat = allHeat + quirkReduction(quirks, "missile_heat_multiplier") + weaponStatMax(quirks, heatQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "missile");
+  const ballisticHeat = allHeat + quirkReduction(quirks, "ballistic_heat_multiplier") + weaponStatMax(quirks, heatQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "ballistic");
+  return Math.max(allHeat, energyHeat, missileHeat, ballisticHeat);
+}
+
+function rangeSummaryMax(quirks) {
+  const allRange = quirkIncrease(quirks, "all_range_multiplier");
+  const energyRange = allRange + quirkIncrease(quirks, "energy_range_multiplier") + weaponStatMax(quirks, rangeQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "energy");
+  const missileRange = allRange + quirkIncrease(quirks, "missile_range_multiplier") + weaponStatMax(quirks, rangeQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "missile");
+  const ballisticRange = allRange + quirkIncrease(quirks, "ballistic_range_multiplier") + weaponStatMax(quirks, rangeQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "ballistic");
+  return Math.max(allRange, energyRange, missileRange, ballisticRange);
+}
+
+function velocitySummaryMax(quirks) {
+  const allVelocity = quirkIncrease(quirks, "all_velocity_multiplier");
+  const energyVelocity = allVelocity + quirkIncrease(quirks, "energy_velocity_multiplier") + weaponStatMax(quirks, velocityQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "energy");
+  const missileVelocity = allVelocity + quirkIncrease(quirks, "missile_velocity_multiplier") + weaponStatMax(quirks, velocityQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "missile");
+  const ballisticVelocity = allVelocity + quirkIncrease(quirks, "ballistic_velocity_multiplier") + weaponStatMax(quirks, velocityQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "ballistic");
+  return Math.max(allVelocity, energyVelocity, missileVelocity, ballisticVelocity);
+}
+
+function durabilitySummaryTotal(quirks) {
+  const values = {};
+  for (const quirk of quirks) {
+    values[quirk.name.toLowerCase()] = number(quirk.value);
+  }
+
+  const armorSuffixes = INFO_COMPONENTS.flatMap((component) => [component.suffix, component.rearSuffix].filter(Boolean));
+  const totalArmor = armorSuffixes.reduce((sum, suffix) => (
+    sum + number(values.armorresist_all_additive) + number(values[`armorresist_${suffix}_additive`])
+  ), 0);
+  const totalStructure = INFO_COMPONENTS.reduce((sum, component) => (
+    sum + number(values.internalresist_all_additive) + number(values[`internalresist_${component.suffix}_additive`])
+  ), 0);
+  return totalArmor + totalStructure;
+}
+
+function specialQuirkCategories(quirks) {
+  const names = quirks.map((quirk) => quirk.name.toLowerCase());
+  return [
+    names.some((name) => name.includes("ecm")) ? "ECM" : "",
+    names.some((name) => name.includes("jumpjet")) ? "점프젯" : "",
+    names.some((name) => name.includes("narc") && name.includes("duration")) ? "NARC 지속시간" : "",
+  ].filter(Boolean);
+}
+
+function renderQuirkOverviewCard(quirks) {
+  const specialCategories = specialQuirkCategories(quirks);
+  const rows = [
+    ["쿨 다운", formatQuirkSummaryPercent(cooldownSummaryMax(quirks))],
+    ["발열", formatQuirkSummaryPercent(heatSummaryMax(quirks))],
+    ["내구도", formatQuirkSummaryNumber(durabilitySummaryTotal(quirks))],
+    ["사거리", formatQuirkSummaryPercent(rangeSummaryMax(quirks))],
+    ["탄속", formatQuirkSummaryPercent(velocitySummaryMax(quirks))],
+    ["듀레이션/ROF", durationRofSummaryValue(quirks)],
+    ["보유한 특수 쿼크 계열", specialCategories.length ? specialCategories.join(", ") : "-"],
+  ];
+
+  return `
+    <section class="info-card info-quirk-summary-card quirk-overview-card">
+      <h3>쿼크 서머리</h3>
+      <div class="quirk-overview-table">
+        <div class="quirk-overview-row quirk-overview-head">
+          <span>항목</span>
+          <span>수치</span>
+        </div>
+        ${rows.map((row) => `
+          <div class="quirk-overview-row">
+            <span>${row[0]}</span>
+            <strong>${row[1]}</strong>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function durabilityQuirkSummary(quirks) {
+  const values = {};
+  for (const quirk of quirks) {
+    values[quirk.name.toLowerCase()] = number(quirk.value);
+  }
+
+  const armorSuffixes = INFO_COMPONENTS.flatMap((component) => [component.suffix, component.rearSuffix].filter(Boolean));
+  const totalArmor = armorSuffixes.reduce((sum, suffix) => (
+    sum + number(values.armorresist_all_additive) + number(values[`armorresist_${suffix}_additive`])
+  ), 0);
+  const totalStructure = INFO_COMPONENTS.reduce((sum, component) => (
+    sum + number(values.internalresist_all_additive) + number(values[`internalresist_${component.suffix}_additive`])
+  ), 0);
+  const totalDurability = totalArmor + totalStructure;
+  const critPrevention = Math.max(0, -number(values.critchance_receiving_multiplier));
+
+  return renderQuirkSummary("DURABILITY SUMMARY", "quirk-summary-durability", [
+    { label: "MAX DURABILITY", className: "quirk-summary-max", value: totalDurability, format: "number" },
+    { label: "ARMOR", className: "quirk-tone-armor", value: totalArmor, format: "number" },
+    { label: "STRUCTURE", className: "quirk-tone-armor", value: totalStructure, format: "number" },
+    { label: "CRIT PREVENT", className: "quirk-tone-default", value: critPrevention },
+  ]);
+}
+
 function attackQuirkSummary(quirks) {
-  return `${cooldownQuirkSummary(quirks)}${heatQuirkSummary(quirks)}${velocityQuirkSummary(quirks)}${durationQuirkSummary(quirks)}${spreadQuirkSummary(quirks)}`;
+  return `${cooldownQuirkSummary(quirks)}${heatQuirkSummary(quirks)}${rangeQuirkSummary(quirks)}${velocityQuirkSummary(quirks)}${durationQuirkSummary(quirks)}${spreadQuirkSummary(quirks)}${durabilityQuirkSummary(quirks)}`;
 }
 
 function renderQuirkList(quirks, emptyText = "No quirks") {
@@ -1599,6 +1766,7 @@ function renderInfoPanel() {
       ["회전각 Y", specAnglePair(movement.baseAngleY[0], movement.angleY[0], movement.angleY[1], "Y", 1)],
       ["몸통 회전속도", specMobilityValue(movement.baseTorsoSpeed, movement.torsoSpeed, 1, " deg/s")],
     ]),
+    renderQuirkOverviewCard(quirks),
     renderInfoQuirks(quirks),
   ].join("");
 }
