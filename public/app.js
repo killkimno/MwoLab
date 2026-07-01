@@ -1741,22 +1741,11 @@ function renderInfoPanel() {
   $("info-variant-name").textContent = mech.display_name;
   $("info-variant-meta").textContent = `${mech.faction || "Unknown"} - ${WEIGHT_CLASS_LABELS[mech.weight_class] || mech.weight_class || "Unknown"} - ${stats.MaxTons || "?"} tons`;
   $("mech-info").innerHTML = [
-    renderInfoTable("아머 정보", ["부위", "수치"], [
-      ["최대 아머 포인트 총합", specValue(armorBaseTotal, armorTotal, 0)],
-      ...armorRows.map((row) => [row.label, specValue(row.totalBase, row.total, 0)]),
-    ], { compact: true }),
-    renderInfoTable("스트럭쳐 정보", ["부위", "수치"], [
-      ["스트럭쳐 총합", specValue(structureBaseTotal, structureTotal, 0)],
-      ...structureRows.map((row) => [row.label, specValue(row.base, row.total, 0)]),
-    ], { compact: true }),
+    renderQuirkOverviewCard(quirks),
     renderInfoTable("종합 내구", ["부위", "수치"], [
       ["아머 + 스트럭쳐 총합", specValue(combinedBaseTotal, combinedTotal, 0)],
       ...combinedRows.map((row) => [row.label, specValue(row.totalBase, row.total, 0)]),
     ], { compact: true }),
-    renderInfoTable("엔진", ["항목", "수치"], [
-      ["최소 엔진", formatInfoNumber(number(stats.MinEngineRating), 0)],
-      ["최대 엔진", formatInfoNumber(number(stats.MaxEngineRating), 0)],
-    ]),
     renderInfoTable("기동성", ["항목", "수치"], [
       ["최대 속도", specMobilitySpeed(movement.baseMaxSpeed, movement.baseReverseSpeed, movement.maxSpeed, movement.reverseSpeed, 1, " kph")],
       ["가속도", specMobilityValue(movement.baseAcceleration, movement.acceleration, 1, " kph/s")],
@@ -1766,7 +1755,18 @@ function renderInfoPanel() {
       ["회전각 Y", specAnglePair(movement.baseAngleY[0], movement.angleY[0], movement.angleY[1], "Y", 1)],
       ["몸통 회전속도", specMobilityValue(movement.baseTorsoSpeed, movement.torsoSpeed, 1, " deg/s")],
     ]),
-    renderQuirkOverviewCard(quirks),
+    renderInfoTable("스트럭쳐 정보", ["부위", "수치"], [
+      ["스트럭쳐 총합", specValue(structureBaseTotal, structureTotal, 0)],
+      ...structureRows.map((row) => [row.label, specValue(row.base, row.total, 0)]),
+    ], { compact: true }),
+    renderInfoTable("아머 정보", ["부위", "수치"], [
+      ["최대 아머 포인트 총합", specValue(armorBaseTotal, armorTotal, 0)],
+      ...armorRows.map((row) => [row.label, specValue(row.totalBase, row.total, 0)]),
+    ], { compact: true }),
+    renderInfoTable("엔진", ["항목", "수치"], [
+      ["최소 엔진", formatInfoNumber(number(stats.MinEngineRating), 0)],
+      ["최대 엔진", formatInfoNumber(number(stats.MaxEngineRating), 0)],
+    ]),
     renderInfoQuirks(quirks),
   ].join("");
 }
