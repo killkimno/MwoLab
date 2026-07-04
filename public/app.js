@@ -1150,19 +1150,6 @@ function durationQuirkSummary(quirks) {
   ]);
 }
 
-function durationRofSummaryValue(quirks) {
-  const allDuration = quirkReduction(quirks, "all_duration_multiplier");
-  const laserDuration = allDuration + quirkReduction(quirks, "energy_duration_multiplier") + weaponStatMax(quirks, durationQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "energy");
-  const maxRof = Math.max(
-    quirkIncrease(quirks, "ismachinegun_rof_multiplier") + quirkIncrease(quirks, "clanmachinegun_rof_multiplier"),
-    quirkIncrease(quirks, "rotaryautocannon_rof_multiplier"),
-    quirkIncrease(quirks, "clanantimissilesystem_rof_multiplier"),
-  );
-  const durationText = laserDuration > 0 ? formatQuirkSummaryPercent(laserDuration) : "-%";
-  const rofText = maxRof > 0 ? `${formatQuirkSummaryPercent(maxRof)} rof` : "- rof";
-  return `${durationText} / ${rofText}`;
-}
-
 function spreadQuirkSummary(quirks) {
   const allSpread = quirkReduction(quirks, "all_spread_multiplier");
   const missileSpread = allSpread + quirkReduction(quirks, "missile_spread_multiplier") + weaponStatMax(quirks, spreadQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "missile");
@@ -1225,11 +1212,18 @@ function durabilitySummaryTotal(quirks) {
 }
 
 function specialQuirkCategories(quirks) {
-  const names = quirks.map((quirk) => quirk.name.toLowerCase());
+  const texts = quirks.map((quirk) => `${quirk.name || ""} ${quirk.display_name || ""}`.toLowerCase());
+  const hasQuirk = (patterns) => texts.some((text) => patterns.some((pattern) => (
+    pattern instanceof RegExp ? pattern.test(text) : text.includes(pattern)
+  )));
+
   return [
-    names.some((name) => name.includes("ecm")) ? "ECM" : "",
-    names.some((name) => name.includes("jumpjet")) ? "점프젯" : "",
-    names.some((name) => name.includes("narc") && name.includes("duration")) ? "NARC 지속시간" : "",
+    hasQuirk([/_rof_multiplier\b/, /\brof\b/]) ? "ROF 계열" : "",
+    hasQuirk(["jamchance", "jam chance"]) ? "잼 찬스" : "",
+    hasQuirk(["ecm"]) ? "ECM" : "",
+    hasQuirk(["jumpjet", "jump jet"]) ? "점프젯" : "",
+    hasQuirk(["consumable", "coolshot", "cool shot", "airstrike", "air strike", "artillery", "uav"]) ? "소모품" : "",
+    hasQuirk(["hsl", "heat scale", "heat-scale", "heat scale limit"]) ? "HSL" : "",
   ].filter(Boolean);
 }
 
@@ -1241,9 +1235,10 @@ function renderQuirkOverviewCard(quirks) {
     ["내구도", formatQuirkSummaryNumber(durabilitySummaryTotal(quirks))],
     ["사거리", formatQuirkSummaryPercent(rangeSummaryMax(quirks))],
     ["탄속", formatQuirkSummaryPercent(velocitySummaryMax(quirks))],
-    ["듀레이션/ROF", durationRofSummaryValue(quirks)],
-    ["보유한 특수 쿼크 계열", specialCategories.length ? specialCategories.join(", ") : "-"],
   ];
+  const specialTags = specialCategories.length
+    ? specialCategories.map((label) => `<span class="quirk-overview-tag">${label}</span>`).join("")
+    : `<span class="quirk-overview-empty-text">특수 쿼크 없음</span>`;
 
   return `
     <section class="info-card info-quirk-summary-card quirk-overview-card">
@@ -1259,6 +1254,10 @@ function renderQuirkOverviewCard(quirks) {
             <strong>${row[1]}</strong>
           </div>
         `).join("")}
+        <div class="quirk-overview-row quirk-overview-special-row">
+          <span>특수 쿼크</span>
+          <div class="quirk-overview-tags">${specialTags}</div>
+        </div>
       </div>
     </section>
   `;

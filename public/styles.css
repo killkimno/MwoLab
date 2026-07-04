@@ -1510,6 +1510,45 @@ h3 {
   font-weight: 700;
 }
 
+.quirk-overview-special-row {
+  grid-template-columns: minmax(5rem, auto) minmax(0, 1fr);
+  align-items: start;
+  gap: 0.6rem;
+}
+
+.quirk-overview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.25rem 0;
+  min-width: 0;
+}
+
+.quirk-overview-tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.45rem;
+  border: 1px solid #31505b;
+  border-radius: 999px;
+  background: #142026;
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+  padding: 0.22rem 0.55rem;
+}
+
+.quirk-overview-tag:not(:last-child)::after {
+  content: ",";
+  margin-left: 0.35rem;
+  color: var(--muted);
+}
+
+.quirk-overview-empty-text {
+  color: var(--muted);
+  font-weight: 700;
+}
+
 .quirk-overview-row > span,
 .quirk-overview-row > strong {
   min-width: 0;
