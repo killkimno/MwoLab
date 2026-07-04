@@ -12,6 +12,7 @@
   --red: #df654f;
   --purple: #aa73d7;
   --missile: #58a2a5;
+  --compare-mech-column-width: 8.15rem;
 }
 
 * {
@@ -33,7 +34,7 @@ body {
   height: 100vh;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 button,
@@ -100,25 +101,13 @@ h3 {
   font-size: 0.88rem;
 }
 
-.topbar {
-  min-height: 64px;
-  display: grid;
-  grid-template-columns: minmax(18rem, 1fr) auto auto;
-  gap: 1rem;
-  align-items: center;
-  padding: 0.8rem 1rem;
-  border-bottom: 1px solid var(--line);
-  background: #0b0f10f2;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-
 .donate-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 2.2rem;
+  margin-left: auto;
+  margin-bottom: 0.45rem;
   padding: 0.48rem 0.75rem;
   border: 1px solid #816235;
   border-radius: 4px;
@@ -145,6 +134,7 @@ h3 {
 
 .main-tabs {
   display: flex;
+  align-items: flex-end;
   gap: 0.35rem;
   padding: 0.55rem 1rem 0;
   border-bottom: 1px solid var(--line);
@@ -677,10 +667,19 @@ h3 {
 
 .stats-toolbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+  align-items: center;
   padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--line);
   background: #101719;
+}
+
+.stats-toolbar-group,
+.stats-subnav {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .stats-button {
@@ -696,6 +695,19 @@ h3 {
   color: var(--text);
 }
 
+.stats-subbutton {
+  min-width: 5.5rem;
+  border-color: #37484f;
+  background: #141d20;
+  color: var(--muted);
+}
+
+.stats-subbutton.active {
+  border-color: #d5a53f;
+  background: #342916;
+  color: var(--text);
+}
+
 .stats-workspace {
   min-height: 0;
   overflow: auto;
@@ -708,6 +720,71 @@ h3 {
   gap: 1rem;
   align-items: center;
   margin-bottom: 0.8rem;
+}
+
+.stats-condition-controls {
+  display: grid;
+  grid-template-columns: minmax(9rem, 12rem) minmax(13rem, 16rem) minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: end;
+  max-width: 82rem;
+  margin-bottom: 0.85rem;
+  padding: 0.75rem;
+  border: 1px solid #263840;
+  background: #11191c;
+}
+
+.stats-condition-controls[hidden],
+.stats-option-group[hidden] {
+  display: none;
+}
+
+.stats-filter-field {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.stats-filter-field > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.stats-filter-field select {
+  min-width: 0;
+}
+
+.stats-filter-toggle,
+.stats-option-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.stats-filter-toggle button,
+.stats-option-button {
+  min-height: 2rem;
+  border-color: #394d55;
+  background: #152024;
+  color: var(--muted);
+}
+
+.stats-filter-toggle button {
+  min-width: 4.5rem;
+}
+
+.stats-option-button {
+  min-width: 4.2rem;
+  padding: 0.3rem 0.55rem;
+}
+
+.stats-filter-toggle button.active,
+.stats-option-button.active {
+  border-color: var(--blue);
+  background: #203d4b;
+  color: var(--text);
 }
 
 .stats-list {
@@ -1013,8 +1090,8 @@ h3 {
   position: sticky;
   top: 0;
   z-index: 2;
-  width: 7.4rem;
-  min-width: 7.4rem;
+  width: var(--compare-mech-column-width);
+  min-width: var(--compare-mech-column-width);
   background: var(--panel-2);
   color: var(--text);
   text-align: center;
@@ -1114,8 +1191,8 @@ h3 {
 }
 
 .compare-table td {
-  width: 7.4rem;
-  min-width: 7.4rem;
+  width: var(--compare-mech-column-width);
+  min-width: var(--compare-mech-column-width);
   background: #101719;
   color: var(--text);
   text-align: right;
@@ -1373,8 +1450,8 @@ h3 {
 }
 
 .compare-header-overlay-cell {
-  width: 7.4rem;
-  min-width: 7.4rem;
+  width: var(--compare-mech-column-width);
+  min-width: var(--compare-mech-column-width);
   height: 100%;
   padding: 0.36rem 0.42rem;
   border-right: 1px solid #263840;
@@ -1851,26 +1928,33 @@ h3 {
     grid-template-columns: 1fr;
   }
 
+  .stats-condition-controls {
+    grid-template-columns: 1fr;
+  }
+
   .components {
     grid-template-columns: 1fr;
   }
 }
 
 @media (max-width: 680px) {
-  .topbar,
   .variant-panel {
     grid-template-columns: 1fr;
     display: grid;
   }
 
   .summary-strip,
-  .actions,
-  .donate-link {
+  .actions {
     justify-content: start;
   }
 
   .main-tabs {
+    flex-wrap: wrap;
     padding-inline: 0.75rem;
+  }
+
+  .donate-link {
+    margin-left: auto;
   }
 
   .workspace {
@@ -1887,6 +1971,25 @@ h3 {
 
   .stats-workspace {
     padding: 0.75rem;
+  }
+
+  .stats-toolbar {
+    padding: 0.65rem 0.75rem;
+  }
+
+  .stats-toolbar-group,
+  .stats-subnav {
+    width: 100%;
+  }
+
+  .stats-button,
+  .stats-subbutton {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .stats-condition-controls {
+    padding: 0.65rem;
   }
 
   .stats-row {

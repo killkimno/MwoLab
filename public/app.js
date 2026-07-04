@@ -53,7 +53,7 @@ const FACTION_LABELS = {
 
 const MAX_COMPARE_MECHS = 15;
 const COMPARE_RANK_EPSILON = 0.0001;
-const DEFAULT_COLLAPSED_COMPARE_CATEGORIES = ["종합 내구", "아머 정보", "스트럭쳐 정보"];
+const DEFAULT_COLLAPSED_COMPARE_CATEGORIES = ["종합 내구", "아머 정보", "스트럭쳐 정보", "기본 정보"];
 const DIRECT_COOLDOWN_QUIRKS = new Set([
   "all_cooldown_multiplier",
   "energy_cooldown_multiplier",
@@ -102,6 +102,11 @@ const state = {
   compareShowDeltas: true,
   collapsedCompareCategories: new Set(DEFAULT_COLLAPSED_COMPARE_CATEGORIES),
   activeStatsView: "durability",
+  statsDurabilityMode: "all",
+  statsConditionFaction: "",
+  statsConditionAxis: "weight",
+  statsConditionWeightClasses: new Set(),
+  statsConditionTons: new Set(),
   largeMechList: true,
   mechSort: "default",
   mechListSummaryCache: new Map(),
@@ -1218,12 +1223,9 @@ function specialQuirkCategories(quirks) {
   )));
 
   return [
-    hasQuirk([/_rof_multiplier\b/, /\brof\b/]) ? "ROF 계열" : "",
-    hasQuirk(["jamchance", "jam chance"]) ? "잼 찬스" : "",
     hasQuirk(["ecm"]) ? "ECM" : "",
     hasQuirk(["jumpjet", "jump jet"]) ? "점프젯" : "",
-    hasQuirk(["consumable", "coolshot", "cool shot", "airstrike", "air strike", "artillery", "uav"]) ? "소모품" : "",
-    hasQuirk(["hsl", "heat scale", "heat-scale", "heat scale limit"]) ? "HSL" : "",
+    hasQuirk(["narc_duration_multiplier", "narcbeacon_narcduration_additive", "narc duration"]) ? "NARC 지속시간" : "",
   ].filter(Boolean);
 }
 
@@ -1401,6 +1403,16 @@ function compareNumber(value, digits = 1, unit = "") {
   };
 }
 
+function comparePercent(value, digits = 1) {
+  const percent = Number.isFinite(value) ? value * 100 : NaN;
+  return {
+    text: percent > 0 ? `${formatCompareNumber(percent, digits)}%` : "-",
+    rank: Number.isFinite(percent) ? percent : null,
+    deltaDigits: digits,
+    deltaUnit: "%",
+  };
+}
+
 function compareNumberList(values, digits = 1, unit = "") {
   const numericValues = values.filter((value) => Number.isFinite(value));
   return {
@@ -1502,12 +1514,13 @@ function renderCompareTable(mechs) {
     structure: (entry) => compareNumber(entry.structureRows[index].total, 0),
   }));
   const rows = [
-    { group: "기본 정보" },
-    { label: "톤수", value: (entry) => compareNumber(number(entry.stats.MaxTons), 0, "t") },
-    { label: "진영", value: (entry) => compareText(entry.mech.faction || "Unknown") },
-    { label: "체급", value: (entry) => compareText(WEIGHT_CLASS_LABELS[entry.mech.weight_class] || entry.mech.weight_class || "Unknown") },
-    { label: "최소 엔진", value: (entry) => compareNumber(number(entry.stats.MinEngineRating), 0) },
-    { label: "최대 엔진", value: (entry) => compareNumber(number(entry.stats.MaxEngineRating), 0) },
+    { group: "쿼크 서머리" },
+    { label: "쿨 다운", value: (entry) => comparePercent(cooldownSummaryMax(entry.quirks)) },
+    { label: "발열", value: (entry) => comparePercent(heatSummaryMax(entry.quirks)) },
+    { label: "내구도", value: (entry) => compareNumber(durabilitySummaryTotal(entry.quirks), 1) },
+    { label: "사거리", value: (entry) => comparePercent(rangeSummaryMax(entry.quirks)) },
+    { label: "탄속", value: (entry) => comparePercent(velocitySummaryMax(entry.quirks)) },
+    { label: "특수 쿼크", value: (entry) => compareText(specialQuirkCategories(entry.quirks).join(", ") || "-") },
     { group: "내구도 요약" },
     { label: "아머 + 스트럭쳐 총합", value: (entry) => compareNumber(entry.combinedTotal, 0) },
     { label: "아머 총합", value: (entry) => compareNumber(entry.armorTotal, 0) },
@@ -1529,8 +1542,12 @@ function renderCompareTable(mechs) {
     { group: "스트럭쳐 정보" },
     { label: "스트럭쳐 총합", value: (entry) => compareNumber(entry.structureTotal, 0) },
     ...bodyRows.map((row) => ({ label: row.label, value: row.structure })),
-    { group: "쿼크" },
-    { label: "쿼크 수", value: (entry) => compareNumber(entry.quirks.length, 0) },
+    { group: "기본 정보" },
+    { label: "톤수", value: (entry) => compareNumber(number(entry.stats.MaxTons), 0, "t") },
+    { label: "진영", value: (entry) => compareText(entry.mech.faction || "Unknown") },
+    { label: "체급", value: (entry) => compareText(WEIGHT_CLASS_LABELS[entry.mech.weight_class] || entry.mech.weight_class || "Unknown") },
+    { label: "최소 엔진", value: (entry) => compareNumber(number(entry.stats.MinEngineRating), 0) },
+    { label: "최대 엔진", value: (entry) => compareNumber(number(entry.stats.MaxEngineRating), 0) },
   ];
 
   return `
@@ -1781,13 +1798,86 @@ function renderComparePanel() {
   updateCompareOverlay();
 }
 
+function statsTonsKey(mech) {
+  const tons = number(mech?.definition?.stats?.MaxTons, null);
+  return tons === null ? "" : String(tons);
+}
+
+function availableStatsFactions() {
+  return Array.from(new Set(state.mechs.map((mech) => mech.faction).filter(Boolean))).sort((a, b) => factionRank(a) - factionRank(b) || a.localeCompare(b));
+}
+
+function availableStatsTons() {
+  return Array.from(new Set(state.mechs.map(statsTonsKey).filter(Boolean))).sort((a, b) => Number(a) - Number(b));
+}
+
+function statsConditionFilterText() {
+  if (state.statsDurabilityMode !== "condition") return "";
+  const faction = state.statsConditionFaction ? factionLabel(state.statsConditionFaction) : "모든 진영";
+  if (state.statsConditionAxis === "tons") {
+    const tons = Array.from(state.statsConditionTons).sort((a, b) => Number(a) - Number(b));
+    return `${faction} / ${tons.length ? `${tons.join("t, ")}t` : "모든 톤수"}`;
+  }
+  const weightClasses = Array.from(state.statsConditionWeightClasses).sort((a, b) => WEIGHT_CLASS_ORDER.indexOf(a) - WEIGHT_CLASS_ORDER.indexOf(b));
+  const weights = weightClasses.map((weightClass) => WEIGHT_CLASS_LABELS[weightClass] || weightClass).join(", ");
+  return `${faction} / ${weights || "모든 체급"}`;
+}
+
+function statsDurabilityFilterMatches(mech) {
+  if (state.statsDurabilityMode !== "condition") return true;
+  if (state.statsConditionFaction && mech.faction !== state.statsConditionFaction) return false;
+  if (state.statsConditionAxis === "tons") {
+    return !state.statsConditionTons.size || state.statsConditionTons.has(statsTonsKey(mech));
+  }
+  return !state.statsConditionWeightClasses.size || state.statsConditionWeightClasses.has(mech.weight_class);
+}
+
 function statsDurabilityEntries() {
   return state.mechs
+    .filter(statsDurabilityFilterMatches)
     .map((mech) => ({
       mech,
       total: mechListSummary(mech).combinedTotal,
     }))
     .sort((a, b) => b.total - a.total || (a.mech.display_name || "").localeCompare(b.mech.display_name || "", undefined, { numeric: true }));
+}
+
+function renderStatsConditionControls() {
+  document.querySelectorAll("[data-stats-durability-mode]").forEach((button) => {
+    const active = button.dataset.statsDurabilityMode === state.statsDurabilityMode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  const controls = $("stats-condition-controls");
+  if (!controls) return;
+  controls.hidden = state.statsDurabilityMode !== "condition";
+  if (controls.hidden) return;
+
+  $("stats-faction-filter").innerHTML = [
+    `<option value="">모든 진영</option>`,
+    ...availableStatsFactions().map((faction) => `<option value="${faction}" ${faction === state.statsConditionFaction ? "selected" : ""}>${factionLabel(faction)}</option>`),
+  ].join("");
+
+  document.querySelectorAll("[data-stats-condition-axis]").forEach((button) => {
+    const active = button.dataset.statsConditionAxis === state.statsConditionAxis;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  $("stats-weight-options").hidden = state.statsConditionAxis !== "weight";
+  $("stats-weight-options").innerHTML = WEIGHT_CLASS_ORDER.map((weightClass) => {
+    const active = state.statsConditionWeightClasses.has(weightClass);
+    return `<button class="stats-option-button ${active ? "active" : ""}" type="button" data-stats-weight="${weightClass}" aria-pressed="${active}">${WEIGHT_CLASS_LABELS[weightClass] || weightClass}</button>`;
+  }).join("");
+
+  $("stats-ton-options").hidden = state.statsConditionAxis !== "tons";
+  $("stats-ton-options").innerHTML = availableStatsTons()
+    .map((tons) => {
+      const active = state.statsConditionTons.has(tons);
+      return `<button class="stats-option-button ${active ? "active" : ""}" type="button" data-stats-ton="${tons}" aria-pressed="${active}">${tons}t</button>`;
+    })
+    .join("");
 }
 
 function renderStatsPanel() {
@@ -1796,6 +1886,7 @@ function renderStatsPanel() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+  renderStatsConditionControls();
 
   if (state.activeStatsView !== "durability") {
     $("stats-meta").textContent = "";
@@ -1804,7 +1895,10 @@ function renderStatsPanel() {
   }
 
   const entries = statsDurabilityEntries();
-  $("stats-meta").textContent = `종합 내구도 총합 기준 - ${entries.length}개 멕`;
+  $("stats-meta").textContent =
+    state.statsDurabilityMode === "condition"
+      ? `조건 비교 - ${statsConditionFilterText()} - 종합 내구도 총합 기준 - ${entries.length}개 멕`
+      : `종합 내구도 총합 기준 - ${entries.length}개 멕`;
   $("stats-list").innerHTML = entries.length
     ? entries
         .map((entry, index) => `
@@ -2453,6 +2547,47 @@ function bindEvents() {
       state.activeStatsView = button.dataset.statsView;
       renderStatsPanel();
     });
+  });
+  document.querySelectorAll("[data-stats-durability-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.statsDurabilityMode = button.dataset.statsDurabilityMode;
+      renderStatsPanel();
+    });
+  });
+  $("stats-faction-filter").addEventListener("change", (event) => {
+    state.statsConditionFaction = event.target.value;
+    renderStatsPanel();
+  });
+  $("stats-condition-controls").addEventListener("click", (event) => {
+    const axis = event.target.closest("[data-stats-condition-axis]");
+    if (axis) {
+      state.statsConditionAxis = axis.dataset.statsConditionAxis;
+      renderStatsPanel();
+      return;
+    }
+    const weight = event.target.closest("[data-stats-weight]");
+    if (weight) {
+      state.statsConditionAxis = "weight";
+      const weightClass = weight.dataset.statsWeight;
+      if (state.statsConditionWeightClasses.has(weightClass)) {
+        state.statsConditionWeightClasses.delete(weightClass);
+      } else {
+        state.statsConditionWeightClasses.add(weightClass);
+      }
+      renderStatsPanel();
+      return;
+    }
+    const tons = event.target.closest("[data-stats-ton]");
+    if (tons) {
+      state.statsConditionAxis = "tons";
+      const tonsKey = tons.dataset.statsTon;
+      if (state.statsConditionTons.has(tonsKey)) {
+        state.statsConditionTons.delete(tonsKey);
+      } else {
+        state.statsConditionTons.add(tonsKey);
+      }
+      renderStatsPanel();
+    }
   });
   $("compare-overlay").addEventListener("click", (event) => {
     const remove = event.target.closest("[data-remove-compare]");

@@ -8,20 +8,17 @@
   </head>
   <body>
     <div id="app">
-      <header class="topbar">
-        <div>
-          <h1>몽키해드의 MWO 멕랩</h1>
-          <p id="data-status">Loading local data...</p>
-        </div>
+      <div class="topbar-state" hidden>
+        <p id="data-status">Loading local data...</p>
         <div class="summary-strip" id="summary-strip"></div>
-        <a class="donate-link" href="https://ko-fi.com/killkimno" target="_blank" rel="noopener noreferrer" aria-label="Ko-fi 후원 페이지 열기">후원하기</a>
-      </header>
+      </div>
 
       <nav class="main-tabs" aria-label="Main tabs">
         <button class="tab-button" type="button" data-main-tab="mechlab" aria-controls="tab-mechlab" disabled aria-disabled="true">현재 멕랩</button>
         <button class="tab-button active" type="button" data-main-tab="info" aria-controls="tab-info">정보</button>
         <button class="tab-button" type="button" data-main-tab="compare" aria-controls="tab-compare">비교하기</button>
         <button class="tab-button" type="button" data-main-tab="stats" aria-controls="tab-stats">통계</button>
+        <a class="donate-link" href="https://ko-fi.com/killkimno" target="_blank" rel="noopener noreferrer" aria-label="Ko-fi 후원 페이지 열기">후원하기</a>
       </nav>
 
       <main class="app-main">
@@ -144,7 +141,13 @@
 
         <section id="tab-stats" class="tab-panel stats-panel" hidden>
           <div class="stats-toolbar" aria-label="통계 종류">
-            <button class="stats-button active" type="button" data-stats-view="durability">내구도</button>
+            <div class="stats-toolbar-group">
+              <button class="stats-button active" type="button" data-stats-view="durability">내구도</button>
+            </div>
+            <div class="stats-subnav" aria-label="내구도 하위 메뉴">
+              <button class="stats-subbutton active" type="button" data-stats-durability-mode="all">전체</button>
+              <button class="stats-subbutton" type="button" data-stats-durability-mode="condition">조건 비교</button>
+            </div>
           </div>
           <section class="stats-workspace" aria-labelledby="stats-title">
             <div class="stats-heading">
@@ -152,6 +155,21 @@
                 <h2 id="stats-title">멕 리스트 통계</h2>
                 <div id="stats-meta" class="muted"></div>
               </div>
+            </div>
+            <div id="stats-condition-controls" class="stats-condition-controls" hidden>
+              <label class="stats-filter-field">
+                <span>진영</span>
+                <select id="stats-faction-filter"></select>
+              </label>
+              <div class="stats-filter-field">
+                <span>비교 기준</span>
+                <div class="stats-filter-toggle" role="group" aria-label="조건 비교 기준">
+                  <button type="button" data-stats-condition-axis="weight">체급</button>
+                  <button type="button" data-stats-condition-axis="tons">톤수</button>
+                </div>
+              </div>
+              <div id="stats-weight-options" class="stats-option-group" aria-label="체급 선택"></div>
+              <div id="stats-ton-options" class="stats-option-group" aria-label="톤수 선택"></div>
             </div>
             <div id="stats-list" class="stats-list"></div>
           </section>
