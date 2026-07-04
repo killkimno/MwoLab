@@ -51,6 +51,34 @@ const FACTION_LABELS = {
   InnerSphere: "이너스피어",
 };
 
+const STATS_DURABILITY_CATEGORIES = [
+  { key: "armor", label: "아머", metaLabel: "아머 총합", summaryKey: "armorTotal" },
+  { key: "structure", label: "스트럭쳐", metaLabel: "스트럭쳐 총합", summaryKey: "structureTotal" },
+  { key: "total", label: "총합", metaLabel: "내구도 총합", summaryKey: "combinedTotal" },
+];
+
+const STATS_DURABILITY_SCOPES = [
+  { key: "all", label: "전체", componentKeys: null },
+  { key: "shoulders", label: "어깨", componentKeys: ["left_torso", "right_torso"] },
+  { key: "torso", label: "몸통", componentKeys: ["centre_torso"] },
+  { key: "torsoShoulders", label: "어깨+몸통", componentKeys: ["centre_torso", "left_torso", "right_torso"] },
+];
+
+const STATS_MOBILITY_CATEGORIES = [
+  { key: "acceleration", label: "가속", metaLabel: "가속", movementKey: "acceleration", digits: 1, unit: " kph/s" },
+  { key: "deceleration", label: "감속", metaLabel: "감속", movementKey: "deceleration", digits: 1, unit: " kph/s" },
+  { key: "turnSpeed", label: "선회속도", metaLabel: "선회속도", movementKey: "turnSpeed", digits: 2, unit: " deg/s" },
+  { key: "torsoSpeedX", label: "몸통 회전속도", metaLabel: "몸통 회전속도 X축", movementKey: "torsoSpeed", digits: 1, unit: " deg/s" },
+];
+
+const STATS_QUIRK_CATEGORIES = [
+  { key: "cooldown", label: "쿨 다운", metaLabel: "쿨 다운", value: (quirks) => cooldownSummaryMax(quirks), digits: 1, scale: 100, unit: "%" },
+  { key: "heat", label: "발열", metaLabel: "발열", value: (quirks) => heatSummaryMax(quirks), digits: 1, scale: 100, unit: "%" },
+  { key: "durability", label: "내구도", metaLabel: "내구도", value: (quirks) => durabilitySummaryTotal(quirks), digits: 1 },
+  { key: "range", label: "사거리", metaLabel: "사거리", value: (quirks) => rangeSummaryMax(quirks), digits: 1, scale: 100, unit: "%" },
+  { key: "velocity", label: "탄속", metaLabel: "탄속", value: (quirks) => velocitySummaryMax(quirks), digits: 1, scale: 100, unit: "%" },
+];
+
 const MAX_COMPARE_MECHS = 15;
 const COMPARE_RANK_EPSILON = 0.0001;
 const DEFAULT_COLLAPSED_COMPARE_CATEGORIES = ["종합 내구", "아머 정보", "스트럭쳐 정보", "기본 정보"];
@@ -102,6 +130,11 @@ const state = {
   compareShowDeltas: true,
   collapsedCompareCategories: new Set(DEFAULT_COLLAPSED_COMPARE_CATEGORIES),
   activeStatsView: "durability",
+  statsDetailMenusExpanded: true,
+  statsDurabilityScope: "all",
+  statsDurabilityCategory: "armor",
+  statsMobilityCategory: "acceleration",
+  statsQuirkCategory: "cooldown",
   statsDurabilityMode: "all",
   statsConditionFaction: "",
   statsConditionAxis: "weight",
@@ -202,6 +235,28 @@ function mechListQuirkValues(mech) {
   return effectiveQuirkValues(mech, buildFromLoadout(mech));
 }
 
+function durabilityTotalForScope(rows, scope) {
+  const componentKeys = scope?.componentKeys;
+  if (!componentKeys) {
+    return rows.reduce((sum, row) => sum + number(row.total), 0);
+  }
+  const allowed = new Set(componentKeys);
+  return rows.reduce((sum, row, index) => (allowed.has(INFO_COMPONENTS[index]?.key) ? sum + number(row.total) : sum), 0);
+}
+
+function durabilityTotalsByScope(armorRows, structureRows, combinedRows) {
+  return Object.fromEntries(
+    STATS_DURABILITY_SCOPES.map((scope) => [
+      scope.key,
+      {
+        total: durabilityTotalForScope(combinedRows, scope),
+        armor: durabilityTotalForScope(armorRows, scope),
+        structure: durabilityTotalForScope(structureRows, scope),
+      },
+    ]),
+  );
+}
+
 function mechListSummary(mech) {
   const key = `${mech.id}:${state.infoApplyQuirks ? 1 : 0}`;
   const cached = state.mechListSummaryCache.get(key);
@@ -215,10 +270,15 @@ function mechListSummary(mech) {
   const structureRows = structureInfoRows(values, mech);
   const combinedRows = combinedDurabilityRows(armorRows, structureRows);
   const baseMovement = movementInfo({}, mech);
+  const build = buildFromLoadout(mech);
   const summary = {
     stats: currentDefinition(mech).stats || {},
+    quirks: effectiveQuirks(mech, build),
     baseCombinedTotal: baseCombinedRows.reduce((sum, row) => sum + number(row.total), 0),
+    armorTotal: armorRows.reduce((sum, row) => sum + number(row.total), 0),
+    structureTotal: structureRows.reduce((sum, row) => sum + number(row.total), 0),
     combinedTotal: combinedRows.reduce((sum, row) => sum + number(row.total), 0),
+    durabilityByScope: durabilityTotalsByScope(armorRows, structureRows, combinedRows),
     baseMovement,
     movement: movementInfo(values, mech),
   };
@@ -1811,6 +1871,28 @@ function availableStatsTons() {
   return Array.from(new Set(state.mechs.map(statsTonsKey).filter(Boolean))).sort((a, b) => Number(a) - Number(b));
 }
 
+function activeStatsDurabilityCategory() {
+  return STATS_DURABILITY_CATEGORIES.find((category) => category.key === state.statsDurabilityCategory) || STATS_DURABILITY_CATEGORIES[0];
+}
+
+function activeStatsDurabilityScope() {
+  return STATS_DURABILITY_SCOPES.find((scope) => scope.key === state.statsDurabilityScope) || STATS_DURABILITY_SCOPES[0];
+}
+
+function activeStatsMobilityCategory() {
+  return STATS_MOBILITY_CATEGORIES.find((category) => category.key === state.statsMobilityCategory) || STATS_MOBILITY_CATEGORIES[0];
+}
+
+function activeStatsQuirkCategory() {
+  return STATS_QUIRK_CATEGORIES.find((category) => category.key === state.statsQuirkCategory) || STATS_QUIRK_CATEGORIES[0];
+}
+
+function activeStatsCategory() {
+  if (state.activeStatsView === "mobility") return activeStatsMobilityCategory();
+  if (state.activeStatsView === "quirks") return activeStatsQuirkCategory();
+  return activeStatsDurabilityCategory();
+}
+
 function statsConditionFilterText() {
   if (state.statsDurabilityMode !== "condition") return "";
   const faction = state.statsConditionFaction ? factionLabel(state.statsConditionFaction) : "모든 진영";
@@ -1832,17 +1914,70 @@ function statsDurabilityFilterMatches(mech) {
   return !state.statsConditionWeightClasses.size || state.statsConditionWeightClasses.has(mech.weight_class);
 }
 
-function statsDurabilityEntries() {
+function statsEntryValue(mech, category) {
+  const summary = mechListSummary(mech);
+  if (state.activeStatsView === "mobility") {
+    return number(summary.movement?.[category.movementKey]);
+  }
+  if (state.activeStatsView === "quirks") {
+    return number(category.value?.(summary.quirks || []));
+  }
+  const scope = activeStatsDurabilityScope();
+  return number(summary.durabilityByScope?.[scope.key]?.[category.key]);
+}
+
+function statsEntries() {
+  const category = activeStatsCategory();
   return state.mechs
     .filter(statsDurabilityFilterMatches)
     .map((mech) => ({
       mech,
-      total: mechListSummary(mech).combinedTotal,
+      total: statsEntryValue(mech, category),
     }))
     .sort((a, b) => b.total - a.total || (a.mech.display_name || "").localeCompare(b.mech.display_name || "", undefined, { numeric: true }));
 }
 
 function renderStatsConditionControls() {
+  const detailToggle = $("stats-detail-toggle");
+  if (detailToggle) {
+    detailToggle.textContent = state.statsDetailMenusExpanded ? "▼" : "▶";
+    detailToggle.setAttribute("aria-label", state.statsDetailMenusExpanded ? "통계 하위 메뉴 접기" : "통계 하위 메뉴 펼치기");
+    detailToggle.setAttribute("aria-expanded", String(state.statsDetailMenusExpanded));
+  }
+
+  document.querySelectorAll("[data-stats-detail-menu]").forEach((element) => {
+    const view = element.dataset.statsViewSection;
+    element.hidden = !state.statsDetailMenusExpanded || (view && view !== state.activeStatsView);
+  });
+
+  document.querySelectorAll("[data-stats-category-view]").forEach((button) => {
+    button.hidden = button.dataset.statsCategoryView !== state.activeStatsView;
+  });
+
+  document.querySelectorAll("[data-stats-durability-scope]").forEach((button) => {
+    const active = button.dataset.statsDurabilityScope === state.statsDurabilityScope;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  document.querySelectorAll("[data-stats-durability-category]").forEach((button) => {
+    const active = button.dataset.statsDurabilityCategory === state.statsDurabilityCategory;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  document.querySelectorAll("[data-stats-mobility-category]").forEach((button) => {
+    const active = button.dataset.statsMobilityCategory === state.statsMobilityCategory;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  document.querySelectorAll("[data-stats-quirk-category]").forEach((button) => {
+    const active = button.dataset.statsQuirkCategory === state.statsQuirkCategory;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
   document.querySelectorAll("[data-stats-durability-mode]").forEach((button) => {
     const active = button.dataset.statsDurabilityMode === state.statsDurabilityMode;
     button.classList.toggle("active", active);
@@ -1851,7 +1986,7 @@ function renderStatsConditionControls() {
 
   const controls = $("stats-condition-controls");
   if (!controls) return;
-  controls.hidden = state.statsDurabilityMode !== "condition";
+  controls.hidden = !state.statsDetailMenusExpanded || state.statsDurabilityMode !== "condition";
   if (controls.hidden) return;
 
   $("stats-faction-filter").innerHTML = [
@@ -1888,17 +2023,21 @@ function renderStatsPanel() {
   });
   renderStatsConditionControls();
 
-  if (state.activeStatsView !== "durability") {
+  if (!["durability", "mobility", "quirks"].includes(state.activeStatsView)) {
     $("stats-meta").textContent = "";
     $("stats-list").innerHTML = "";
     return;
   }
 
-  const entries = statsDurabilityEntries();
+  const entries = statsEntries();
+  const category = activeStatsCategory();
+  const scope = activeStatsDurabilityScope();
+  const metricLabel = state.activeStatsView === "durability" ? `${scope.label} ${category.metaLabel}` : category.metaLabel;
+  const valueScale = category.scale ?? 1;
   $("stats-meta").textContent =
     state.statsDurabilityMode === "condition"
-      ? `조건 비교 - ${statsConditionFilterText()} - 종합 내구도 총합 기준 - ${entries.length}개 멕`
-      : `종합 내구도 총합 기준 - ${entries.length}개 멕`;
+      ? `조건 비교 - ${statsConditionFilterText()} - ${metricLabel} 기준 - ${entries.length}개 멕`
+      : `${metricLabel} 기준 - ${entries.length}개 멕`;
   $("stats-list").innerHTML = entries.length
     ? entries
         .map((entry, index) => `
@@ -1909,8 +2048,8 @@ function renderStatsPanel() {
               <span class="stats-subline">${factionLabel(entry.mech.faction)} - ${entry.mech.definition?.stats?.MaxTons || "?"}t</span>
             </span>
             <span class="stats-value-block">
-              <span>내구도</span>
-              <strong>${formatInfoNumber(entry.total, 0)}</strong>
+              <span>${category.label}</span>
+              <strong>${formatInfoNumber(entry.total * valueScale, category.digits ?? 0)}${category.unit || ""}</strong>
             </span>
             <span class="stats-extra ${weightClassClass(entry.mech.weight_class)}">
               <span class="badge weight-slot ${weightClassClass(entry.mech.weight_class)}">${WEIGHT_CLASS_LABELS[entry.mech.weight_class] || entry.mech.weight_class || "Unknown"}</span>
@@ -2545,6 +2684,35 @@ function bindEvents() {
   document.querySelectorAll("[data-stats-view]").forEach((button) => {
     button.addEventListener("click", () => {
       state.activeStatsView = button.dataset.statsView;
+      renderStatsPanel();
+    });
+  });
+  $("stats-detail-toggle").addEventListener("click", () => {
+    state.statsDetailMenusExpanded = !state.statsDetailMenusExpanded;
+    renderStatsPanel();
+  });
+  document.querySelectorAll("[data-stats-durability-scope]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.statsDurabilityScope = button.dataset.statsDurabilityScope;
+      renderStatsPanel();
+    });
+  });
+  document.querySelectorAll("[data-stats-durability-category]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.statsDurabilityCategory = button.dataset.statsDurabilityCategory;
+      renderStatsPanel();
+    });
+  });
+  document.querySelectorAll("[data-stats-mobility-category]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.statsMobilityCategory = button.dataset.statsMobilityCategory;
+      renderStatsPanel();
+    });
+  });
+  document.querySelectorAll("[data-stats-quirk-category]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.disabled) return;
+      state.statsQuirkCategory = button.dataset.statsQuirkCategory;
       renderStatsPanel();
     });
   });
