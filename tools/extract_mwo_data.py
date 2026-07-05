@@ -465,7 +465,7 @@ def write_json(path: Path, data):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="Extract local MechWarrior Online data for the local mechlab.")
+    parser = argparse.ArgumentParser(description="Extract local MechWarrior Online data for MwoLab.")
     parser.add_argument("--game-dir", default=os.environ.get("MWO_GAME_DIR", ""))
     parser.add_argument("--out", default="public/data")
     args = parser.parse_args(argv)
