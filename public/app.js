@@ -52,9 +52,9 @@ const FACTION_LABELS = {
 };
 
 const STATS_DURABILITY_CATEGORIES = [
+  { key: "total", label: "총합", metaLabel: "내구도 총합", summaryKey: "combinedTotal" },
   { key: "armor", label: "아머", metaLabel: "아머 총합", summaryKey: "armorTotal" },
   { key: "structure", label: "스트럭쳐", metaLabel: "스트럭쳐 총합", summaryKey: "structureTotal" },
-  { key: "total", label: "총합", metaLabel: "내구도 총합", summaryKey: "combinedTotal" },
 ];
 
 const STATS_DURABILITY_SCOPES = [
@@ -132,10 +132,11 @@ const state = {
   activeStatsView: "durability",
   statsDetailMenusExpanded: true,
   statsDurabilityScope: "all",
-  statsDurabilityCategory: "armor",
+  statsDurabilityCategory: "total",
   statsMobilityCategory: "acceleration",
   statsQuirkCategory: "cooldown",
   statsDurabilityMode: "all",
+  selectedStatsMechId: null,
   statsConditionFaction: "",
   statsConditionAxis: "weight",
   statsConditionWeightClasses: new Set(),
@@ -1858,6 +1859,70 @@ function renderComparePanel() {
   updateCompareOverlay();
 }
 
+function renderStatsInfoDetail(mech) {
+  const data = infoDataForMech(mech);
+  const stats = data.stats || {};
+  return [
+    renderQuirkOverviewCard(data.quirks),
+    renderInfoTable("종합 내구", ["부위", "수치"], [
+      ["아머 + 스트럭쳐 총합", specValue(data.combinedBaseTotal, data.combinedTotal, 0)],
+      ...data.combinedRows.map((row) => [row.label, specValue(row.totalBase, row.total, 0)]),
+    ], { compact: true }),
+    renderInfoTable("기동성", ["항목", "수치"], [
+      ["최대 속도", specMobilitySpeed(data.movement.baseMaxSpeed, data.movement.baseReverseSpeed, data.movement.maxSpeed, data.movement.reverseSpeed, 1, " kph")],
+      ["가속도", specMobilityValue(data.movement.baseAcceleration, data.movement.acceleration, 1, " kph/s")],
+      ["감속도", specMobilityValue(data.movement.baseDeceleration, data.movement.deceleration, 1, " kph/s")],
+      ["선회 속도", specMobilityValue(data.movement.baseTurnSpeed, data.movement.turnSpeed, 2, " deg/s")],
+      ["회전각 X", specAnglePair(data.movement.baseAngleX[0], data.movement.angleX[0], data.movement.angleX[1], "X", 1)],
+      ["회전각 Y", specAnglePair(data.movement.baseAngleY[0], data.movement.angleY[0], data.movement.angleY[1], "Y", 1)],
+      ["몸통 회전속도", specMobilityValue(data.movement.baseTorsoSpeed, data.movement.torsoSpeed, 1, " deg/s")],
+    ]),
+    renderInfoTable("스트럭쳐 정보", ["부위", "수치"], [
+      ["스트럭쳐 총합", specValue(data.structureBaseTotal, data.structureTotal, 0)],
+      ...data.structureRows.map((row) => [row.label, specValue(row.base, row.total, 0)]),
+    ], { compact: true }),
+    renderInfoTable("아머 정보", ["부위", "수치"], [
+      ["최대 아머 포인트 총합", specValue(data.armorBaseTotal, data.armorTotal, 0)],
+      ...data.armorRows.map((row) => [row.label, specValue(row.totalBase, row.total, 0)]),
+    ], { compact: true }),
+    renderInfoTable("엔진", ["항목", "수치"], [
+      ["최소 엔진", formatInfoNumber(number(stats.MinEngineRating), 0)],
+      ["최대 엔진", formatInfoNumber(number(stats.MaxEngineRating), 0)],
+    ]),
+    renderInfoQuirks(data.quirks),
+  ].join("");
+}
+
+function renderStatsDetailPanel(entries, category, valueScale) {
+  const detail = $("stats-detail");
+  if (!detail) return;
+  const selected = entries.find((entry) => String(entry.mech.id) === String(state.selectedStatsMechId));
+  if (!selected) {
+    detail.innerHTML = `<div class="empty stats-detail-empty">왼쪽 목록에서 멕을 선택하세요.</div>`;
+    return;
+  }
+  const rank = entries.indexOf(selected) + 1;
+  const mech = selected.mech;
+  const stats = mech.definition?.stats || {};
+  detail.innerHTML = `
+    <section class="stats-detail-rank">
+      <h3>순위</h3>
+      <div class="stats-detail-rank-grid">
+        <div class="stats-detail-summary">
+          <div class="stats-detail-title">${omnipodIcon(mech)}<strong>${mech.display_name || variantCode(mech)}</strong></div>
+          <div class="stats-detail-meta">${factionLabel(mech.faction)} - ${WEIGHT_CLASS_LABELS[mech.weight_class] || mech.weight_class || "Unknown"} - ${stats.MaxTons || "?"}t</div>
+        </div>
+        <div class="stats-detail-rank-value">
+          <span>${rank}</span>
+          <strong>${category.label} ${formatInfoNumber(selected.total * valueScale, category.digits ?? 0)}${category.unit || ""}</strong>
+        </div>
+      </div>
+    </section>
+    <div class="stats-detail-section-title">정보</div>
+    ${renderStatsInfoDetail(mech)}
+  `;
+}
+
 function statsTonsKey(mech) {
   const tons = number(mech?.definition?.stats?.MaxTons, null);
   return tons === null ? "" : String(tons);
@@ -1891,18 +1956,6 @@ function activeStatsCategory() {
   if (state.activeStatsView === "mobility") return activeStatsMobilityCategory();
   if (state.activeStatsView === "quirks") return activeStatsQuirkCategory();
   return activeStatsDurabilityCategory();
-}
-
-function statsConditionFilterText() {
-  if (state.statsDurabilityMode !== "condition") return "";
-  const faction = state.statsConditionFaction ? factionLabel(state.statsConditionFaction) : "모든 진영";
-  if (state.statsConditionAxis === "tons") {
-    const tons = Array.from(state.statsConditionTons).sort((a, b) => Number(a) - Number(b));
-    return `${faction} / ${tons.length ? `${tons.join("t, ")}t` : "모든 톤수"}`;
-  }
-  const weightClasses = Array.from(state.statsConditionWeightClasses).sort((a, b) => WEIGHT_CLASS_ORDER.indexOf(a) - WEIGHT_CLASS_ORDER.indexOf(b));
-  const weights = weightClasses.map((weightClass) => WEIGHT_CLASS_LABELS[weightClass] || weightClass).join(", ");
-  return `${faction} / ${weights || "모든 체급"}`;
 }
 
 function statsDurabilityFilterMatches(mech) {
@@ -2024,24 +2077,18 @@ function renderStatsPanel() {
   renderStatsConditionControls();
 
   if (!["durability", "mobility", "quirks"].includes(state.activeStatsView)) {
-    $("stats-meta").textContent = "";
     $("stats-list").innerHTML = "";
+    $("stats-detail").innerHTML = "";
     return;
   }
 
   const entries = statsEntries();
   const category = activeStatsCategory();
-  const scope = activeStatsDurabilityScope();
-  const metricLabel = state.activeStatsView === "durability" ? `${scope.label} ${category.metaLabel}` : category.metaLabel;
   const valueScale = category.scale ?? 1;
-  $("stats-meta").textContent =
-    state.statsDurabilityMode === "condition"
-      ? `조건 비교 - ${statsConditionFilterText()} - ${metricLabel} 기준 - ${entries.length}개 멕`
-      : `${metricLabel} 기준 - ${entries.length}개 멕`;
   $("stats-list").innerHTML = entries.length
     ? entries
         .map((entry, index) => `
-          <div class="stats-row ${factionClass(entry.mech.faction)}">
+          <div class="stats-row ${factionClass(entry.mech.faction)} ${String(entry.mech.id) === String(state.selectedStatsMechId) ? "active" : ""}" data-stats-mech="${entry.mech.id}" role="button" tabindex="0" aria-pressed="${String(entry.mech.id) === String(state.selectedStatsMechId)}">
             <span class="stats-rank">${index + 1}</span>
             <span class="stats-mech-main">
               <span class="mech-title-main">${omnipodIcon(entry.mech)}<strong>${entry.mech.display_name || variantCode(entry.mech)}</strong></span>
@@ -2059,6 +2106,10 @@ function renderStatsPanel() {
         `)
         .join("")
     : `<div class="empty">표시할 멕이 없습니다.</div>`;
+  if (entries.length && !entries.some((entry) => String(entry.mech.id) === String(state.selectedStatsMechId))) {
+    state.selectedStatsMechId = null;
+  }
+  renderStatsDetailPanel(entries, category, valueScale);
 }
 
 function calculateBuild() {
@@ -2756,6 +2807,20 @@ function bindEvents() {
       }
       renderStatsPanel();
     }
+  });
+  $("stats-list").addEventListener("click", (event) => {
+    const row = event.target.closest("[data-stats-mech]");
+    if (!row) return;
+    state.selectedStatsMechId = row.dataset.statsMech;
+    renderStatsPanel();
+  });
+  $("stats-list").addEventListener("keydown", (event) => {
+    if (!["Enter", " "].includes(event.key)) return;
+    const row = event.target.closest("[data-stats-mech]");
+    if (!row) return;
+    event.preventDefault();
+    state.selectedStatsMechId = row.dataset.statsMech;
+    renderStatsPanel();
   });
   $("compare-overlay").addEventListener("click", (event) => {
     const remove = event.target.closest("[data-remove-compare]");

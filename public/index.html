@@ -149,9 +149,9 @@
             </div>
           </div>
           <div id="stats-category-menu" class="stats-subnav stats-category-nav" data-stats-detail-menu aria-label="통계 카테고리">
-            <button class="stats-subbutton active" type="button" data-stats-category-view="durability" data-stats-durability-category="armor">아머</button>
+            <button class="stats-subbutton active" type="button" data-stats-category-view="durability" data-stats-durability-category="total">총합</button>
+            <button class="stats-subbutton" type="button" data-stats-category-view="durability" data-stats-durability-category="armor">아머</button>
             <button class="stats-subbutton" type="button" data-stats-category-view="durability" data-stats-durability-category="structure">스트럭쳐</button>
-            <button class="stats-subbutton" type="button" data-stats-category-view="durability" data-stats-durability-category="total">총합</button>
             <button class="stats-subbutton" type="button" data-stats-category-view="mobility" data-stats-mobility-category="acceleration" hidden>가속</button>
             <button class="stats-subbutton" type="button" data-stats-category-view="mobility" data-stats-mobility-category="deceleration" hidden>감속</button>
             <button class="stats-subbutton" type="button" data-stats-category-view="mobility" data-stats-mobility-category="turnSpeed" hidden>선회속도</button>
@@ -173,13 +173,7 @@
             <button class="stats-subbutton active" type="button" data-stats-durability-mode="all">전체 목록</button>
             <button class="stats-subbutton" type="button" data-stats-durability-mode="condition">조건 비교</button>
           </div>
-          <section class="stats-workspace" aria-labelledby="stats-title">
-            <div class="stats-heading">
-              <div>
-                <h2 id="stats-title">멕 리스트 통계</h2>
-                <div id="stats-meta" class="muted"></div>
-              </div>
-            </div>
+          <section class="stats-workspace" aria-label="통계">
             <div id="stats-condition-controls" class="stats-condition-controls" hidden>
               <label class="stats-filter-field">
                 <span>진영</span>
@@ -195,7 +189,10 @@
               <div id="stats-weight-options" class="stats-option-group" aria-label="체급 선택"></div>
               <div id="stats-ton-options" class="stats-option-group" aria-label="톤수 선택"></div>
             </div>
-            <div id="stats-list" class="stats-list"></div>
+            <div class="stats-content">
+              <div id="stats-list" class="stats-list"></div>
+              <aside id="stats-detail" class="stats-detail" aria-label="통계 상세"></aside>
+            </div>
           </section>
         </section>
       </main>
