@@ -18,5 +18,14 @@
 - The top-level summary includes `듀레이션/ROF`. Show laser duration and the highest ROF value as one row in the form `5% / 3% rof`; use `-%` for missing duration and `- rof` for missing ROF.
 - Spread summaries do not have an energy entry. Keep the missing energy position as an empty slot for visual consistency.
 - Durability summaries are total-only, not per body part. `MAX` is armor plus structure, followed by armor, structure, and critical-hit prevention.
+
 - The top-level `쿼크 서머리` is its own info card. Do not render it inside the `QUIRKS` list/card.
 - The `쿼크 서머리` card currently contains cooldown, heat, durability, range, velocity, and owned special quirk categories. Special categories currently recognized are ECM, jump jets, and NARC duration.
+
+## Optimization Notes
+
+- Treat extracted mech, equipment, loadout, omnipod, and quirk numeric values as effectively static unless there is a specific data update or extraction change.
+- Prefer browser-memory caches for repeated derived values such as mech summaries, quirk summaries, hardpoint badges, and weapon quirk lookup indexes.
+- Do not persist derived summary/cache values into `public/data/*.json` unless there is a deliberate data-generation reason.
+- When optimizing stats views, avoid recalculating all mech rows or rebuilding the full stats list for selection-only changes; update the active row and detail panel from the current rendered entries.
+- For weapon-specific quirk matching, build reusable lookup indexes from equipment data instead of repeatedly scanning every weapon for every mech and category.

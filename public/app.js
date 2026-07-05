@@ -72,11 +72,11 @@ const STATS_MOBILITY_CATEGORIES = [
 ];
 
 const STATS_QUIRK_CATEGORIES = [
-  { key: "cooldown", label: "쿨 다운", metaLabel: "쿨 다운", value: (quirks) => cooldownSummaryMax(quirks), digits: 1, scale: 100, unit: "%" },
-  { key: "heat", label: "발열", metaLabel: "발열", value: (quirks) => heatSummaryMax(quirks), digits: 1, scale: 100, unit: "%" },
-  { key: "durability", label: "내구도", metaLabel: "내구도", value: (quirks) => durabilitySummaryTotal(quirks), digits: 1 },
-  { key: "range", label: "사거리", metaLabel: "사거리", value: (quirks) => rangeSummaryMax(quirks), digits: 1, scale: 100, unit: "%" },
-  { key: "velocity", label: "탄속", metaLabel: "탄속", value: (quirks) => velocitySummaryMax(quirks), digits: 1, scale: 100, unit: "%" },
+  { key: "cooldown", label: "쿨 다운", metaLabel: "쿨 다운", summaryKey: "cooldown", digits: 1, scale: 100, unit: "%" },
+  { key: "heat", label: "발열", metaLabel: "발열", summaryKey: "heat", digits: 1, scale: 100, unit: "%" },
+  { key: "durability", label: "내구도", metaLabel: "내구도", summaryKey: "durability", digits: 1 },
+  { key: "range", label: "사거리", metaLabel: "사거리", summaryKey: "range", digits: 1, scale: 100, unit: "%" },
+  { key: "velocity", label: "탄속", metaLabel: "탄속", summaryKey: "velocity", digits: 1, scale: 100, unit: "%" },
 ];
 
 const MAX_COMPARE_MECHS = 15;
@@ -141,6 +141,9 @@ const state = {
   statsConditionAxis: "weight",
   statsConditionWeightClasses: new Set(),
   statsConditionTons: new Set(),
+  renderedStatsEntries: [],
+  renderedStatsCategory: null,
+  renderedStatsValueScale: 1,
   largeMechList: true,
   mechSort: "default",
   mechListSummaryCache: new Map(),
@@ -272,9 +275,11 @@ function mechListSummary(mech) {
   const combinedRows = combinedDurabilityRows(armorRows, structureRows);
   const baseMovement = movementInfo({}, mech);
   const build = buildFromLoadout(mech);
+  const quirks = effectiveQuirks(mech, build);
   const summary = {
     stats: currentDefinition(mech).stats || {},
-    quirks: effectiveQuirks(mech, build),
+    quirks,
+    quirkStats: quirkSummaryStats(quirks),
     baseCombinedTotal: baseCombinedRows.reduce((sum, row) => sum + number(row.total), 0),
     armorTotal: armorRows.reduce((sum, row) => sum + number(row.total), 0),
     structureTotal: structureRows.reduce((sum, row) => sum + number(row.total), 0),
@@ -928,6 +933,7 @@ function weaponQuirkTargets() {
 
   const aliasTypes = new Map();
   const weapons = [];
+  const weaponsByKey = new Map();
   for (const item of Object.values(state.equipment?.items || {})) {
     if (item.item_type !== "weapon" && item.family !== "weapons") continue;
     const type = String(item.hardpoint_type || item.stats?.type || "").toLowerCase();
@@ -939,15 +945,18 @@ function weaponQuirkTargets() {
       ...(String(item.aliases || "").split(",")),
     ].map(normalizeLookupKey).filter(Boolean));
 
-    weapons.push({ type, keys });
+    const weapon = { id: weapons.length, type, keys };
+    weapons.push(weapon);
 
     for (const key of keys) {
       if (!aliasTypes.has(key)) aliasTypes.set(key, new Set());
       aliasTypes.get(key).add(type);
+      if (!weaponsByKey.has(key)) weaponsByKey.set(key, []);
+      weaponsByKey.get(key).push(weapon);
     }
   }
 
-  state.weaponQuirkTargetCache = { aliasTypes, weapons };
+  state.weaponQuirkTargetCache = { aliasTypes, weapons, weaponsByKey };
   return state.weaponQuirkTargetCache;
 }
 
@@ -1017,12 +1026,20 @@ function weaponStatMax(quirks, prefixForQuirkName, valueForQuirk, type) {
     }))
     .filter((quirk) => quirk.prefix && quirk.value > 0);
 
+  if (!activeStats.length) return 0;
+
+  const weaponTotals = new Map();
+  const { weaponsByKey } = weaponQuirkTargets();
+  for (const quirk of activeStats) {
+    const weapons = weaponsByKey.get(quirk.prefix) || [];
+    for (const weapon of weapons) {
+      if (weapon.type !== type) continue;
+      weaponTotals.set(weapon.id, (weaponTotals.get(weapon.id) || 0) + quirk.value);
+    }
+  }
+
   let maxStat = 0;
-  for (const weapon of weaponQuirkTargets().weapons) {
-    if (weapon.type !== type) continue;
-    const stat = activeStats.reduce((sum, quirk) => (
-      weapon.keys.has(quirk.prefix) ? sum + quirk.value : sum
-    ), 0);
+  for (const stat of weaponTotals.values()) {
     maxStat = Math.max(maxStat, stat);
   }
   return maxStat;
@@ -1259,6 +1276,16 @@ function velocitySummaryMax(quirks) {
   const missileVelocity = allVelocity + quirkIncrease(quirks, "missile_velocity_multiplier") + weaponStatMax(quirks, velocityQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "missile");
   const ballisticVelocity = allVelocity + quirkIncrease(quirks, "ballistic_velocity_multiplier") + weaponStatMax(quirks, velocityQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "ballistic");
   return Math.max(allVelocity, energyVelocity, missileVelocity, ballisticVelocity);
+}
+
+function quirkSummaryStats(quirks) {
+  return {
+    cooldown: cooldownSummaryMax(quirks),
+    heat: heatSummaryMax(quirks),
+    durability: durabilitySummaryTotal(quirks),
+    range: rangeSummaryMax(quirks),
+    velocity: velocitySummaryMax(quirks),
+  };
 }
 
 function durabilitySummaryTotal(quirks) {
@@ -1973,7 +2000,7 @@ function statsEntryValue(mech, category) {
     return number(summary.movement?.[category.movementKey]);
   }
   if (state.activeStatsView === "quirks") {
-    return number(category.value?.(summary.quirks || []));
+    return number(summary.quirkStats?.[category.summaryKey]);
   }
   const scope = activeStatsDurabilityScope();
   return number(summary.durabilityByScope?.[scope.key]?.[category.key]);
@@ -1988,6 +2015,45 @@ function statsEntries() {
       total: statsEntryValue(mech, category),
     }))
     .sort((a, b) => b.total - a.total || (a.mech.display_name || "").localeCompare(b.mech.display_name || "", undefined, { numeric: true }));
+}
+
+function renderStatsRows(entries, category, valueScale) {
+  $("stats-list").innerHTML = entries.length
+    ? entries
+        .map((entry, index) => `
+          <div class="stats-row ${factionClass(entry.mech.faction)} ${String(entry.mech.id) === String(state.selectedStatsMechId) ? "active" : ""}" data-stats-mech="${entry.mech.id}" role="button" tabindex="0" aria-pressed="${String(entry.mech.id) === String(state.selectedStatsMechId)}">
+            <span class="stats-rank">${index + 1}</span>
+            <span class="stats-mech-main">
+              <span class="mech-title-main">${omnipodIcon(entry.mech)}<strong>${entry.mech.display_name || variantCode(entry.mech)}</strong></span>
+              <span class="stats-subline">${factionLabel(entry.mech.faction)} - ${entry.mech.definition?.stats?.MaxTons || "?"}t</span>
+            </span>
+            <span class="stats-value-block">
+              <span>${category.label}</span>
+              <strong>${formatInfoNumber(entry.total * valueScale, category.digits ?? 0)}${category.unit || ""}</strong>
+            </span>
+            <span class="stats-extra ${weightClassClass(entry.mech.weight_class)}">
+              <span class="badge weight-slot ${weightClassClass(entry.mech.weight_class)}">${WEIGHT_CLASS_LABELS[entry.mech.weight_class] || entry.mech.weight_class || "Unknown"}</span>
+              <span class="stats-hardpoints">${stockHardpointBadges(entry.mech) || `<span class="badge">하드포인트 없음</span>`}</span>
+            </span>
+          </div>
+        `)
+        .join("")
+    : `<div class="empty">표시할 멕이 없습니다.</div>`;
+}
+
+function updateStatsRowSelection() {
+  document.querySelectorAll("#stats-list [data-stats-mech]").forEach((row) => {
+    const active = row.dataset.statsMech === String(state.selectedStatsMechId);
+    row.classList.toggle("active", active);
+    row.setAttribute("aria-pressed", String(active));
+  });
+}
+
+function renderCurrentStatsSelection() {
+  const category = state.renderedStatsCategory || activeStatsCategory();
+  const valueScale = state.renderedStatsValueScale ?? category.scale ?? 1;
+  updateStatsRowSelection();
+  renderStatsDetailPanel(state.renderedStatsEntries || [], category, valueScale);
 }
 
 function renderStatsConditionControls() {
@@ -2077,6 +2143,9 @@ function renderStatsPanel() {
   renderStatsConditionControls();
 
   if (!["durability", "mobility", "quirks"].includes(state.activeStatsView)) {
+    state.renderedStatsEntries = [];
+    state.renderedStatsCategory = null;
+    state.renderedStatsValueScale = 1;
     $("stats-list").innerHTML = "";
     $("stats-detail").innerHTML = "";
     return;
@@ -2085,30 +2154,13 @@ function renderStatsPanel() {
   const entries = statsEntries();
   const category = activeStatsCategory();
   const valueScale = category.scale ?? 1;
-  $("stats-list").innerHTML = entries.length
-    ? entries
-        .map((entry, index) => `
-          <div class="stats-row ${factionClass(entry.mech.faction)} ${String(entry.mech.id) === String(state.selectedStatsMechId) ? "active" : ""}" data-stats-mech="${entry.mech.id}" role="button" tabindex="0" aria-pressed="${String(entry.mech.id) === String(state.selectedStatsMechId)}">
-            <span class="stats-rank">${index + 1}</span>
-            <span class="stats-mech-main">
-              <span class="mech-title-main">${omnipodIcon(entry.mech)}<strong>${entry.mech.display_name || variantCode(entry.mech)}</strong></span>
-              <span class="stats-subline">${factionLabel(entry.mech.faction)} - ${entry.mech.definition?.stats?.MaxTons || "?"}t</span>
-            </span>
-            <span class="stats-value-block">
-              <span>${category.label}</span>
-              <strong>${formatInfoNumber(entry.total * valueScale, category.digits ?? 0)}${category.unit || ""}</strong>
-            </span>
-            <span class="stats-extra ${weightClassClass(entry.mech.weight_class)}">
-              <span class="badge weight-slot ${weightClassClass(entry.mech.weight_class)}">${WEIGHT_CLASS_LABELS[entry.mech.weight_class] || entry.mech.weight_class || "Unknown"}</span>
-              <span class="stats-hardpoints">${stockHardpointBadges(entry.mech) || `<span class="badge">하드포인트 없음</span>`}</span>
-            </span>
-          </div>
-        `)
-        .join("")
-    : `<div class="empty">표시할 멕이 없습니다.</div>`;
   if (entries.length && !entries.some((entry) => String(entry.mech.id) === String(state.selectedStatsMechId))) {
     state.selectedStatsMechId = null;
   }
+  state.renderedStatsEntries = entries;
+  state.renderedStatsCategory = category;
+  state.renderedStatsValueScale = valueScale;
+  renderStatsRows(entries, category, valueScale);
   renderStatsDetailPanel(entries, category, valueScale);
 }
 
@@ -2812,7 +2864,7 @@ function bindEvents() {
     const row = event.target.closest("[data-stats-mech]");
     if (!row) return;
     state.selectedStatsMechId = row.dataset.statsMech;
-    renderStatsPanel();
+    renderCurrentStatsSelection();
   });
   $("stats-list").addEventListener("keydown", (event) => {
     if (!["Enter", " "].includes(event.key)) return;
@@ -2820,7 +2872,7 @@ function bindEvents() {
     if (!row) return;
     event.preventDefault();
     state.selectedStatsMechId = row.dataset.statsMech;
-    renderStatsPanel();
+    renderCurrentStatsSelection();
   });
   $("compare-overlay").addEventListener("click", (event) => {
     const remove = event.target.closest("[data-remove-compare]");
