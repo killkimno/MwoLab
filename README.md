@@ -1,12 +1,20 @@
-주소
+# MwoLab
+
+MechWarrior Online 메크 스펙 비교 사이트입니다.
+
+## 주소
 
 https://killkimno.github.io/MwoLab/
 
-소개
+## 소개
 
-멕 스팩 비교 사이트
+MwoLab은 MechWarrior Online의 메크 스펙을 빠르게 확인하고 비교하기 위한 웹 사이트입니다.
 
-후원하기
+- 메크별 내구도, 기동성, 쿼크 정보를 확인할 수 있습니다.
+- 여러 메크의 스펙을 한 화면에서 비교할 수 있습니다.
+- 로컬 게임 데이터에서 추출한 정보를 기반으로 합니다.
+
+## 후원하기
 
 [![Support me on Ko-fi](assets/ko-fi-button.png)](https://ko-fi.com/killkimno)
 
