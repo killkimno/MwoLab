@@ -17,7 +17,7 @@
         <button class="tab-button" type="button" data-main-tab="mechlab" aria-controls="tab-mechlab" disabled aria-disabled="true">현재 멕랩</button>
         <button class="tab-button active" type="button" data-main-tab="info" aria-controls="tab-info">정보</button>
         <button class="tab-button" type="button" data-main-tab="compare" aria-controls="tab-compare">비교하기</button>
-        <button class="tab-button" type="button" data-main-tab="stats" aria-controls="tab-stats">통계</button>
+        <button class="tab-button" type="button" data-main-tab="stats" aria-controls="tab-stats">순위</button>
         <a class="donate-link" href="https://ko-fi.com/killkimno" target="_blank" rel="noopener noreferrer" aria-label="Ko-fi 후원 페이지 열기">후원하기</a>
       </nav>
 
@@ -140,15 +140,25 @@
         </div>
 
         <section id="tab-stats" class="tab-panel stats-panel" hidden>
-          <div class="stats-toolbar" aria-label="통계 종류">
+          <div class="stats-toolbar" aria-label="순위 종류">
             <div class="stats-toolbar-group">
-              <button id="stats-detail-toggle" class="stats-expand-button" type="button" aria-label="통계 하위 메뉴 접기" aria-expanded="true" aria-controls="stats-category-menu stats-scope-menu stats-mode-menu stats-condition-controls">▼</button>
+              <button id="stats-detail-toggle" class="stats-expand-button" type="button" aria-label="순위 하위 메뉴 접기" aria-expanded="true" aria-controls="stats-category-menu stats-scope-menu stats-mode-menu stats-condition-controls">▼</button>
+              <div class="stats-rank-toggle" role="group" aria-label="순위 표시 방식">
+                <button class="stats-rank-button active" type="button" data-stats-rank-mode="individual">개별</button>
+                <button class="stats-rank-button" type="button" data-stats-rank-mode="chassis">기종별</button>
+              </div>
+              <div id="stats-chassis-aggregate-toggle" class="stats-rank-toggle stats-aggregate-toggle" role="group" aria-label="기종별 집계 방식" hidden>
+                <button class="stats-rank-button active" type="button" data-stats-chassis-aggregate="average">평균</button>
+                <button class="stats-rank-button" type="button" data-stats-chassis-aggregate="max">최대치</button>
+                <button class="stats-rank-button" type="button" data-stats-chassis-aggregate="min">최소치</button>
+              </div>
+              <span class="stats-toolbar-divider" aria-hidden="true"></span>
               <button class="stats-button active" type="button" data-stats-view="durability">내구도</button>
               <button class="stats-button" type="button" data-stats-view="mobility">기동성</button>
               <button class="stats-button" type="button" data-stats-view="quirks">쿼크</button>
             </div>
           </div>
-          <div id="stats-category-menu" class="stats-subnav stats-category-nav" data-stats-detail-menu aria-label="통계 카테고리">
+          <div id="stats-category-menu" class="stats-subnav stats-category-nav" data-stats-detail-menu aria-label="순위 카테고리">
             <button class="stats-subbutton active" type="button" data-stats-category-view="durability" data-stats-durability-category="total">총합</button>
             <button class="stats-subbutton" type="button" data-stats-category-view="durability" data-stats-durability-category="armor">아머</button>
             <button class="stats-subbutton" type="button" data-stats-category-view="durability" data-stats-durability-category="structure">스트럭쳐</button>
@@ -165,15 +175,15 @@
           </div>
           <div id="stats-scope-menu" class="stats-subnav stats-scope-nav" data-stats-detail-menu data-stats-view-section="durability" aria-label="내구도 범위">
             <button class="stats-subbutton active" type="button" data-stats-durability-scope="all">전체</button>
-            <button class="stats-subbutton" type="button" data-stats-durability-scope="shoulders">어깨</button>
-            <button class="stats-subbutton" type="button" data-stats-durability-scope="torso">몸통</button>
             <button class="stats-subbutton" type="button" data-stats-durability-scope="torsoShoulders">어깨+몸통</button>
+            <button class="stats-subbutton" type="button" data-stats-durability-scope="torso">몸통</button>
+            <button class="stats-subbutton" type="button" data-stats-durability-scope="shoulders">어깨</button>
           </div>
-          <div id="stats-mode-menu" class="stats-subnav" data-stats-detail-menu aria-label="통계 비교 방식">
+          <div id="stats-mode-menu" class="stats-subnav" data-stats-detail-menu aria-label="순위 비교 방식">
             <button class="stats-subbutton active" type="button" data-stats-durability-mode="all">전체 목록</button>
-            <button class="stats-subbutton" type="button" data-stats-durability-mode="condition">조건 비교</button>
+            <button class="stats-subbutton" type="button" data-stats-durability-mode="condition">필터</button>
           </div>
-          <section class="stats-workspace" aria-label="통계">
+          <section class="stats-workspace" aria-label="순위">
             <div id="stats-condition-controls" class="stats-condition-controls" hidden>
               <label class="stats-filter-field">
                 <span>진영</span>
@@ -181,7 +191,7 @@
               </label>
               <div class="stats-filter-field">
                 <span>비교 기준</span>
-                <div class="stats-filter-toggle" role="group" aria-label="조건 비교 기준">
+                <div class="stats-filter-toggle" role="group" aria-label="필터 기준">
                   <button type="button" data-stats-condition-axis="weight">체급</button>
                   <button type="button" data-stats-condition-axis="tons">톤수</button>
                 </div>
@@ -191,7 +201,7 @@
             </div>
             <div class="stats-content">
               <div id="stats-list" class="stats-list"></div>
-              <aside id="stats-detail" class="stats-detail" aria-label="통계 상세"></aside>
+              <aside id="stats-detail" class="stats-detail" aria-label="순위 상세"></aside>
             </div>
           </section>
         </section>
