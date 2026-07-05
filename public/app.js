@@ -1,4 +1,455 @@
-﻿const COMPONENT_ORDER = [
+const SUPPORTED_LANGUAGES = new Set(["kr", "en"]);
+const DEFAULT_LANGUAGE = "kr";
+
+function normalizeLanguage(value) {
+  const language = String(value || "").trim().toLowerCase();
+  if (language === "kr" || language === "ko" || language === "ko-kr") return "kr";
+  if (language === "en" || language.startsWith("en-")) return "en";
+  return "";
+}
+
+function detectLanguage() {
+  const params = new URLSearchParams(window.location.search);
+  const queryLanguage = normalizeLanguage(params.get("lang"));
+  if (SUPPORTED_LANGUAGES.has(queryLanguage)) return queryLanguage;
+
+  const browserLanguages = navigator.languages?.length ? navigator.languages : [navigator.language];
+  for (const language of browserLanguages) {
+    const normalized = normalizeLanguage(language);
+    if (SUPPORTED_LANGUAGES.has(normalized)) return normalized;
+  }
+  return DEFAULT_LANGUAGE;
+}
+
+const activeLanguage = detectLanguage();
+
+const TEXT = {
+  kr: {
+    "common.unknown": "알 수 없음",
+    "common.item": "항목",
+    "common.value": "수치",
+    "common.target": "대상",
+    "common.ok": "OK",
+    "common.check": "확인 필요",
+    "common.chassis": "기종",
+    "common.variants": "변형",
+    "common.models": "모델",
+    "common.slots": "슬롯",
+    "common.tons": "톤",
+    "common.armor": "아머",
+    "common.engine": "엔진",
+    "common.status": "상태",
+    "common.heat": "발열",
+    "common.ammo": "탄약",
+    "common.alpha": "알파",
+    "common.add": "추가",
+    "common.remove": "제거",
+    "common.empty": "비어 있음",
+    "common.baseline": "기준",
+    "common.info": "정보",
+    "common.rank": "순위",
+    "common.average": "평균",
+    "common.max": "최대치",
+    "common.min": "최소치",
+    "language.switcher": "언어 선택",
+    "language.kr": "한국어",
+    "language.en": "English",
+    "status.loadingData": "로컬 데이터 로딩 중...",
+    "status.loadedData": "{count}개 멕을 로컬 게임 데이터에서 불러왔습니다",
+    "status.fileProtocol": "file://에서는 로컬 데이터를 불러올 수 없습니다. 로컬 프리뷰는 public 폴더를 http://로 서빙하세요.",
+    "status.loadPathFailed": "{path} 파일을 불러올 수 없습니다",
+    "status.buildSaved": "빌드를 로컬에 저장했습니다",
+    "tabs.mechlab": "현재 멕랩",
+    "tabs.info": "정보",
+    "tabs.compare": "비교하기",
+    "tabs.stats": "순위",
+    "donate.label": "후원하기",
+    "donate.aria": "Ko-fi 후원 페이지 열기",
+    "search.mechPlaceholder": "기종 또는 변형 검색",
+    "search.itemPlaceholder": "장비 검색",
+    "list.smallView": "작은 리스트 보기",
+    "list.largeView": "큰 리스트 보기",
+    "list.noMechs": "현재 필터와 일치하는 멕이 없습니다.",
+    "list.chassisVariants": "{chassis} 기종 / {variants} 변형",
+    "list.variantCount": "{count} 변형",
+    "filters.allFactions": "모든 진영",
+    "filters.allWeightClasses": "모든 체급",
+    "filters.allEquipment": "모든 장비",
+    "filters.weapons": "무기",
+    "filters.ammo": "탄약",
+    "filters.engines": "엔진",
+    "filters.equipment": "장비",
+    "filters.jumpjets": "점프젯",
+    "filters.masc": "MASC",
+    "filters.weaponMods": "무기 모드",
+    "sort.default": "기본 정렬",
+    "sort.tons": "톤수 정렬",
+    "weight.light": "라이트",
+    "weight.medium": "미디엄",
+    "weight.heavy": "헤비",
+    "weight.assault": "어썰트",
+    "faction.Clan": "클랜",
+    "faction.InnerSphere": "이너스피어",
+    "component.head": "머리",
+    "component.leftArm": "왼쪽 팔",
+    "component.leftTorso": "왼쪽 어깨",
+    "component.centerTorso": "몸통",
+    "component.rightTorso": "오른쪽 어깨",
+    "component.rightArm": "오른쪽 팔",
+    "component.leftLeg": "왼쪽 다리",
+    "component.rightLeg": "오른쪽 다리",
+    "info.selectMech": "멕을 선택하세요",
+    "info.selectMechHint": "왼쪽 목록에서 카테고리를 펼친 뒤 멕을 선택하세요.",
+    "info.applyQuirks": "쿼크 적용",
+    "info.quirkSummary": "쿼크 서머리",
+    "info.noSpecialQuirks": "특수 쿼크 없음",
+    "info.specialQuirks": "특수 쿼크",
+    "info.cooldown": "쿨 다운",
+    "info.durability": "내구도",
+    "info.range": "사거리",
+    "info.velocity": "탄속",
+    "info.combinedDurability": "종합 내구",
+    "info.durabilitySummary": "내구도 요약",
+    "info.mobility": "기동성",
+    "info.structureInfo": "스트럭쳐 정보",
+    "info.armorInfo": "아머 정보",
+    "info.engine": "엔진",
+    "info.part": "부위",
+    "info.stat": "항목",
+    "info.armorStructureTotal": "아머 + 스트럭쳐 총합",
+    "info.maxSpeed": "최대 속도",
+    "info.acceleration": "가속도",
+    "info.deceleration": "감속도",
+    "info.turnSpeed": "선회 속도",
+    "info.angleX": "회전각 X",
+    "info.angleY": "회전각 Y",
+    "info.torsoSpeed": "몸통 회전속도",
+    "info.structureTotal": "스트럭쳐 총합",
+    "info.maxArmorTotal": "최대 아머 포인트 총합",
+    "info.minEngine": "최소 엔진",
+    "info.maxEngine": "최대 엔진",
+    "info.noQuirks": "쿼크가 없습니다",
+    "info.noQuirksForMech": "이 멕에 표시할 쿼크가 없습니다.",
+    "info.quirksPrompt": "멕을 선택하면 쿼크가 표시됩니다.",
+    "info.componentsPrompt": "멕을 선택하면 구성 부품이 표시됩니다.",
+    "compare.title": "멕 비교",
+    "compare.clear": "비교 리스트 모두 지우기",
+    "compare.showDeltas": "차이 표시",
+    "compare.empty": "왼쪽 리스트에서 비교할 멕을 선택하세요.",
+    "compare.selected": "{count}/{max} 선택됨",
+    "compare.removeAria": "{name} 비교에서 제거",
+    "compare.setBaseline": "기준으로 설정",
+    "compare.maxSelected": "비교는 최대 {max}개까지 선택할 수 있습니다.",
+    "stats.kind": "순위 종류",
+    "stats.collapse": "순위 하위 메뉴 접기",
+    "stats.expand": "순위 하위 메뉴 펼치기",
+    "stats.rankMode": "순위 표시 방식",
+    "stats.individual": "개별",
+    "stats.chassis": "기종별",
+    "stats.aggregateMode": "기종별 집계 방식",
+    "stats.category": "순위 카테고리",
+    "stats.scope": "내구도 범위",
+    "stats.mode": "순위 비교 방식",
+    "stats.workspace": "순위",
+    "stats.filterAxis": "필터 기준",
+    "stats.weightSelect": "체급 선택",
+    "stats.tonsSelect": "톤수 선택",
+    "stats.detail": "순위 상세",
+    "stats.total": "총합",
+    "stats.structure": "스트럭쳐",
+    "stats.all": "전체",
+    "stats.torsoShoulders": "어깨+몸통",
+    "stats.torso": "몸통",
+    "stats.shoulders": "어깨",
+    "stats.allList": "전체 목록",
+    "stats.filter": "필터",
+    "stats.faction": "진영",
+    "stats.compareBy": "비교 기준",
+    "stats.weight": "체급",
+    "stats.tons": "톤수",
+    "stats.noSelection": "왼쪽 목록에서 멕을 선택하세요.",
+    "stats.noRows": "표시할 멕이 없습니다.",
+    "stats.noHardpoints": "하드포인트 없음",
+    "stats.specCompare": "기종별 스펙 비교",
+    "stats.chassisInfo": "기본 정보",
+    "stats.modelCount": "모델 수",
+    "stats.hardpoints": "하드포인트",
+    "stats.quirkSelect": "쿼크 선택",
+    "equipment.noItem": "장비가 선택되지 않았습니다",
+    "build.noEngine": "엔진 없음",
+    "build.engineOutside": "엔진 {rating}이 허용 범위 {min}-{max} 밖입니다",
+    "build.missingItem": "누락된 장비 {id}",
+    "build.missing": "{id} 누락",
+    "quirk.cooldownSummary": "쿨 다운 서머리",
+    "quirk.heatSummary": "발열 서머리",
+    "quirk.velocitySummary": "탄속 서머리",
+    "quirk.rangeSummary": "사거리 서머리",
+    "quirk.durationSummary": "듀레이션/ROF 서머리",
+    "quirk.spreadSummary": "탄퍼짐 서머리",
+    "quirk.durabilitySummary": "내구도 서머리",
+    "quirk.maxCooldown": "MAX 쿨 다운",
+    "quirk.energyCooldown": "ENERGY 쿨 다운",
+    "quirk.missileCooldown": "MISSILE 쿨 다운",
+    "quirk.ballisticCooldown": "BALLISTIC 쿨 다운",
+    "quirk.maxHeatReduction": "MAX 발열 감소",
+    "quirk.energyHeat": "ENERGY 발열",
+    "quirk.missileHeat": "MISSILE 발열",
+    "quirk.ballisticHeat": "BALLISTIC 발열",
+    "quirk.heatDissipation": "HEAT DISSIPATION",
+    "quirk.maxVelocity": "MAX 탄속",
+    "quirk.energyVelocity": "ENERGY 탄속",
+    "quirk.missileVelocity": "MISSILE 탄속",
+    "quirk.ballisticVelocity": "BALLISTIC 탄속",
+    "quirk.maxRange": "MAX 사거리",
+    "quirk.energyRange": "ENERGY 사거리",
+    "quirk.missileRange": "MISSILE 사거리",
+    "quirk.ballisticRange": "BALLISTIC 사거리",
+    "quirk.maxDuration": "MAX 듀레이션/ROF",
+    "quirk.energyDuration": "ENERGY 듀레이션",
+    "quirk.mgRof": "MG ROF",
+    "quirk.racRof": "RAC ROF",
+    "quirk.amsRof": "AMS ROF",
+    "quirk.maxSpread": "MAX 탄퍼짐",
+    "quirk.missileSpread": "MISSILE 탄퍼짐",
+    "quirk.ballisticSpread": "BALLISTIC 탄퍼짐",
+    "quirk.maxDurability": "MAX 내구도",
+    "quirk.armor": "아머",
+    "quirk.structure": "스트럭쳐",
+    "quirk.critPrevent": "크리 방지",
+    "special.jumpjets": "점프젯",
+    "special.narcDuration": "NARC 지속시간"
+  },
+  en: {
+    "common.unknown": "Unknown",
+    "common.item": "Item",
+    "common.value": "Value",
+    "common.target": "Target",
+    "common.ok": "OK",
+    "common.check": "Check",
+    "common.chassis": "chassis",
+    "common.variants": "variants",
+    "common.models": "models",
+    "common.slots": "slots",
+    "common.tons": "tons",
+    "common.armor": "Armor",
+    "common.engine": "Engine",
+    "common.status": "Status",
+    "common.heat": "Heat",
+    "common.ammo": "Ammo",
+    "common.alpha": "Alpha",
+    "common.add": "Add",
+    "common.remove": "Remove",
+    "common.empty": "Empty",
+    "common.baseline": "Baseline",
+    "common.info": "Info",
+    "common.rank": "Rank",
+    "common.average": "Average",
+    "common.max": "Max",
+    "common.min": "Min",
+    "language.switcher": "Language",
+    "language.kr": "한국어",
+    "language.en": "English",
+    "status.loadingData": "Loading local data...",
+    "status.loadedData": "{count} mechs loaded from local game data",
+    "status.fileProtocol": "Local data cannot be loaded from file://. Serve the public folder over http:// for local preview.",
+    "status.loadPathFailed": "Could not load {path}",
+    "status.buildSaved": "Build saved locally",
+    "tabs.mechlab": "Current MechLab",
+    "tabs.info": "Info",
+    "tabs.compare": "Compare",
+    "tabs.stats": "Stats",
+    "donate.label": "Donate",
+    "donate.aria": "Open Ko-fi support page",
+    "search.mechPlaceholder": "Search chassis or variant",
+    "search.itemPlaceholder": "Search equipment",
+    "list.smallView": "Small list view",
+    "list.largeView": "Large list view",
+    "list.noMechs": "No mechs match the current filters.",
+    "list.chassisVariants": "{chassis} chassis / {variants} variants",
+    "list.variantCount": "{count} variants",
+    "filters.allFactions": "All factions",
+    "filters.allWeightClasses": "All weight classes",
+    "filters.allEquipment": "All equipment",
+    "filters.weapons": "Weapons",
+    "filters.ammo": "Ammo",
+    "filters.engines": "Engines",
+    "filters.equipment": "Equipment",
+    "filters.jumpjets": "Jump jets",
+    "filters.masc": "MASC",
+    "filters.weaponMods": "Weapon mods",
+    "sort.default": "Default sort",
+    "sort.tons": "Sort by tonnage",
+    "weight.light": "Light",
+    "weight.medium": "Medium",
+    "weight.heavy": "Heavy",
+    "weight.assault": "Assault",
+    "faction.Clan": "Clan",
+    "faction.InnerSphere": "Inner Sphere",
+    "component.head": "Head",
+    "component.leftArm": "Left Arm",
+    "component.leftTorso": "Left Torso",
+    "component.centerTorso": "Center Torso",
+    "component.rightTorso": "Right Torso",
+    "component.rightArm": "Right Arm",
+    "component.leftLeg": "Left Leg",
+    "component.rightLeg": "Right Leg",
+    "info.selectMech": "Select a mech",
+    "info.selectMechHint": "Expand a category in the left list, then choose a mech.",
+    "info.applyQuirks": "Apply quirks",
+    "info.quirkSummary": "Quirk Summary",
+    "info.noSpecialQuirks": "No special quirks",
+    "info.specialQuirks": "Special quirks",
+    "info.cooldown": "Cooldown",
+    "info.durability": "Durability",
+    "info.range": "Range",
+    "info.velocity": "Velocity",
+    "info.combinedDurability": "Combined Durability",
+    "info.durabilitySummary": "Durability Summary",
+    "info.mobility": "Mobility",
+    "info.structureInfo": "Structure Info",
+    "info.armorInfo": "Armor Info",
+    "info.engine": "Engine",
+    "info.part": "Part",
+    "info.stat": "Stat",
+    "info.armorStructureTotal": "Armor + Structure Total",
+    "info.maxSpeed": "Max Speed",
+    "info.acceleration": "Acceleration",
+    "info.deceleration": "Deceleration",
+    "info.turnSpeed": "Turn Speed",
+    "info.angleX": "Angle X",
+    "info.angleY": "Angle Y",
+    "info.torsoSpeed": "Torso Turn Speed",
+    "info.structureTotal": "Structure Total",
+    "info.maxArmorTotal": "Max Armor Point Total",
+    "info.minEngine": "Min Engine",
+    "info.maxEngine": "Max Engine",
+    "info.noQuirks": "No quirks",
+    "info.noQuirksForMech": "No quirks found for this mech.",
+    "info.quirksPrompt": "Select a mech to show quirks.",
+    "info.componentsPrompt": "Select a mech to show components.",
+    "compare.title": "Mech Compare",
+    "compare.clear": "Clear compare list",
+    "compare.showDeltas": "Show deltas",
+    "compare.empty": "Select mechs to compare from the left list.",
+    "compare.selected": "{count}/{max} selected",
+    "compare.removeAria": "Remove {name} from compare",
+    "compare.setBaseline": "Set as baseline",
+    "compare.maxSelected": "You can compare up to {max} mechs.",
+    "stats.kind": "Stats type",
+    "stats.collapse": "Collapse stats submenus",
+    "stats.expand": "Expand stats submenus",
+    "stats.rankMode": "Ranking mode",
+    "stats.individual": "Individual",
+    "stats.chassis": "By chassis",
+    "stats.aggregateMode": "Chassis aggregate mode",
+    "stats.category": "Stats category",
+    "stats.scope": "Durability scope",
+    "stats.mode": "Ranking comparison mode",
+    "stats.workspace": "Stats",
+    "stats.filterAxis": "Filter axis",
+    "stats.weightSelect": "Select weight class",
+    "stats.tonsSelect": "Select tonnage",
+    "stats.detail": "Stats detail",
+    "stats.total": "Total",
+    "stats.structure": "Structure",
+    "stats.all": "All",
+    "stats.torsoShoulders": "Torso + shoulders",
+    "stats.torso": "Torso",
+    "stats.shoulders": "Shoulders",
+    "stats.allList": "Full list",
+    "stats.filter": "Filter",
+    "stats.faction": "Faction",
+    "stats.compareBy": "Compare by",
+    "stats.weight": "Weight",
+    "stats.tons": "Tons",
+    "stats.noSelection": "Select a mech from the left list.",
+    "stats.noRows": "No mechs to display.",
+    "stats.noHardpoints": "No hardpoints",
+    "stats.specCompare": "Chassis Spec Compare",
+    "stats.chassisInfo": "Basic Info",
+    "stats.modelCount": "Model Count",
+    "stats.hardpoints": "Hardpoints",
+    "stats.quirkSelect": "Select quirk",
+    "equipment.noItem": "No item selected",
+    "build.noEngine": "No engine",
+    "build.engineOutside": "Engine {rating} outside {min}-{max}",
+    "build.missingItem": "Missing item {id}",
+    "build.missing": "Missing {id}",
+    "quirk.cooldownSummary": "Cooldown Summary",
+    "quirk.heatSummary": "Heat Summary",
+    "quirk.velocitySummary": "Velocity Summary",
+    "quirk.rangeSummary": "Range Summary",
+    "quirk.durationSummary": "Duration/ROF Summary",
+    "quirk.spreadSummary": "Spread Summary",
+    "quirk.durabilitySummary": "Durability Summary",
+    "quirk.maxCooldown": "MAX Cooldown",
+    "quirk.energyCooldown": "Energy Cooldown",
+    "quirk.missileCooldown": "Missile Cooldown",
+    "quirk.ballisticCooldown": "Ballistic Cooldown",
+    "quirk.maxHeatReduction": "MAX Heat Red.",
+    "quirk.energyHeat": "Energy Heat",
+    "quirk.missileHeat": "Missile Heat",
+    "quirk.ballisticHeat": "Ballistic Heat",
+    "quirk.heatDissipation": "Heat Dissipation",
+    "quirk.maxVelocity": "MAX Velocity",
+    "quirk.energyVelocity": "Energy Velocity",
+    "quirk.missileVelocity": "Missile Velocity",
+    "quirk.ballisticVelocity": "Ballistic Velocity",
+    "quirk.maxRange": "MAX Range",
+    "quirk.energyRange": "Energy Range",
+    "quirk.missileRange": "Missile Range",
+    "quirk.ballisticRange": "Ballistic Range",
+    "quirk.maxDuration": "MAX Duration/ROF",
+    "quirk.energyDuration": "Energy Duration",
+    "quirk.mgRof": "MG ROF",
+    "quirk.racRof": "RAC ROF",
+    "quirk.amsRof": "AMS ROF",
+    "quirk.maxSpread": "MAX Spread",
+    "quirk.missileSpread": "Missile Spread",
+    "quirk.ballisticSpread": "Ballistic Spread",
+    "quirk.maxDurability": "MAX Durability",
+    "quirk.armor": "Armor",
+    "quirk.structure": "Structure",
+    "quirk.critPrevent": "Crit Prevent",
+    "special.jumpjets": "Jump jets",
+    "special.narcDuration": "NARC duration"
+  },
+};
+
+function t(key, values = {}) {
+  const text = TEXT[activeLanguage]?.[key] ?? TEXT[DEFAULT_LANGUAGE][key] ?? key;
+  return text.replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
+}
+
+function languageUrl(language) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("lang", language);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function applyStaticTranslations() {
+  document.documentElement.lang = activeLanguage === "kr" ? "ko" : "en";
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+    element.textContent = t(element.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((element) => {
+    element.setAttribute("placeholder", t(element.dataset.i18nPlaceholder));
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((element) => {
+    element.setAttribute("title", t(element.dataset.i18nTitle));
+  });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+    element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
+  });
+  document.querySelectorAll("[data-lang-link]").forEach((element) => {
+    const language = element.dataset.langLink;
+    element.href = languageUrl(language);
+    element.classList.toggle("active", language === activeLanguage);
+    element.setAttribute("aria-current", language === activeLanguage ? "true" : "false");
+  });
+}
+
+const COMPONENT_ORDER = [
   "head",
   "left_arm",
   "left_torso",
@@ -16,78 +467,78 @@ const REAR_ARMOR_COMPONENTS = [
 ];
 
 const COMPONENT_NAMES = {
-  head: "Head",
-  left_arm: "Left Arm",
-  left_torso: "Left Torso",
-  centre_torso: "Center Torso",
-  right_torso: "Right Torso",
-  right_arm: "Right Arm",
-  left_leg: "Left Leg",
-  right_leg: "Right Leg",
+  head: t("component.head"),
+  left_arm: t("component.leftArm"),
+  left_torso: t("component.leftTorso"),
+  centre_torso: t("component.centerTorso"),
+  right_torso: t("component.rightTorso"),
+  right_arm: t("component.rightArm"),
+  left_leg: t("component.leftLeg"),
+  right_leg: t("component.rightLeg"),
 };
 
 const INFO_COMPONENTS = [
-  { key: "head", label: "머리", suffix: "hd" },
-  { key: "centre_torso", label: "몸통", suffix: "ct", rearSuffix: "ctr" },
-  { key: "left_torso", label: "왼쪽 어깨", suffix: "lt", rearSuffix: "ltr" },
-  { key: "right_torso", label: "오른쪽 어깨", suffix: "rt", rearSuffix: "rtr" },
-  { key: "left_arm", label: "왼쪽 팔", suffix: "la" },
-  { key: "right_arm", label: "오른쪽 팔", suffix: "ra" },
-  { key: "left_leg", label: "왼쪽 다리", suffix: "ll" },
-  { key: "right_leg", label: "오른쪽 다리", suffix: "rl" },
+  { key: "head", label: t("component.head"), suffix: "hd" },
+  { key: "centre_torso", label: t("component.centerTorso"), suffix: "ct", rearSuffix: "ctr" },
+  { key: "left_torso", label: t("component.leftTorso"), suffix: "lt", rearSuffix: "ltr" },
+  { key: "right_torso", label: t("component.rightTorso"), suffix: "rt", rearSuffix: "rtr" },
+  { key: "left_arm", label: t("component.leftArm"), suffix: "la" },
+  { key: "right_arm", label: t("component.rightArm"), suffix: "ra" },
+  { key: "left_leg", label: t("component.leftLeg"), suffix: "ll" },
+  { key: "right_leg", label: t("component.rightLeg"), suffix: "rl" },
 ];
 
 const WEIGHT_CLASS_ORDER = ["light", "medium", "heavy", "assault"];
 
 const WEIGHT_CLASS_LABELS = {
-  light: "Light",
-  medium: "Medium",
-  heavy: "Heavy",
-  assault: "Assault",
+  light: t("weight.light"),
+  medium: t("weight.medium"),
+  heavy: t("weight.heavy"),
+  assault: t("weight.assault"),
 };
 
 const FACTION_LABELS = {
-  Clan: "클랜",
-  InnerSphere: "이너스피어",
+  Clan: t("faction.Clan"),
+  InnerSphere: t("faction.InnerSphere"),
 };
 
 const STATS_DURABILITY_CATEGORIES = [
-  { key: "total", label: "총합", metaLabel: "내구도 총합", summaryKey: "combinedTotal" },
-  { key: "armor", label: "아머", metaLabel: "아머 총합", summaryKey: "armorTotal" },
-  { key: "structure", label: "스트럭쳐", metaLabel: "스트럭쳐 총합", summaryKey: "structureTotal" },
+  { key: "total", label: t("stats.total"), metaLabel: t("info.durability"), summaryKey: "combinedTotal" },
+  { key: "armor", label: t("common.armor"), metaLabel: t("info.armorInfo"), summaryKey: "armorTotal" },
+  { key: "structure", label: t("stats.structure"), metaLabel: t("info.structureInfo"), summaryKey: "structureTotal" },
 ];
 
 const STATS_DURABILITY_SCOPES = [
-  { key: "all", label: "전체", componentKeys: null },
-  { key: "shoulders", label: "어깨", componentKeys: ["left_torso", "right_torso"] },
-  { key: "torso", label: "몸통", componentKeys: ["centre_torso"] },
-  { key: "torsoShoulders", label: "어깨+몸통", componentKeys: ["centre_torso", "left_torso", "right_torso"] },
+  { key: "all", label: t("stats.all"), componentKeys: null },
+  { key: "shoulders", label: t("stats.shoulders"), componentKeys: ["left_torso", "right_torso"] },
+  { key: "torso", label: t("stats.torso"), componentKeys: ["centre_torso"] },
+  { key: "torsoShoulders", label: t("stats.torsoShoulders"), componentKeys: ["centre_torso", "left_torso", "right_torso"] },
 ];
 
 const STATS_MOBILITY_CATEGORIES = [
-  { key: "acceleration", label: "가속", metaLabel: "가속", movementKey: "acceleration", digits: 1, unit: " kph/s" },
-  { key: "deceleration", label: "감속", metaLabel: "감속", movementKey: "deceleration", digits: 1, unit: " kph/s" },
-  { key: "turnSpeed", label: "선회속도", metaLabel: "선회속도", movementKey: "turnSpeed", digits: 2, unit: " deg/s" },
-  { key: "torsoSpeedX", label: "몸통 회전속도", metaLabel: "몸통 회전속도 X축", movementKey: "torsoSpeed", digits: 1, unit: " deg/s" },
+  { key: "acceleration", label: t("info.acceleration"), metaLabel: t("info.acceleration"), movementKey: "acceleration", digits: 1, unit: " kph/s" },
+  { key: "deceleration", label: t("info.deceleration"), metaLabel: t("info.deceleration"), movementKey: "deceleration", digits: 1, unit: " kph/s" },
+  { key: "turnSpeed", label: t("info.turnSpeed"), metaLabel: t("info.turnSpeed"), movementKey: "turnSpeed", digits: 2, unit: " deg/s" },
+  { key: "torsoSpeedX", label: t("info.torsoSpeed"), metaLabel: t("info.torsoSpeed"), movementKey: "torsoSpeed", digits: 1, unit: " deg/s" },
 ];
 
 const STATS_QUIRK_CATEGORIES = [
-  { key: "cooldown", label: "쿨 다운", metaLabel: "쿨 다운", summaryKey: "cooldown", digits: 1, scale: 100, unit: "%" },
-  { key: "heat", label: "발열", metaLabel: "발열", summaryKey: "heat", digits: 1, scale: 100, unit: "%" },
-  { key: "durability", label: "내구도", metaLabel: "내구도", summaryKey: "durability", digits: 1 },
-  { key: "range", label: "사거리", metaLabel: "사거리", summaryKey: "range", digits: 1, scale: 100, unit: "%" },
-  { key: "velocity", label: "탄속", metaLabel: "탄속", summaryKey: "velocity", digits: 1, scale: 100, unit: "%" },
+  { key: "cooldown", label: t("info.cooldown"), metaLabel: t("info.cooldown"), summaryKey: "cooldown", digits: 1, scale: 100, unit: "%" },
+  { key: "heat", label: t("common.heat"), metaLabel: t("common.heat"), summaryKey: "heat", digits: 1, scale: 100, unit: "%" },
+  { key: "durability", label: t("info.durability"), metaLabel: t("info.durability"), summaryKey: "durability", digits: 1 },
+  { key: "range", label: t("info.range"), metaLabel: t("info.range"), summaryKey: "range", digits: 1, scale: 100, unit: "%" },
+  { key: "velocity", label: t("info.velocity"), metaLabel: t("info.velocity"), summaryKey: "velocity", digits: 1, scale: 100, unit: "%" },
 ];
 
 const STATS_CHASSIS_AGGREGATE_MODES = [
-  { key: "average", label: "평균" },
-  { key: "max", label: "최대치" },
-  { key: "min", label: "최소치" },
+  { key: "average", label: t("common.average") },
+  { key: "max", label: t("common.max") },
+  { key: "min", label: t("common.min") },
 ];
 
 const MAX_COMPARE_MECHS = 15;
 const COMPARE_RANK_EPSILON = 0.0001;
-const DEFAULT_COLLAPSED_COMPARE_CATEGORIES = ["종합 내구", "아머 정보", "스트럭쳐 정보", "기본 정보"];
+const DEFAULT_COLLAPSED_COMPARE_CATEGORIES = [t("info.combinedDurability"), t("info.armorInfo"), t("info.structureInfo"), t("stats.chassisInfo")];
 const DIRECT_COOLDOWN_QUIRKS = new Set([
   "all_cooldown_multiplier",
   "energy_cooldown_multiplier",
@@ -123,6 +574,7 @@ const DIRECT_SPREAD_QUIRKS = new Set([
 ]);
 
 const state = {
+  language: activeLanguage,
   index: null,
   mechs: [],
   equipment: null,
@@ -342,7 +794,7 @@ function escapeRegex(value) {
 }
 
 function formatChassisName(chassis) {
-  return String(chassis || "Unknown")
+  return String(chassis || t("common.unknown"))
     .replace(/([a-z])([A-Z])/g, "$1 $2")
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
@@ -354,7 +806,7 @@ function variantCode(mech) {
 
 function chassisDisplayName(variants) {
   const mech = variants[0];
-  if (!mech) return "Unknown";
+  if (!mech) return t("common.unknown");
   const display = mech.display_name || formatChassisName(mech.chassis);
   const variant = variantCode(mech);
   const stripped = display.replace(new RegExp(`\\s*${escapeRegex(variant)}\\s*$`, "i"), "").trim();
@@ -372,7 +824,7 @@ function factionRank(faction) {
 }
 
 function factionLabel(faction) {
-  return FACTION_LABELS[faction] || faction || "Unknown";
+  return FACTION_LABELS[faction] || faction || t("common.unknown");
 }
 
 function factionClass(faction) {
@@ -401,7 +853,7 @@ function chassisGroupsForWeight(grouped, weightClass) {
         variants,
         label: chassisDisplayName(variants),
         tons: variants[0]?.definition?.stats?.MaxTons || "?",
-        faction: variants[0]?.faction || "Unknown",
+        faction: variants[0]?.faction || t("common.unknown"),
         order,
       };
     })
@@ -1146,24 +1598,24 @@ function cooldownQuirkSummary(quirks) {
   const energyCooldown = allCooldown + quirkReduction(quirks, "energy_cooldown_multiplier") + energyWeaponCooldownMax(quirks);
   const groups = [
     {
-      label: "ENERGY COOLDOWN",
+      label: t("quirk.energyCooldown"),
       className: "quirk-tone-energy",
       value: energyCooldown,
     },
     {
-      label: "MISSILE COOLDOWN",
+      label: t("quirk.missileCooldown"),
       className: "quirk-tone-missile",
       value: allCooldown + quirkReduction(quirks, "missile_cooldown_multiplier") + weaponCooldownMax.missile,
     },
     {
-      label: "BALLISTIC COOLDOWN",
+      label: t("quirk.ballisticCooldown"),
       className: "quirk-tone-default",
       value: allCooldown + quirkReduction(quirks, "ballistic_cooldown_multiplier") + weaponCooldownMax.ballistic,
     },
   ];
   const maxCooldown = Math.max(allCooldown, ...groups.map((group) => group.value));
-  return renderQuirkSummary("COOLDOWN SUMMARY", "quirk-summary-cooldown", [
-    { label: "MAX COOLDOWN", className: "quirk-summary-max", value: maxCooldown },
+  return renderQuirkSummary(t("quirk.cooldownSummary"), "quirk-summary-cooldown", [
+    { label: t("quirk.maxCooldown"), className: "quirk-summary-max", value: maxCooldown },
     ...groups,
   ]);
 }
@@ -1181,17 +1633,17 @@ function heatQuirkSummary(quirks) {
   const energyHeat = allHeat + quirkReduction(quirks, "energy_heat_multiplier") + energyWeaponHeatMax(quirks);
   const groups = [
     {
-      label: "ENERGY HEAT",
+      label: t("quirk.energyHeat"),
       className: "quirk-tone-energy",
       value: energyHeat,
     },
     {
-      label: "MISSILE HEAT",
+      label: t("quirk.missileHeat"),
       className: "quirk-tone-missile",
       value: allHeat + quirkReduction(quirks, "missile_heat_multiplier") + weaponHeatMax.missile,
     },
     {
-      label: "BALLISTIC HEAT",
+      label: t("quirk.ballisticHeat"),
       className: "quirk-tone-default",
       value: allHeat + quirkReduction(quirks, "ballistic_heat_multiplier") + weaponHeatMax.ballistic,
     },
@@ -1199,10 +1651,10 @@ function heatQuirkSummary(quirks) {
   const maxHeat = Math.max(allHeat, ...groups.map((group) => group.value));
   const heatDissipation = Math.max(0, number(quirks.find((quirk) => quirk.name.toLowerCase() === "heatdissipation_multiplier")?.value));
 
-  return renderQuirkSummary("HEAT SUMMARY", "quirk-summary-heat", [
-    { label: "MAX HEAT RED.", className: "quirk-summary-max", value: maxHeat },
+  return renderQuirkSummary(t("quirk.heatSummary"), "quirk-summary-heat", [
+    { label: t("quirk.maxHeatReduction"), className: "quirk-summary-max", value: maxHeat },
     ...groups,
-    { label: "HEAT DISSIPATION", className: "quirk-tone-default", value: heatDissipation },
+    { label: t("quirk.heatDissipation"), className: "quirk-tone-default", value: heatDissipation },
   ]);
 }
 
@@ -1210,24 +1662,24 @@ function velocityQuirkSummary(quirks) {
   const allVelocity = quirkIncrease(quirks, "all_velocity_multiplier");
   const groups = [
     {
-      label: "ENERGY VELOCITY",
+      label: t("quirk.energyVelocity"),
       className: "quirk-tone-energy",
       value: allVelocity + quirkIncrease(quirks, "energy_velocity_multiplier") + weaponStatMax(quirks, velocityQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "energy"),
     },
     {
-      label: "MISSILE VELOCITY",
+      label: t("quirk.missileVelocity"),
       className: "quirk-tone-missile",
       value: allVelocity + quirkIncrease(quirks, "missile_velocity_multiplier") + weaponStatMax(quirks, velocityQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "missile"),
     },
     {
-      label: "BALLISTIC VELOCITY",
+      label: t("quirk.ballisticVelocity"),
       className: "quirk-tone-default",
       value: allVelocity + quirkIncrease(quirks, "ballistic_velocity_multiplier") + weaponStatMax(quirks, velocityQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "ballistic"),
     },
   ];
   const maxVelocity = Math.max(allVelocity, ...groups.map((group) => group.value));
-  return renderQuirkSummary("VELOCITY SUMMARY", "quirk-summary-velocity", [
-    { label: "MAX VELOCITY", className: "quirk-summary-max", value: maxVelocity },
+  return renderQuirkSummary(t("quirk.velocitySummary"), "quirk-summary-velocity", [
+    { label: t("quirk.maxVelocity"), className: "quirk-summary-max", value: maxVelocity },
     ...groups,
   ]);
 }
@@ -1236,24 +1688,24 @@ function rangeQuirkSummary(quirks) {
   const allRange = quirkIncrease(quirks, "all_range_multiplier");
   const groups = [
     {
-      label: "ENERGY RANGE",
+      label: t("quirk.energyRange"),
       className: "quirk-tone-energy",
       value: allRange + quirkIncrease(quirks, "energy_range_multiplier") + weaponStatMax(quirks, rangeQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "energy"),
     },
     {
-      label: "MISSILE RANGE",
+      label: t("quirk.missileRange"),
       className: "quirk-tone-missile",
       value: allRange + quirkIncrease(quirks, "missile_range_multiplier") + weaponStatMax(quirks, rangeQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "missile"),
     },
     {
-      label: "BALLISTIC RANGE",
+      label: t("quirk.ballisticRange"),
       className: "quirk-tone-default",
       value: allRange + quirkIncrease(quirks, "ballistic_range_multiplier") + weaponStatMax(quirks, rangeQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), "ballistic"),
     },
   ];
   const maxRange = Math.max(allRange, ...groups.map((group) => group.value));
-  return renderQuirkSummary("RANGE SUMMARY", "quirk-summary-range", [
-    { label: "MAX RANGE", className: "quirk-summary-max", value: maxRange },
+  return renderQuirkSummary(t("quirk.rangeSummary"), "quirk-summary-range", [
+    { label: t("quirk.maxRange"), className: "quirk-summary-max", value: maxRange },
     ...groups,
   ]);
 }
@@ -1265,15 +1717,15 @@ function durationQuirkSummary(quirks) {
   const rotaryAcRof = quirkIncrease(quirks, "rotaryautocannon_rof_multiplier");
   const amsRof = quirkIncrease(quirks, "clanantimissilesystem_rof_multiplier");
   const items = [
-    { label: "MAX DURATION", className: "quirk-summary-max", value: Math.max(energyDuration, machineGunRof, rotaryAcRof, amsRof) },
-    { label: "ENERGY DURATION", className: "quirk-tone-energy", value: energyDuration },
-    { label: "MG ROF", className: "quirk-tone-default", value: machineGunRof },
-    { label: "RAC ROF", className: "quirk-tone-default", value: rotaryAcRof },
+    { label: t("quirk.maxDuration"), className: "quirk-summary-max", value: Math.max(energyDuration, machineGunRof, rotaryAcRof, amsRof) },
+    { label: t("quirk.energyDuration"), className: "quirk-tone-energy", value: energyDuration },
+    { label: t("quirk.mgRof"), className: "quirk-tone-default", value: machineGunRof },
+    { label: t("quirk.racRof"), className: "quirk-tone-default", value: rotaryAcRof },
   ];
   if (amsRof > 0) {
-    items.push({ label: "AMS ROF", className: "quirk-tone-default", value: amsRof });
+    items.push({ label: t("quirk.amsRof"), className: "quirk-tone-default", value: amsRof });
   }
-  return renderQuirkSummary("DURATION SUMMARY", "quirk-summary-duration", [
+  return renderQuirkSummary(t("quirk.durationSummary"), "quirk-summary-duration", [
     ...items,
   ]);
 }
@@ -1283,11 +1735,11 @@ function spreadQuirkSummary(quirks) {
   const missileSpread = allSpread + quirkReduction(quirks, "missile_spread_multiplier") + weaponStatMax(quirks, spreadQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "missile");
   const ballisticSpread = allSpread + quirkReduction(quirks, "ballistic_spread_multiplier") + weaponStatMax(quirks, spreadQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "ballistic");
   const maxSpread = Math.max(allSpread, missileSpread, ballisticSpread);
-  return renderQuirkSummary("SPREAD SUMMARY", "quirk-summary-spread", [
-    { label: "MAX SPREAD", className: "quirk-summary-max", value: maxSpread },
+  return renderQuirkSummary(t("quirk.spreadSummary"), "quirk-summary-spread", [
+    { label: t("quirk.maxSpread"), className: "quirk-summary-max", value: maxSpread },
     { empty: true, value: 0 },
-    { label: "MISSILE SPREAD", className: "quirk-tone-missile", value: missileSpread },
-    { label: "BALLISTIC SPREAD", className: "quirk-tone-default", value: ballisticSpread },
+    { label: t("quirk.missileSpread"), className: "quirk-tone-missile", value: missileSpread },
+    { label: t("quirk.ballisticSpread"), className: "quirk-tone-default", value: ballisticSpread },
   ]);
 }
 
@@ -1357,31 +1809,31 @@ function specialQuirkCategories(quirks) {
 
   return [
     hasQuirk(["ecm"]) ? "ECM" : "",
-    hasQuirk(["jumpjet", "jump jet"]) ? "점프젯" : "",
-    hasQuirk(["narc_duration_multiplier", "narcbeacon_narcduration_additive", "narc duration"]) ? "NARC 지속시간" : "",
+    hasQuirk(["jumpjet", "jump jet"]) ? t("special.jumpjets") : "",
+    hasQuirk(["narc_duration_multiplier", "narcbeacon_narcduration_additive", "narc duration"]) ? t("special.narcDuration") : "",
   ].filter(Boolean);
 }
 
 function renderQuirkOverviewCard(quirks) {
   const specialCategories = specialQuirkCategories(quirks);
   const rows = [
-    ["쿨 다운", formatQuirkSummaryPercent(cooldownSummaryMax(quirks))],
-    ["발열", formatQuirkSummaryPercent(heatSummaryMax(quirks))],
-    ["내구도", formatQuirkSummaryNumber(durabilitySummaryTotal(quirks))],
-    ["사거리", formatQuirkSummaryPercent(rangeSummaryMax(quirks))],
-    ["탄속", formatQuirkSummaryPercent(velocitySummaryMax(quirks))],
+    [t("info.cooldown"), formatQuirkSummaryPercent(cooldownSummaryMax(quirks))],
+    [t("common.heat"), formatQuirkSummaryPercent(heatSummaryMax(quirks))],
+    [t("info.durability"), formatQuirkSummaryNumber(durabilitySummaryTotal(quirks))],
+    [t("info.range"), formatQuirkSummaryPercent(rangeSummaryMax(quirks))],
+    [t("info.velocity"), formatQuirkSummaryPercent(velocitySummaryMax(quirks))],
   ];
   const specialTags = specialCategories.length
     ? specialCategories.map((label) => `<span class="quirk-overview-tag">${label}</span>`).join("")
-    : `<span class="quirk-overview-empty-text">특수 쿼크 없음</span>`;
+    : `<span class="quirk-overview-empty-text">${t("info.noSpecialQuirks")}</span>`;
 
   return `
     <section class="info-card info-quirk-summary-card quirk-overview-card">
-      <h3>쿼크 서머리</h3>
+      <h3>${t("info.quirkSummary")}</h3>
       <div class="quirk-overview-table">
         <div class="quirk-overview-row quirk-overview-head">
-          <span>항목</span>
-          <span>수치</span>
+          <span>${t("common.item")}</span>
+          <span>${t("common.value")}</span>
         </div>
         ${rows.map((row) => `
           <div class="quirk-overview-row">
@@ -1390,7 +1842,7 @@ function renderQuirkOverviewCard(quirks) {
           </div>
         `).join("")}
         <div class="quirk-overview-row quirk-overview-special-row">
-          <span>특수 쿼크</span>
+          <span>${t("info.specialQuirks")}</span>
           <div class="quirk-overview-tags">${specialTags}</div>
         </div>
       </div>
@@ -1414,11 +1866,11 @@ function durabilityQuirkSummary(quirks) {
   const totalDurability = totalArmor + totalStructure;
   const critPrevention = Math.max(0, -number(values.critchance_receiving_multiplier));
 
-  return renderQuirkSummary("DURABILITY SUMMARY", "quirk-summary-durability", [
-    { label: "MAX DURABILITY", className: "quirk-summary-max", value: totalDurability, format: "number" },
-    { label: "ARMOR", className: "quirk-tone-armor", value: totalArmor, format: "number" },
-    { label: "STRUCTURE", className: "quirk-tone-armor", value: totalStructure, format: "number" },
-    { label: "CRIT PREVENT", className: "quirk-tone-default", value: critPrevention },
+  return renderQuirkSummary(t("quirk.durabilitySummary"), "quirk-summary-durability", [
+    { label: t("quirk.maxDurability"), className: "quirk-summary-max", value: totalDurability, format: "number" },
+    { label: t("quirk.armor"), className: "quirk-tone-armor", value: totalArmor, format: "number" },
+    { label: t("quirk.structure"), className: "quirk-tone-armor", value: totalStructure, format: "number" },
+    { label: t("quirk.critPrevent"), className: "quirk-tone-default", value: critPrevention },
   ]);
 }
 
@@ -1636,7 +2088,7 @@ function renderCompareCell(row, data, entry) {
 
 function renderCompareTable(mechs) {
   if (!mechs.length) {
-    return `<div class="empty compare-empty">왼쪽 리스트에서 비교할 멕을 선택하세요.</div>`;
+    return `<div class="empty compare-empty">${t("compare.empty")}</div>`;
   }
 
   const data = mechs.map(infoDataForMech);
@@ -1647,40 +2099,40 @@ function renderCompareTable(mechs) {
     structure: (entry) => compareNumber(entry.structureRows[index].total, 0),
   }));
   const rows = [
-    { group: "쿼크 서머리" },
-    { label: "쿨 다운", value: (entry) => comparePercent(cooldownSummaryMax(entry.quirks)) },
-    { label: "발열", value: (entry) => comparePercent(heatSummaryMax(entry.quirks)) },
-    { label: "내구도", value: (entry) => compareNumber(durabilitySummaryTotal(entry.quirks), 1) },
-    { label: "사거리", value: (entry) => comparePercent(rangeSummaryMax(entry.quirks)) },
-    { label: "탄속", value: (entry) => comparePercent(velocitySummaryMax(entry.quirks)) },
-    { label: "특수 쿼크", value: (entry) => compareText(specialQuirkCategories(entry.quirks).join(", ") || "-") },
-    { group: "내구도 요약" },
-    { label: "아머 + 스트럭쳐 총합", value: (entry) => compareNumber(entry.combinedTotal, 0) },
-    { label: "아머 총합", value: (entry) => compareNumber(entry.armorTotal, 0) },
-    { label: "스트럭쳐 총합", value: (entry) => compareNumber(entry.structureTotal, 0) },
-    { group: "기동성" },
-    { label: "최대 속도", value: (entry) => compareNumber(entry.movement.maxSpeed, 1) },
-    { label: "가속도", value: (entry) => compareNumber(entry.movement.acceleration, 1) },
-    { label: "감속도", value: (entry) => compareNumber(entry.movement.deceleration, 1) },
-    { label: "선회 속도", value: (entry) => compareNumber(entry.movement.turnSpeed, 2) },
-    { label: "회전각 X", value: (entry) => compareNumberList(entry.movement.angleX, 1) },
-    { label: "회전각 Y", value: (entry) => compareNumberList(entry.movement.angleY, 1) },
-    { label: "몸통 회전속도", value: (entry) => compareNumber(entry.movement.torsoSpeed, 1) },
-    { group: "종합 내구" },
-    { label: "아머 + 스트럭쳐 총합", value: (entry) => compareNumber(entry.combinedTotal, 0) },
+    { group: t("info.quirkSummary") },
+    { label: t("info.cooldown"), value: (entry) => comparePercent(cooldownSummaryMax(entry.quirks)) },
+    { label: t("common.heat"), value: (entry) => comparePercent(heatSummaryMax(entry.quirks)) },
+    { label: t("info.durability"), value: (entry) => compareNumber(durabilitySummaryTotal(entry.quirks), 1) },
+    { label: t("info.range"), value: (entry) => comparePercent(rangeSummaryMax(entry.quirks)) },
+    { label: t("info.velocity"), value: (entry) => comparePercent(velocitySummaryMax(entry.quirks)) },
+    { label: t("info.specialQuirks"), value: (entry) => compareText(specialQuirkCategories(entry.quirks).join(", ") || "-") },
+    { group: t("info.durabilitySummary") },
+    { label: t("info.armorStructureTotal"), value: (entry) => compareNumber(entry.combinedTotal, 0) },
+    { label: `${t("common.armor")} ${t("stats.total")}`, value: (entry) => compareNumber(entry.armorTotal, 0) },
+    { label: t("info.structureTotal"), value: (entry) => compareNumber(entry.structureTotal, 0) },
+    { group: t("info.mobility") },
+    { label: t("info.maxSpeed"), value: (entry) => compareNumber(entry.movement.maxSpeed, 1) },
+    { label: t("info.acceleration"), value: (entry) => compareNumber(entry.movement.acceleration, 1) },
+    { label: t("info.deceleration"), value: (entry) => compareNumber(entry.movement.deceleration, 1) },
+    { label: t("info.turnSpeed"), value: (entry) => compareNumber(entry.movement.turnSpeed, 2) },
+    { label: t("info.angleX"), value: (entry) => compareNumberList(entry.movement.angleX, 1) },
+    { label: t("info.angleY"), value: (entry) => compareNumberList(entry.movement.angleY, 1) },
+    { label: t("info.torsoSpeed"), value: (entry) => compareNumber(entry.movement.torsoSpeed, 1) },
+    { group: t("info.combinedDurability") },
+    { label: t("info.armorStructureTotal"), value: (entry) => compareNumber(entry.combinedTotal, 0) },
     ...bodyRows.map((row) => ({ label: row.label, value: row.combined })),
-    { group: "아머 정보" },
-    { label: "최대 아머 포인트 총합", value: (entry) => compareNumber(entry.armorTotal, 0) },
+    { group: t("info.armorInfo") },
+    { label: t("info.maxArmorTotal"), value: (entry) => compareNumber(entry.armorTotal, 0) },
     ...bodyRows.map((row) => ({ label: row.label, value: row.armor })),
-    { group: "스트럭쳐 정보" },
-    { label: "스트럭쳐 총합", value: (entry) => compareNumber(entry.structureTotal, 0) },
+    { group: t("info.structureInfo") },
+    { label: t("info.structureTotal"), value: (entry) => compareNumber(entry.structureTotal, 0) },
     ...bodyRows.map((row) => ({ label: row.label, value: row.structure })),
-    { group: "기본 정보" },
-    { label: "톤수", value: (entry) => compareNumber(number(entry.stats.MaxTons), 0, "t") },
-    { label: "진영", value: (entry) => compareText(entry.mech.faction || "Unknown") },
-    { label: "체급", value: (entry) => compareText(WEIGHT_CLASS_LABELS[entry.mech.weight_class] || entry.mech.weight_class || "Unknown") },
-    { label: "최소 엔진", value: (entry) => compareNumber(number(entry.stats.MinEngineRating), 0) },
-    { label: "최대 엔진", value: (entry) => compareNumber(number(entry.stats.MaxEngineRating), 0) },
+    { group: t("stats.chassisInfo") },
+    { label: t("stats.tons"), value: (entry) => compareNumber(number(entry.stats.MaxTons), 0, "t") },
+    { label: t("stats.faction"), value: (entry) => compareText(factionLabel(entry.mech.faction)) },
+    { label: t("stats.weight"), value: (entry) => compareText(WEIGHT_CLASS_LABELS[entry.mech.weight_class] || entry.mech.weight_class || t("common.unknown")) },
+    { label: t("info.minEngine"), value: (entry) => compareNumber(number(entry.stats.MinEngineRating), 0) },
+    { label: t("info.maxEngine"), value: (entry) => compareNumber(number(entry.stats.MaxEngineRating), 0) },
   ];
 
   return `
@@ -1688,7 +2140,7 @@ function renderCompareTable(mechs) {
       <table class="compare-table">
         <thead>
           <tr>
-            <th scope="col">항목</th>
+            <th scope="col">${t("common.item")}</th>
             ${data
               .map((entry) => {
                 const isBaseline = String(state.compareBaselineMechId) === String(entry.mech.id);
@@ -1697,22 +2149,22 @@ function renderCompareTable(mechs) {
                   class="${isBaseline ? "compare-baseline-column" : ""}"
                   data-compare-baseline="${entry.mech.id}"
                   scope="col"
-                  title="기준으로 설정"
+                  title="${t("compare.setBaseline")}"
                 >
                   <span class="compare-title">
-                    <label class="compare-baseline-toggle" data-compare-baseline="${entry.mech.id}" title="기준">
+                    <label class="compare-baseline-toggle" data-compare-baseline="${entry.mech.id}" title="${t("common.baseline")}">
                       <input
                         data-compare-baseline="${entry.mech.id}"
                         name="compare-baseline"
                         type="radio"
                         ${String(state.compareBaselineMechId) === String(entry.mech.id) ? "checked" : ""}
                       >
-                      <span>기준</span>
+                      <span>${t("common.baseline")}</span>
                     </label>
                     <strong>${variantCode(entry.mech)}</strong>
-                    <button class="compare-remove" data-remove-compare="${entry.mech.id}" type="button" aria-label="${entry.mech.display_name} 비교에서 제거">x</button>
+                    <button class="compare-remove" data-remove-compare="${entry.mech.id}" type="button" aria-label="${t("compare.removeAria", { name: entry.mech.display_name })}">x</button>
                   </span>
-                  <span class="compare-meta">${entry.mech.faction || "Unknown"} - ${entry.stats.MaxTons || "?"}t</span>
+                  <span class="compare-meta">${factionLabel(entry.mech.faction)} - ${entry.stats.MaxTons || "?"}t</span>
                 </th>
               `;
               })
@@ -1754,7 +2206,7 @@ function renderCompareTable(mechs) {
 }
 
 function compareSelectionText(mechs = compareMechs()) {
-  return `${mechs.length}/${MAX_COMPARE_MECHS} 선택됨${mechs.length ? ` - ${mechs.map(variantCode).join(", ")}` : ""}`;
+  return `${t("compare.selected", { count: mechs.length, max: MAX_COMPARE_MECHS })}${mechs.length ? ` - ${mechs.map(variantCode).join(", ")}` : ""}`;
 }
 
 function renderCompareOverlayCell(entry) {
@@ -1763,28 +2215,28 @@ function renderCompareOverlayCell(entry) {
     <div
       class="compare-header-overlay-cell ${isBaseline ? "compare-baseline-column" : ""}"
       data-compare-baseline="${entry.mech.id}"
-      title="기준으로 설정"
+      title="${t("compare.setBaseline")}"
     >
       <span class="compare-title">
-        <label class="compare-baseline-toggle" data-compare-baseline="${entry.mech.id}" title="기준">
+        <label class="compare-baseline-toggle" data-compare-baseline="${entry.mech.id}" title="${t("common.baseline")}">
           <input
             data-compare-baseline="${entry.mech.id}"
             name="compare-baseline-overlay"
             type="radio"
             ${isBaseline ? "checked" : ""}
           >
-          <span>기준</span>
+          <span>${t("common.baseline")}</span>
         </label>
         <strong>${variantCode(entry.mech)}</strong>
       </span>
-      <span class="compare-meta">${entry.mech.faction || "Unknown"} - ${entry.stats.MaxTons || "?"}t</span>
+      <span class="compare-meta">${factionLabel(entry.mech.faction)} - ${entry.stats.MaxTons || "?"}t</span>
     </div>
   `;
 }
 
 function renderCompareOverlayHeader(mechs) {
   return `
-    <div class="compare-header-overlay-cell compare-header-overlay-item">항목</div>
+    <div class="compare-header-overlay-cell compare-header-overlay-item">${t("common.item")}</div>
     <div class="compare-header-overlay-track">
       ${mechs.map((mech) => renderCompareOverlayCell(infoDataForMech(mech))).join("")}
     </div>
@@ -1867,8 +2319,8 @@ function renderInfoPanel() {
   $("mech-info").className = "info-grid";
   const mech = state.selectedMech;
   if (!mech) {
-    $("info-variant-name").textContent = "멕을 선택하세요";
-    $("info-variant-meta").textContent = "왼쪽 목록에서 카테고리를 펼친 뒤 멕을 선택하세요.";
+    $("info-variant-name").textContent = t("info.selectMech");
+    $("info-variant-meta").textContent = t("info.selectMechHint");
     $("mech-info").innerHTML = "";
     updateCompareOverlay();
     return;
@@ -1888,33 +2340,33 @@ function renderInfoPanel() {
   const movement = movementInfo(values);
 
   $("info-variant-name").textContent = mech.display_name;
-  $("info-variant-meta").textContent = `${mech.faction || "Unknown"} - ${WEIGHT_CLASS_LABELS[mech.weight_class] || mech.weight_class || "Unknown"} - ${stats.MaxTons || "?"} tons`;
+  $("info-variant-meta").textContent = `${factionLabel(mech.faction)} - ${WEIGHT_CLASS_LABELS[mech.weight_class] || mech.weight_class || t("common.unknown")} - ${stats.MaxTons || "?"} ${t("common.tons")}`;
   $("mech-info").innerHTML = [
     renderQuirkOverviewCard(quirks),
-    renderInfoTable("종합 내구", ["부위", "수치"], [
-      ["아머 + 스트럭쳐 총합", specValue(combinedBaseTotal, combinedTotal, 0)],
+    renderInfoTable(t("info.combinedDurability"), [t("info.part"), t("common.value")], [
+      [t("info.armorStructureTotal"), specValue(combinedBaseTotal, combinedTotal, 0)],
       ...combinedRows.map((row) => [row.label, specValue(row.totalBase, row.total, 0)]),
     ], { compact: true }),
-    renderInfoTable("기동성", ["항목", "수치"], [
-      ["최대 속도", specMobilitySpeed(movement.baseMaxSpeed, movement.baseReverseSpeed, movement.maxSpeed, movement.reverseSpeed, 1, " kph")],
-      ["가속도", specMobilityValue(movement.baseAcceleration, movement.acceleration, 1, " kph/s")],
-      ["감속도", specMobilityValue(movement.baseDeceleration, movement.deceleration, 1, " kph/s")],
-      ["선회 속도", specMobilityValue(movement.baseTurnSpeed, movement.turnSpeed, 2, " deg/s")],
-      ["회전각 X", specAnglePair(movement.baseAngleX[0], movement.angleX[0], movement.angleX[1], "X", 1)],
-      ["회전각 Y", specAnglePair(movement.baseAngleY[0], movement.angleY[0], movement.angleY[1], "Y", 1)],
-      ["몸통 회전속도", specMobilityValue(movement.baseTorsoSpeed, movement.torsoSpeed, 1, " deg/s")],
+    renderInfoTable(t("info.mobility"), [t("info.stat"), t("common.value")], [
+      [t("info.maxSpeed"), specMobilitySpeed(movement.baseMaxSpeed, movement.baseReverseSpeed, movement.maxSpeed, movement.reverseSpeed, 1, " kph")],
+      [t("info.acceleration"), specMobilityValue(movement.baseAcceleration, movement.acceleration, 1, " kph/s")],
+      [t("info.deceleration"), specMobilityValue(movement.baseDeceleration, movement.deceleration, 1, " kph/s")],
+      [t("info.turnSpeed"), specMobilityValue(movement.baseTurnSpeed, movement.turnSpeed, 2, " deg/s")],
+      [t("info.angleX"), specAnglePair(movement.baseAngleX[0], movement.angleX[0], movement.angleX[1], "X", 1)],
+      [t("info.angleY"), specAnglePair(movement.baseAngleY[0], movement.angleY[0], movement.angleY[1], "Y", 1)],
+      [t("info.torsoSpeed"), specMobilityValue(movement.baseTorsoSpeed, movement.torsoSpeed, 1, " deg/s")],
     ]),
-    renderInfoTable("스트럭쳐 정보", ["부위", "수치"], [
-      ["스트럭쳐 총합", specValue(structureBaseTotal, structureTotal, 0)],
+    renderInfoTable(t("info.structureInfo"), [t("info.part"), t("common.value")], [
+      [t("info.structureTotal"), specValue(structureBaseTotal, structureTotal, 0)],
       ...structureRows.map((row) => [row.label, specValue(row.base, row.total, 0)]),
     ], { compact: true }),
-    renderInfoTable("아머 정보", ["부위", "수치"], [
-      ["최대 아머 포인트 총합", specValue(armorBaseTotal, armorTotal, 0)],
+    renderInfoTable(t("info.armorInfo"), [t("info.part"), t("common.value")], [
+      [t("info.maxArmorTotal"), specValue(armorBaseTotal, armorTotal, 0)],
       ...armorRows.map((row) => [row.label, specValue(row.totalBase, row.total, 0)]),
     ], { compact: true }),
-    renderInfoTable("엔진", ["항목", "수치"], [
-      ["최소 엔진", formatInfoNumber(number(stats.MinEngineRating), 0)],
-      ["최대 엔진", formatInfoNumber(number(stats.MaxEngineRating), 0)],
+    renderInfoTable(t("info.engine"), [t("info.stat"), t("common.value")], [
+      [t("info.minEngine"), formatInfoNumber(number(stats.MinEngineRating), 0)],
+      [t("info.maxEngine"), formatInfoNumber(number(stats.MaxEngineRating), 0)],
     ]),
     renderInfoQuirks(quirks),
   ].join("");
@@ -1924,7 +2376,7 @@ function renderComparePanel() {
   $("compare-deltas").checked = state.compareShowDeltas;
   $("compare-apply-quirks").checked = state.infoApplyQuirks;
   const mechs = compareMechs();
-  $("compare-variant-name").textContent = "멕 비교";
+  $("compare-variant-name").textContent = t("compare.title");
   $("compare-variant-meta").textContent = compareSelectionText(mechs);
   $("compare-info").innerHTML = renderCompareTable(mechs);
   document.querySelector(".compare-table-wrap")?.addEventListener("scroll", updateCompareOverlay, { passive: true });
@@ -1937,30 +2389,30 @@ function renderStatsInfoDetail(mech) {
   const stats = data.stats || {};
   return [
     renderQuirkOverviewCard(data.quirks),
-    renderInfoTable("종합 내구", ["부위", "수치"], [
-      ["아머 + 스트럭쳐 총합", specValue(data.combinedBaseTotal, data.combinedTotal, 0, "", applyQuirks)],
+    renderInfoTable(t("info.combinedDurability"), [t("info.part"), t("common.value")], [
+      [t("info.armorStructureTotal"), specValue(data.combinedBaseTotal, data.combinedTotal, 0, "", applyQuirks)],
       ...data.combinedRows.map((row) => [row.label, specValue(row.totalBase, row.total, 0, "", applyQuirks)]),
     ], { compact: true }),
-    renderInfoTable("기동성", ["항목", "수치"], [
-      ["최대 속도", specMobilitySpeed(data.movement.baseMaxSpeed, data.movement.baseReverseSpeed, data.movement.maxSpeed, data.movement.reverseSpeed, 1, " kph", applyQuirks)],
-      ["가속도", specMobilityValue(data.movement.baseAcceleration, data.movement.acceleration, 1, " kph/s", applyQuirks)],
-      ["감속도", specMobilityValue(data.movement.baseDeceleration, data.movement.deceleration, 1, " kph/s", applyQuirks)],
-      ["선회 속도", specMobilityValue(data.movement.baseTurnSpeed, data.movement.turnSpeed, 2, " deg/s", applyQuirks)],
-      ["회전각 X", specAnglePair(data.movement.baseAngleX[0], data.movement.angleX[0], data.movement.angleX[1], "X", 1, applyQuirks)],
-      ["회전각 Y", specAnglePair(data.movement.baseAngleY[0], data.movement.angleY[0], data.movement.angleY[1], "Y", 1, applyQuirks)],
-      ["몸통 회전속도", specMobilityValue(data.movement.baseTorsoSpeed, data.movement.torsoSpeed, 1, " deg/s", applyQuirks)],
+    renderInfoTable(t("info.mobility"), [t("info.stat"), t("common.value")], [
+      [t("info.maxSpeed"), specMobilitySpeed(data.movement.baseMaxSpeed, data.movement.baseReverseSpeed, data.movement.maxSpeed, data.movement.reverseSpeed, 1, " kph", applyQuirks)],
+      [t("info.acceleration"), specMobilityValue(data.movement.baseAcceleration, data.movement.acceleration, 1, " kph/s", applyQuirks)],
+      [t("info.deceleration"), specMobilityValue(data.movement.baseDeceleration, data.movement.deceleration, 1, " kph/s", applyQuirks)],
+      [t("info.turnSpeed"), specMobilityValue(data.movement.baseTurnSpeed, data.movement.turnSpeed, 2, " deg/s", applyQuirks)],
+      [t("info.angleX"), specAnglePair(data.movement.baseAngleX[0], data.movement.angleX[0], data.movement.angleX[1], "X", 1, applyQuirks)],
+      [t("info.angleY"), specAnglePair(data.movement.baseAngleY[0], data.movement.angleY[0], data.movement.angleY[1], "Y", 1, applyQuirks)],
+      [t("info.torsoSpeed"), specMobilityValue(data.movement.baseTorsoSpeed, data.movement.torsoSpeed, 1, " deg/s", applyQuirks)],
     ]),
-    renderInfoTable("스트럭쳐 정보", ["부위", "수치"], [
-      ["스트럭쳐 총합", specValue(data.structureBaseTotal, data.structureTotal, 0, "", applyQuirks)],
+    renderInfoTable(t("info.structureInfo"), [t("info.part"), t("common.value")], [
+      [t("info.structureTotal"), specValue(data.structureBaseTotal, data.structureTotal, 0, "", applyQuirks)],
       ...data.structureRows.map((row) => [row.label, specValue(row.base, row.total, 0, "", applyQuirks)]),
     ], { compact: true }),
-    renderInfoTable("아머 정보", ["부위", "수치"], [
-      ["최대 아머 포인트 총합", specValue(data.armorBaseTotal, data.armorTotal, 0, "", applyQuirks)],
+    renderInfoTable(t("info.armorInfo"), [t("info.part"), t("common.value")], [
+      [t("info.maxArmorTotal"), specValue(data.armorBaseTotal, data.armorTotal, 0, "", applyQuirks)],
       ...data.armorRows.map((row) => [row.label, specValue(row.totalBase, row.total, 0, "", applyQuirks)]),
     ], { compact: true }),
-    renderInfoTable("엔진", ["항목", "수치"], [
-      ["최소 엔진", formatInfoNumber(number(stats.MinEngineRating), 0)],
-      ["최대 엔진", formatInfoNumber(number(stats.MaxEngineRating), 0)],
+    renderInfoTable(t("info.engine"), [t("info.stat"), t("common.value")], [
+      [t("info.minEngine"), formatInfoNumber(number(stats.MinEngineRating), 0)],
+      [t("info.maxEngine"), formatInfoNumber(number(stats.MaxEngineRating), 0)],
     ]),
     renderInfoQuirks(data.quirks),
   ].join("");
@@ -1971,7 +2423,7 @@ function renderStatsDetailPanel(entries, category, valueScale) {
   if (!detail) return;
   const selected = entries.find((entry) => entry.key === state.selectedStatsMechId);
   if (!selected) {
-    detail.innerHTML = `<div class="empty stats-detail-empty">왼쪽 목록에서 멕을 선택하세요.</div>`;
+    detail.innerHTML = `<div class="empty stats-detail-empty">${t("stats.noSelection")}</div>`;
     return;
   }
   const rank = entries.indexOf(selected) + 1;
@@ -1983,11 +2435,11 @@ function renderStatsDetailPanel(entries, category, valueScale) {
   const stats = mech.definition?.stats || {};
   detail.innerHTML = `
     <section class="stats-detail-rank">
-      <h3>순위</h3>
+      <h3>${t("common.rank")}</h3>
       <div class="stats-detail-rank-grid">
         <div class="stats-detail-summary">
           <div class="stats-detail-title">${omnipodIcon(mech)}<strong>${mech.display_name || variantCode(mech)}</strong></div>
-          <div class="stats-detail-meta">${factionLabel(mech.faction)} - ${WEIGHT_CLASS_LABELS[mech.weight_class] || mech.weight_class || "Unknown"} - ${stats.MaxTons || "?"}t</div>
+          <div class="stats-detail-meta">${factionLabel(mech.faction)} - ${WEIGHT_CLASS_LABELS[mech.weight_class] || mech.weight_class || t("common.unknown")} - ${stats.MaxTons || "?"}t</div>
         </div>
         <div class="stats-detail-rank-value">
           <span>${rank}</span>
@@ -1995,7 +2447,7 @@ function renderStatsDetailPanel(entries, category, valueScale) {
         </div>
       </div>
     </section>
-    <div class="stats-detail-section-title">정보</div>
+    <div class="stats-detail-section-title">${t("common.info")}</div>
     ${renderStatsInfoDetail(mech)}
   `;
 }
@@ -2013,11 +2465,11 @@ function renderStatsChassisDetail(detail, entry, rank, category, valueScale) {
   const worstLabel = entry.minMech?.display_name || variantCode(entry.minMech);
   detail.innerHTML = `
     <section class="stats-detail-rank">
-      <h3>순위</h3>
+      <h3>${t("common.rank")}</h3>
       <div class="stats-detail-rank-grid">
         <div class="stats-detail-summary">
           <div class="stats-detail-title"><strong>${entry.label}</strong></div>
-          <div class="stats-detail-meta">${factionLabel(entry.faction)} - ${WEIGHT_CLASS_LABELS[entry.weightClass] || entry.weightClass || "Unknown"} - ${entry.tonsLabel} - ${entry.mechs.length}개 모델</div>
+          <div class="stats-detail-meta">${factionLabel(entry.faction)} - ${WEIGHT_CLASS_LABELS[entry.weightClass] || entry.weightClass || t("common.unknown")} - ${entry.tonsLabel} - ${entry.mechs.length} ${t("common.models")}</div>
         </div>
         <div class="stats-detail-rank-value">
           <span>${rank}</span>
@@ -2025,18 +2477,18 @@ function renderStatsChassisDetail(detail, entry, rank, category, valueScale) {
         </div>
       </div>
     </section>
-    <div class="stats-detail-section-title">정보</div>
-    ${renderInfoTable("기종별 스펙 비교", ["대상", "수치"], [
-      ["평균", formatStatsValue(entry.average, category, valueScale)],
-      ["최대치", `${formatStatsValue(entry.max, category, valueScale)} (${bestLabel})`],
-      ["최소치", `${formatStatsValue(entry.min, category, valueScale)} (${worstLabel})`],
+    <div class="stats-detail-section-title">${t("common.info")}</div>
+    ${renderInfoTable(t("stats.specCompare"), [t("common.target"), t("common.value")], [
+      [t("common.average"), formatStatsValue(entry.average, category, valueScale)],
+      [t("common.max"), `${formatStatsValue(entry.max, category, valueScale)} (${bestLabel})`],
+      [t("common.min"), `${formatStatsValue(entry.min, category, valueScale)} (${worstLabel})`],
     ])}
-    ${renderInfoTable("기종 정보", ["항목", "수치"], [
-      ["진영", factionLabel(entry.faction)],
-      ["체급", WEIGHT_CLASS_LABELS[entry.weightClass] || entry.weightClass || "Unknown"],
-      ["톤수", entry.tonsLabel],
-      ["모델 수", `${entry.mechs.length}`],
-      ["하드포인트", hardpointTypeBadges(entry.hardpointTypes) || "-"],
+    ${renderInfoTable(t("stats.chassisInfo"), [t("common.item"), t("common.value")], [
+      [t("stats.faction"), factionLabel(entry.faction)],
+      [t("stats.weight"), WEIGHT_CLASS_LABELS[entry.weightClass] || entry.weightClass || t("common.unknown")],
+      [t("stats.tons"), entry.tonsLabel],
+      [t("stats.modelCount"), `${entry.mechs.length}`],
+      [t("stats.hardpoints"), hardpointTypeBadges(entry.hardpointTypes) || "-"],
     ])}
   `;
 }
@@ -2138,7 +2590,7 @@ function statsChassisEntries(entries) {
       mech: representative,
       mechs,
       label: chassisDisplayName(mechs),
-      faction: representative?.faction || "Unknown",
+      faction: representative?.faction || t("common.unknown"),
       weightClass: representative?.weight_class || "unknown",
       tonsLabel: chassisTonsLabel(mechs),
       hardpointTypes: statsChassisHardpointTypes(mechs),
@@ -2175,7 +2627,7 @@ function renderStatsRows(entries, category, valueScale) {
             <span class="stats-mech-main">
               <span class="mech-title-main">${entry.isChassis ? "" : omnipodIcon(entry.mech)}<strong>${entry.label || entry.mech.display_name || variantCode(entry.mech)}</strong></span>
               <span class="stats-subline">${entry.isChassis
-                ? `${factionLabel(entry.faction)} - ${WEIGHT_CLASS_LABELS[entry.weightClass] || entry.weightClass || "Unknown"} - ${entry.tonsLabel} - ${entry.mechs.length}개 모델`
+                ? `${factionLabel(entry.faction)} - ${WEIGHT_CLASS_LABELS[entry.weightClass] || entry.weightClass || t("common.unknown")} - ${entry.tonsLabel} - ${entry.mechs.length} ${t("common.models")}`
                 : `${factionLabel(entry.mech.faction)} - ${entry.mech.definition?.stats?.MaxTons || "?"}t`}</span>
             </span>
             <span class="stats-value-block">
@@ -2183,13 +2635,13 @@ function renderStatsRows(entries, category, valueScale) {
               <strong>${formatStatsValue(entry.total, category, valueScale)}</strong>
             </span>
             <span class="stats-extra ${weightClassClass(entry.weightClass || entry.mech.weight_class)}">
-              <span class="badge weight-slot ${weightClassClass(entry.weightClass || entry.mech.weight_class)}">${WEIGHT_CLASS_LABELS[entry.weightClass || entry.mech.weight_class] || entry.weightClass || entry.mech.weight_class || "Unknown"}</span>
-              <span class="stats-hardpoints">${(entry.isChassis ? hardpointTypeBadges(entry.hardpointTypes) : stockHardpointBadges(entry.mech)) || `<span class="badge">하드포인트 없음</span>`}</span>
+              <span class="badge weight-slot ${weightClassClass(entry.weightClass || entry.mech.weight_class)}">${WEIGHT_CLASS_LABELS[entry.weightClass || entry.mech.weight_class] || entry.weightClass || entry.mech.weight_class || t("common.unknown")}</span>
+              <span class="stats-hardpoints">${(entry.isChassis ? hardpointTypeBadges(entry.hardpointTypes) : stockHardpointBadges(entry.mech)) || `<span class="badge">${t("stats.noHardpoints")}</span>`}</span>
             </span>
           </div>
         `)
         .join("")
-    : `<div class="empty">표시할 멕이 없습니다.</div>`;
+    : `<div class="empty">${t("stats.noRows")}</div>`;
 }
 
 function updateStatsRowSelection() {
@@ -2211,7 +2663,7 @@ function renderStatsConditionControls() {
   const detailToggle = $("stats-detail-toggle");
   if (detailToggle) {
     detailToggle.textContent = state.statsDetailMenusExpanded ? "▼" : "▶";
-    detailToggle.setAttribute("aria-label", state.statsDetailMenusExpanded ? "순위 하위 메뉴 접기" : "순위 하위 메뉴 펼치기");
+    detailToggle.setAttribute("aria-label", state.statsDetailMenusExpanded ? t("stats.collapse") : t("stats.expand"));
     detailToggle.setAttribute("aria-expanded", String(state.statsDetailMenusExpanded));
   }
 
@@ -2260,7 +2712,7 @@ function renderStatsConditionControls() {
   if (controls.hidden) return;
 
   $("stats-faction-filter").innerHTML = [
-    `<option value="">모든 진영</option>`,
+    `<option value="">${t("filters.allFactions")}</option>`,
     ...availableStatsFactions().map((faction) => `<option value="${faction}" ${faction === state.statsConditionFaction ? "selected" : ""}>${factionLabel(faction)}</option>`),
   ].join("");
 
@@ -2360,7 +2812,7 @@ function calculateBuild() {
     for (const entry of buildComp.items) {
       const item = itemById(entry.item_id);
       if (!item) {
-        usage.warnings.push(`Missing item ${entry.item_id}`);
+        usage.warnings.push(t("build.missingItem", { id: entry.item_id }));
         continue;
       }
       const slots = itemSlots(item);
@@ -2421,10 +2873,10 @@ function calculateBuild() {
     const min = number(stats.MinEngineRating);
     const max = number(stats.MaxEngineRating);
     if ((min && rating < min) || (max && rating > max)) {
-      warnings.push(`Engine ${rating} outside ${min}-${max}`);
+      warnings.push(t("build.engineOutside", { rating, min, max }));
     }
   } else {
-    warnings.push("No engine");
+    warnings.push(t("build.noEngine"));
   }
 
   return { maxTons, totalTons, heat, alpha, ammo, armor, engine, warnings, componentUsage };
@@ -2437,12 +2889,12 @@ function renderSummary() {
     return;
   }
   $("summary-strip").innerHTML = [
-    ["Tons", `${fmt(calc.totalTons)}/${fmt(calc.maxTons)}`],
-    ["Alpha", fmt(calc.alpha)],
-    ["Heat", fmt(calc.heat)],
-    ["Ammo", fmt(calc.ammo, 0)],
-    ["Engine", calc.engine ? number(calc.engine.stats?.rating) : "-"],
-    ["Status", calc.warnings.length ? "Check" : "OK"],
+    [t("common.tons"), `${fmt(calc.totalTons)}/${fmt(calc.maxTons)}`],
+    [t("common.alpha"), fmt(calc.alpha)],
+    [t("common.heat"), fmt(calc.heat)],
+    [t("common.ammo"), fmt(calc.ammo, 0)],
+    [t("common.engine"), calc.engine ? number(calc.engine.stats?.rating) : "-"],
+    [t("common.status"), calc.warnings.length ? t("common.check") : t("common.ok")],
   ]
     .map(([label, value]) => `<div class="pill"><strong>${value}</strong><span>${label}</span></div>`)
     .join("");
@@ -2463,11 +2915,11 @@ function renderMechList() {
     toggle.classList.toggle("active", state.largeMechList);
     toggle.setAttribute("aria-pressed", String(state.largeMechList));
     toggle.textContent = state.largeMechList ? "<<" : ">>";
-    toggle.title = state.largeMechList ? "작은 리스트 보기" : "큰 리스트 보기";
+    toggle.title = state.largeMechList ? t("list.smallView") : t("list.largeView");
   }
 
   if (!filtered.length) {
-    $("mech-list").innerHTML = `<div class="empty">No mechs match the current filters.</div>`;
+    $("mech-list").innerHTML = `<div class="empty">${t("list.noMechs")}</div>`;
     return;
   }
 
@@ -2485,7 +2937,7 @@ function renderMechList() {
         <section class="class-section">
           <div class="class-heading">
             <strong>${WEIGHT_CLASS_LABELS[weightClass] || formatChassisName(weightClass)}</strong>
-            <span>${chassisGroups.length} chassis / ${count} variants</span>
+            <span>${t("list.chassisVariants", { chassis: chassisGroups.length, variants: count })}</span>
           </div>
           ${factionSections.map((section) => renderFactionSection(section, activeChassis, false)).join("")}
         </section>
@@ -2567,7 +3019,7 @@ function renderLargeMechList(classNames, grouped, activeChassis) {
         <section class="class-section mech-card-section">
           <div class="class-heading">
             <strong>${WEIGHT_CLASS_LABELS[weightClass] || formatChassisName(weightClass)}</strong>
-            <span>${chassisGroups.length} chassis / ${count} variants</span>
+            <span>${t("list.chassisVariants", { chassis: chassisGroups.length, variants: count })}</span>
           </div>
           ${factionSections.map((section) => renderFactionSection(section, activeChassis, true)).join("")}
         </section>
@@ -2583,7 +3035,7 @@ function renderFactionSection(section, activeChassis, large) {
     <section class="faction-section ${factionClass(section.faction)}">
       <div class="faction-heading ${factionClass(section.faction)}">
         <strong>${factionLabel(section.faction)}</strong>
-        <span>${section.groups.length} chassis / ${section.variantCount} variants</span>
+        <span>${t("list.chassisVariants", { chassis: section.groups.length, variants: section.variantCount })}</span>
       </div>
       <div class="${listClass}">
         ${groupHtml}
@@ -2603,7 +3055,7 @@ function renderSmallChassisGroup(group, activeChassis) {
           <span>${group.tons}t</span>
         </span>
         <span class="badge-line">
-          <span class="badge">${group.variants.length} variants</span>
+          <span class="badge">${t("list.variantCount", { count: group.variants.length })}</span>
         </span>
       </button>
       ${expanded ? `
@@ -2668,12 +3120,12 @@ function renderMechCard(mech, activeChassis) {
     <button class="mech-card${active}${chassisActive}" data-mech="${mech.id}" type="button">
       <span class="mech-card-title">
         <strong>${omnipodIcon(mech)}<span>${mech.display_name || variantCode(mech)}</span></strong>
-        <span>${mech.faction || "Unknown"} · ${data.stats.MaxTons || "?"}t</span>
+        <span>${factionLabel(mech.faction)} · ${data.stats.MaxTons || "?"}t</span>
       </span>
       <span class="mech-card-stats">
-        <span><span>총 내구도</span><strong class="${durabilityBoosted ? "boosted" : ""}">${formatInfoNumber(data.combinedTotal, 0)}</strong></span>
-        <span><span>가속/감속</span><strong><span class="${accelerationBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.acceleration, 1)}</span> / <span class="${decelerationBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.deceleration, 1)}</span></strong></span>
-        <span><span>선회속도</span><strong class="${turnBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.turnSpeed, 2)}</strong></span>
+        <span><span>${t("info.durability")}</span><strong class="${durabilityBoosted ? "boosted" : ""}">${formatInfoNumber(data.combinedTotal, 0)}</strong></span>
+        <span><span>${t("info.acceleration")}/${t("info.deceleration")}</span><strong><span class="${accelerationBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.acceleration, 1)}</span> / <span class="${decelerationBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.deceleration, 1)}</span></strong></span>
+        <span><span>${t("info.turnSpeed")}</span><strong class="${turnBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.turnSpeed, 2)}</strong></span>
       </span>
       <span class="badge-line">${stockHardpointBadges(mech)}</span>
     </button>
@@ -2706,7 +3158,7 @@ function renderEquipmentList() {
             <span class="row-title"><strong>${item.display_name}</strong><span>${fmt(itemTons(item))}t</span></span>
             <span class="badge-line">
               <span class="badge">${item.family}</span>
-              <span class="badge">${itemSlots(item)} slots</span>
+              <span class="badge">${itemSlots(item)} ${t("common.slots")}</span>
               ${item.hardpoint_type ? `<span class="badge ${item.hardpoint_type}">${item.hardpoint_type}</span>` : ""}
             </span>
           </span>
@@ -2719,8 +3171,8 @@ function renderEquipmentList() {
 function renderSelectedItem() {
   const item = itemById(state.selectedItemId);
   $("selected-item").textContent = item
-    ? `${item.display_name} · ${fmt(itemTons(item))} tons · ${itemSlots(item)} slots`
-    : "No item selected";
+    ? `${item.display_name} · ${fmt(itemTons(item))} ${t("common.tons")} · ${itemSlots(item)} ${t("common.slots")}`
+    : t("equipment.noItem");
 }
 
 function renderComponents() {
@@ -2735,17 +3187,17 @@ function renderComponents() {
       .join("");
     const items = buildComp.items.length
       ? buildComp.items.map((entry, index) => renderLoadoutItem(name, entry, index)).join("")
-      : `<div class="empty">Empty</div>`;
+      : `<div class="empty">${t("common.empty")}</div>`;
     return `
       <article class="component ${usage.warnings.length ? "invalid" : ""}">
         <div class="component-head">
           <div>
             <div class="component-title">${COMPONENT_NAMES[name] || name}</div>
-            <div class="component-meta muted">Armor ${buildComp.armor || 0} · Slots ${usage.slots}/${slotLimit || "?"}</div>
+            <div class="component-meta muted">${t("common.armor")} ${buildComp.armor || 0} · ${t("common.slots")} ${usage.slots}/${slotLimit || "?"}</div>
             <div class="badge-line">${hps}</div>
             ${usage.warnings.length ? `<div class="warnings">${usage.warnings.join(" · ")}</div>` : ""}
           </div>
-          <button data-add-to="${name}" type="button">Add</button>
+          <button data-add-to="${name}" type="button">${t("common.add")}</button>
         </div>
         <div class="component-items">${items}</div>
       </article>
@@ -2756,7 +3208,7 @@ function renderComponents() {
 function renderLoadoutItem(component, entry, index) {
   const item = itemById(entry.item_id);
   if (!item) {
-    return `<div class="slot-item"><span></span><span>Missing ${entry.item_id}</span><button data-remove="${component}:${index}" type="button">Remove</button></div>`;
+    return `<div class="slot-item"><span></span><span>${t("build.missing", { id: entry.item_id })}</span><button data-remove="${component}:${index}" type="button">${t("common.remove")}</button></div>`;
   }
   const icon = `<span class="badge">${item.item_type[0] || "?"}</span>`;
   return `
@@ -2766,11 +3218,11 @@ function renderLoadoutItem(component, entry, index) {
         <strong>${item.display_name}</strong>
         <span class="badge-line">
           <span class="badge">${fmt(itemTons(item))}t</span>
-          <span class="badge">${itemSlots(item)} slots</span>
+          <span class="badge">${itemSlots(item)} ${t("common.slots")}</span>
           ${item.hardpoint_type ? `<span class="badge ${item.hardpoint_type}">${item.hardpoint_type}</span>` : ""}
         </span>
       </span>
-      <button class="danger" data-remove="${component}:${index}" type="button">Remove</button>
+      <button class="danger" data-remove="${component}:${index}" type="button">${t("common.remove")}</button>
     </div>
   `;
 }
@@ -2778,7 +3230,7 @@ function renderLoadoutItem(component, entry, index) {
 function renderQuirks() {
   const quirks = effectiveQuirks();
   $("quirk-count").textContent = "";
-  $("quirks").innerHTML = renderQuirkList(quirks, "No quirks found for this mech.");
+  $("quirks").innerHTML = renderQuirkList(quirks, t("info.noQuirksForMech"));
 }
 
 function renderVariant() {
@@ -2786,21 +3238,21 @@ function renderVariant() {
   if (!mech) return;
   const stats = mech.definition?.stats || {};
   $("variant-name").textContent = mech.display_name;
-  $("variant-meta").textContent = `${mech.faction || "Unknown"} - ${mech.weight_class || "Unknown"} - ${stats.MaxTons || "?"} tons - Engine ${stats.MinEngineRating || "?"}-${stats.MaxEngineRating || "?"}`;
+  $("variant-meta").textContent = `${factionLabel(mech.faction)} - ${WEIGHT_CLASS_LABELS[mech.weight_class] || mech.weight_class || t("common.unknown")} - ${stats.MaxTons || "?"} ${t("common.tons")} - ${t("common.engine")} ${stats.MinEngineRating || "?"}-${stats.MaxEngineRating || "?"}`;
   const calc = calculateBuild();
-  $("data-status").textContent = calc.warnings.length ? calc.warnings.join(" - ") : `${state.index.counts.mechs} mechs loaded from local game data`;
+  $("data-status").textContent = calc.warnings.length ? calc.warnings.join(" - ") : t("status.loadedData", { count: state.index.counts.mechs });
   renderSummary();
   renderQuirks();
   renderComponents();
 }
 
 function renderSelectionPrompt() {
-  $("variant-name").textContent = "멕을 선택하세요";
-  $("variant-meta").textContent = "왼쪽 목록에서 카테고리를 펼친 뒤 멕을 선택하세요.";
+  $("variant-name").textContent = t("info.selectMech");
+  $("variant-meta").textContent = t("info.selectMechHint");
   renderSummary();
   $("quirk-count").textContent = "";
-  $("quirks").innerHTML = `<div class="empty">멕을 선택하면 쿼크가 표시됩니다.</div>`;
-  $("components").innerHTML = `<div class="empty">멕을 선택하면 구성 부품이 표시됩니다.</div>`;
+  $("quirks").innerHTML = `<div class="empty">${t("info.quirksPrompt")}</div>`;
+  $("components").innerHTML = `<div class="empty">${t("info.componentsPrompt")}</div>`;
 }
 
 function renderAll() {
@@ -2841,7 +3293,7 @@ function toggleCompareMech(id) {
     state.compareMechIds.push(mech.id);
     state.selectedChassis = mech.chassis || state.selectedChassis;
   } else {
-    $("data-status").textContent = `비교는 최대 ${MAX_COMPARE_MECHS}개까지 선택할 수 있습니다.`;
+    $("data-status").textContent = t("compare.maxSelected", { max: MAX_COMPARE_MECHS });
     return;
   }
   if (state.selectedChassis) state.expandedChassis.add(state.selectedChassis);
@@ -3126,7 +3578,7 @@ function bindEvents() {
   $("save-build").addEventListener("click", () => {
     if (!state.selectedMech || !state.currentBuild) return;
     localStorage.setItem(savedKey(state.selectedMech), JSON.stringify(state.currentBuild));
-    $("data-status").textContent = "Build saved locally";
+    $("data-status").textContent = t("status.buildSaved");
   });
   $("clear-build").addEventListener("click", () => {
     if (!state.currentBuild) return;
@@ -3140,17 +3592,18 @@ function bindEvents() {
 async function loadJson(path) {
   try {
     const response = await fetch(path);
-    if (!response.ok) throw new Error(`Could not load ${path}`);
+    if (!response.ok) throw new Error(t("status.loadPathFailed", { path }));
     return response.json();
   } catch (error) {
     if (location.protocol === "file:") {
-      throw new Error("Local data cannot be loaded from file://. Serve the public folder over http:// for local preview.");
+      throw new Error(t("status.fileProtocol"));
     }
     throw error;
   }
 }
 
 async function init() {
+  applyStaticTranslations();
   bindEvents();
   setMainTab(state.activeMainTab);
   try {
@@ -3165,7 +3618,7 @@ async function init() {
     state.equipment = equipment;
     state.loadouts = loadouts;
     state.omnipods = omnipods;
-    $("data-status").textContent = `${state.index.counts.mechs} mechs loaded from local game data`;
+    $("data-status").textContent = t("status.loadedData", { count: state.index.counts.mechs });
     renderAll();
   } catch (error) {
     $("data-status").textContent = error.message;
