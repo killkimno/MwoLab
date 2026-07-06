@@ -17,7 +17,7 @@
         <button class="tab-button" type="button" data-main-tab="mechlab" aria-controls="tab-mechlab" disabled aria-disabled="true" data-i18n="tabs.mechlab">현재 멕랩</button>
         <button class="tab-button active" type="button" data-main-tab="info" aria-controls="tab-info" data-i18n="tabs.info">정보</button>
         <button class="tab-button" type="button" data-main-tab="compare" aria-controls="tab-compare" data-i18n="tabs.compare">비교하기</button>
-        <button class="tab-button" type="button" data-main-tab="stats" aria-controls="tab-stats" data-i18n="tabs.stats">순위</button>
+        <button class="tab-button" type="button" data-main-tab="stats" aria-controls="tab-stats" data-i18n="tabs.stats">통계</button>
         <a class="donate-link" href="https://ko-fi.com/killkimno" target="_blank" rel="noopener noreferrer" aria-label="Ko-fi 후원 페이지 열기" data-i18n="donate.label" data-i18n-aria-label="donate.aria">후원하기</a>
         <div class="language-switch" aria-label="언어 선택" data-i18n-aria-label="language.switcher">
           <a href="?lang=kr" data-lang-link="kr" data-i18n="language.kr">한국어</a>
@@ -144,9 +144,9 @@
         </div>
 
         <section id="tab-stats" class="tab-panel stats-panel" hidden>
-          <div class="stats-toolbar" aria-label="순위 종류" data-i18n-aria-label="stats.kind">
+          <div class="stats-toolbar" aria-label="통계 종류" data-i18n-aria-label="stats.kind">
             <div class="stats-toolbar-group">
-              <button id="stats-detail-toggle" class="stats-expand-button" type="button" aria-label="순위 하위 메뉴 접기" data-i18n-aria-label="stats.collapse" aria-expanded="true" aria-controls="stats-category-menu stats-scope-menu stats-mode-menu stats-condition-controls">▼</button>
+              <button id="stats-detail-toggle" class="stats-expand-button" type="button" aria-label="통계 하위 메뉴 접기" data-i18n-aria-label="stats.collapse" aria-expanded="true" aria-controls="stats-category-menu stats-scope-menu stats-mode-menu stats-condition-controls">▼</button>
               <div class="stats-rank-toggle" role="group" aria-label="순위 표시 방식" data-i18n-aria-label="stats.rankMode">
                 <button class="stats-rank-button active" type="button" data-stats-rank-mode="individual" data-i18n="stats.individual">개별</button>
                 <button class="stats-rank-button" type="button" data-stats-rank-mode="chassis" data-i18n="stats.chassis">기종별</button>
@@ -162,7 +162,7 @@
               <button class="stats-button" type="button" data-stats-view="quirks">QUIRKS</button>
             </div>
           </div>
-          <div id="stats-category-menu" class="stats-subnav stats-category-nav" data-stats-detail-menu aria-label="순위 카테고리" data-i18n-aria-label="stats.category">
+          <div id="stats-category-menu" class="stats-subnav stats-category-nav" data-stats-detail-menu aria-label="통계 카테고리" data-i18n-aria-label="stats.category">
             <button class="stats-subbutton active" type="button" data-stats-category-view="durability" data-stats-durability-category="total" data-i18n="stats.total">총합</button>
             <button class="stats-subbutton" type="button" data-stats-category-view="durability" data-stats-durability-category="armor" data-i18n="common.armor">아머</button>
             <button class="stats-subbutton" type="button" data-stats-category-view="durability" data-stats-durability-category="structure" data-i18n="stats.structure">스트럭쳐</button>
@@ -187,7 +187,7 @@
             <button class="stats-subbutton active" type="button" data-stats-durability-mode="all" data-i18n="stats.allList">전체 목록</button>
             <button class="stats-subbutton" type="button" data-stats-durability-mode="condition" data-i18n="stats.filter">필터</button>
           </div>
-          <section class="stats-workspace" aria-label="순위" data-i18n-aria-label="stats.workspace">
+          <section class="stats-workspace" aria-label="통계" data-i18n-aria-label="stats.workspace">
             <div id="stats-condition-controls" class="stats-condition-controls" hidden>
               <label class="stats-filter-field">
                 <span data-i18n="stats.faction">진영</span>
@@ -205,7 +205,7 @@
             </div>
             <div class="stats-content">
               <div id="stats-list" class="stats-list"></div>
-              <aside id="stats-detail" class="stats-detail" aria-label="순위 상세" data-i18n-aria-label="stats.detail"></aside>
+              <aside id="stats-detail" class="stats-detail" aria-label="통계 상세" data-i18n-aria-label="stats.detail"></aside>
             </div>
           </section>
         </section>
