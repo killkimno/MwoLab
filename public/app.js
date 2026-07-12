@@ -172,8 +172,9 @@ const TEXT = {
     "stats.weight": "체급",
     "stats.tons": "톤수",
     "stats.noSelection": "왼쪽 목록에서 멕을 선택하세요.",
-    "stats.noRows": "표시할 멕이 없습니다.",
+    "stats.noRows": "해당하는 멕 없음",
     "stats.noHardpoints": "하드포인트 없음",
+    "stats.hideZeroQuirks": "적용받은 쿼크가 없으면 미표시",
     "stats.specCompare": "기종별 스펙 비교",
     "stats.chassisInfo": "기본 정보",
     "stats.modelCount": "모델 수",
@@ -381,8 +382,9 @@ const TEXT = {
     "stats.weight": "Weight",
     "stats.tons": "Tons",
     "stats.noSelection": "Select a mech from the left list.",
-    "stats.noRows": "No mechs to display.",
+    "stats.noRows": "No matching mechs.",
     "stats.noHardpoints": "No hardpoints",
+    "stats.hideZeroQuirks": "Hide zero quirk values",
     "stats.specCompare": "Chassis Spec Compare",
     "stats.chassisInfo": "Basic Info",
     "stats.modelCount": "Model Count",
@@ -662,6 +664,7 @@ const state = {
   statsHeatScope: "all",
   statsRangeScope: "all",
   statsVelocityScope: "all",
+  statsHideZeroQuirks: true,
   statsDurabilityMode: "all",
   selectedStatsMechId: null,
   statsConditionFaction: "",
@@ -2812,7 +2815,8 @@ function statsEntries() {
       isChassis: false,
       mech,
       total: statsEntryValue(mech, category),
-    }));
+    }))
+    .filter((entry) => state.activeStatsView !== "quirks" || !state.statsHideZeroQuirks || Math.abs(entry.total) >= COMPARE_RANK_EPSILON);
   const rankedEntries = state.statsRankMode === "chassis" ? statsChassisEntries(entries) : entries;
   return rankedEntries.sort((a, b) => b.total - a.total || (a.label || a.mech.display_name || "").localeCompare(b.label || b.mech.display_name || "", undefined, { numeric: true }));
 }
@@ -3001,6 +3005,10 @@ function renderStatsPanel() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
+  const hideZeroQuirksToggle = $("stats-hide-zero-quirks-toggle");
+  if (hideZeroQuirksToggle) hideZeroQuirksToggle.hidden = state.activeStatsView !== "quirks";
+  const hideZeroQuirks = $("stats-hide-zero-quirks");
+  if (hideZeroQuirks) hideZeroQuirks.checked = state.statsHideZeroQuirks;
   renderStatsConditionControls();
 
   if (!["durability", "mobility", "quirks"].includes(state.activeStatsView)) {
@@ -3715,6 +3723,10 @@ function bindEvents() {
       state.statsVelocityScope = button.dataset.statsVelocityScope;
       renderStatsPanel();
     });
+  });
+  $("stats-hide-zero-quirks").addEventListener("change", (event) => {
+    state.statsHideZeroQuirks = event.target.checked;
+    renderStatsPanel();
   });
   document.querySelectorAll("[data-stats-durability-mode]").forEach((button) => {
     button.addEventListener("click", () => {

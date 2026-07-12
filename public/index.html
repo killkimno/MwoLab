@@ -160,6 +160,10 @@
               <button class="stats-button active" type="button" data-stats-view="durability" data-i18n="info.durability">내구도</button>
               <button class="stats-button" type="button" data-stats-view="mobility" data-i18n="info.mobility">기동성</button>
               <button class="stats-button" type="button" data-stats-view="quirks">QUIRKS</button>
+              <label id="stats-hide-zero-quirks-toggle" class="toggle-row stats-toolbar-option" hidden>
+                <input id="stats-hide-zero-quirks" type="checkbox" checked>
+                <span data-i18n="stats.hideZeroQuirks">적용받은 쿼크가 없으면 미표시</span>
+              </label>
             </div>
           </div>
           <div id="stats-category-menu" class="stats-subnav stats-category-nav" data-stats-detail-menu aria-label="통계 카테고리" data-i18n-aria-label="stats.category">

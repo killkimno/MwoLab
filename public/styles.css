@@ -710,9 +710,18 @@ h3 {
 
 .stats-toolbar-group {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: center;
+}
+
+.stats-toolbar-option {
+  margin-left: auto;
+}
+
+.stats-toolbar-option[hidden] {
+  display: none;
 }
 
 .stats-subnav {
