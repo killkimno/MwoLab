@@ -149,6 +149,7 @@ const TEXT = {
     "stats.aggregateMode": "기종별 집계 방식",
     "stats.category": "통계 카테고리",
     "stats.cooldownScope": "쿨다운 하위 메뉴",
+    "stats.quirkDurabilityScope": "내구도 쿼크 하위 메뉴",
     "stats.heatScope": "발열 하위 메뉴",
     "stats.rangeScope": "사거리 하위 메뉴",
     "stats.velocityScope": "탄속 하위 메뉴",
@@ -219,6 +220,7 @@ const TEXT = {
     "quirk.energyRange": "ENERGY 사거리",
     "quirk.missileRange": "MISSILE 사거리",
     "quirk.ballisticRange": "BALLISTIC 사거리",
+    "quirk.additionalSensor": "추가 센서",
     "quirk.maxDuration": "MAX 듀레이션/ROF",
     "quirk.energyDuration": "ENERGY 듀레이션",
     "quirk.mgRof": "MG ROF",
@@ -359,6 +361,7 @@ const TEXT = {
     "stats.aggregateMode": "Chassis aggregate mode",
     "stats.category": "Stats category",
     "stats.cooldownScope": "Cooldown submenu",
+    "stats.quirkDurabilityScope": "Durability quirk submenu",
     "stats.heatScope": "Heat submenu",
     "stats.rangeScope": "Range submenu",
     "stats.velocityScope": "Velocity submenu",
@@ -429,6 +432,7 @@ const TEXT = {
     "quirk.energyRange": "Energy Range",
     "quirk.missileRange": "Missile Range",
     "quirk.ballisticRange": "Ballistic Range",
+    "quirk.additionalSensor": "Additional Sensor",
     "quirk.maxDuration": "MAX Duration/ROF",
     "quirk.energyDuration": "Energy Duration",
     "quirk.mgRof": "MG ROF",
@@ -540,9 +544,17 @@ const STATS_DURABILITY_CATEGORIES = [
 
 const STATS_DURABILITY_SCOPES = [
   { key: "all", label: t("stats.all"), componentKeys: null },
-  { key: "shoulders", label: t("stats.shoulders"), componentKeys: ["left_torso", "right_torso"] },
-  { key: "torso", label: t("stats.torso"), componentKeys: ["centre_torso"] },
   { key: "torsoShoulders", label: t("stats.torsoShoulders"), componentKeys: ["centre_torso", "left_torso", "right_torso"] },
+  { key: "torso", label: t("stats.torso"), componentKeys: ["centre_torso"] },
+  { key: "shoulders", label: t("stats.shoulders"), componentKeys: ["left_torso", "right_torso"] },
+  { key: "head", label: t("component.head"), componentKeys: ["head"] },
+  { key: "centerTorso", label: t("component.centerTorso"), componentKeys: ["centre_torso"] },
+  { key: "leftTorso", label: t("component.leftTorso"), componentKeys: ["left_torso"] },
+  { key: "rightTorso", label: t("component.rightTorso"), componentKeys: ["right_torso"] },
+  { key: "leftArm", label: t("component.leftArm"), componentKeys: ["left_arm"] },
+  { key: "rightArm", label: t("component.rightArm"), componentKeys: ["right_arm"] },
+  { key: "leftLeg", label: t("component.leftLeg"), componentKeys: ["left_leg"] },
+  { key: "rightLeg", label: t("component.rightLeg"), componentKeys: ["right_leg"] },
 ];
 
 const STATS_MOBILITY_CATEGORIES = [
@@ -560,39 +572,46 @@ const STATS_QUIRK_CATEGORIES = [
   { key: "velocity", label: t("info.velocity"), metaLabel: t("info.velocity"), summaryKey: "velocity", digits: 1, scale: 100, unit: "%" },
 ];
 
+const STATS_QUIRK_DURABILITY_SCOPES = [
+  { key: "max", label: t("stats.all"), summaryKey: "durability", digits: 1 },
+  { key: "armor", label: t("quirk.armor"), summaryKey: "durabilityArmor", digits: 1 },
+  { key: "structure", label: t("quirk.structure"), summaryKey: "durabilityStructure", digits: 1 },
+  { key: "critPrevent", label: t("quirk.critPrevent"), summaryKey: "durabilityCritPrevent", digits: 1, scale: 100, unit: "%" },
+];
+
 const STATS_COOLDOWN_SCOPES = [
   { key: "all", label: t("stats.all"), summaryKey: "all", digits: 1, scale: 100, unit: "%" },
-  { key: "energy", label: t("stats.energy"), summaryKey: "energy", digits: 1, scale: 100, unit: "%" },
-  { key: "missile", label: t("stats.missile"), summaryKey: "missile", digits: 1, scale: 100, unit: "%" },
-  { key: "ballistic", label: t("stats.ballistic"), summaryKey: "ballistic", digits: 1, scale: 100, unit: "%" },
-  { key: "duration", label: t("stats.duration"), summaryKey: "duration", digits: 1, scale: 100, unit: "%" },
-  { key: "rotaryRof", label: t("stats.rotaryRof"), summaryKey: "rotaryRof", digits: 1, scale: 100, unit: "%" },
-  { key: "machineGunRof", label: t("stats.machineGunRof"), summaryKey: "machineGunRof", digits: 1, scale: 100, unit: "%" },
+  { key: "energy", label: t("quirk.energyCooldown"), summaryKey: "energy", digits: 1, scale: 100, unit: "%" },
+  { key: "missile", label: t("quirk.missileCooldown"), summaryKey: "missile", digits: 1, scale: 100, unit: "%" },
+  { key: "ballistic", label: t("quirk.ballisticCooldown"), summaryKey: "ballistic", digits: 1, scale: 100, unit: "%" },
+  { key: "duration", label: t("quirk.energyDuration"), summaryKey: "duration", digits: 1, scale: 100, unit: "%" },
+  { key: "rotaryRof", label: t("quirk.racRof"), summaryKey: "rotaryRof", digits: 1, scale: 100, unit: "%" },
+  { key: "machineGunRof", label: t("quirk.mgRof"), summaryKey: "machineGunRof", digits: 1, scale: 100, unit: "%" },
   { key: "jamChance", label: t("stats.jamChance"), summaryKey: "jamChance", digits: 1, scale: 100, unit: "%" },
   { key: "jamDuration", label: t("stats.jamDuration"), summaryKey: "jamDuration", digits: 1, scale: 100, unit: "%" },
 ];
 
 const STATS_HEAT_SCOPES = [
   { key: "all", label: t("stats.all"), summaryKey: "heatAll", digits: 1, scale: 100, unit: "%" },
-  { key: "energy", label: t("stats.energy"), summaryKey: "heatEnergy", digits: 1, scale: 100, unit: "%" },
-  { key: "missile", label: t("stats.missile"), summaryKey: "heatMissile", digits: 1, scale: 100, unit: "%" },
-  { key: "ballistic", label: t("stats.ballistic"), summaryKey: "heatBallistic", digits: 1, scale: 100, unit: "%" },
-  { key: "heatDissipation", label: t("stats.heatDissipation"), summaryKey: "heatDissipation", digits: 1, scale: 100, unit: "%" },
+  { key: "energy", label: t("quirk.energyHeat"), summaryKey: "heatEnergy", digits: 1, scale: 100, unit: "%" },
+  { key: "missile", label: t("quirk.missileHeat"), summaryKey: "heatMissile", digits: 1, scale: 100, unit: "%" },
+  { key: "ballistic", label: t("quirk.ballisticHeat"), summaryKey: "heatBallistic", digits: 1, scale: 100, unit: "%" },
+  { key: "heatDissipation", label: t("quirk.heatDissipation"), summaryKey: "heatDissipation", digits: 1, scale: 100, unit: "%" },
 ];
 
 const STATS_RANGE_SCOPES = [
   { key: "all", label: t("stats.all"), summaryKey: "rangeAll", digits: 1, scale: 100, unit: "%" },
-  { key: "energy", label: t("stats.energy"), summaryKey: "rangeEnergy", digits: 1, scale: 100, unit: "%" },
-  { key: "missile", label: t("stats.missile"), summaryKey: "rangeMissile", digits: 1, scale: 100, unit: "%" },
-  { key: "ballistic", label: t("stats.ballistic"), summaryKey: "rangeBallistic", digits: 1, scale: 100, unit: "%" },
-  { key: "additionalSensor", label: t("stats.additionalSensor"), summaryKey: "additionalSensor", digits: 0 },
+  { key: "energy", label: t("quirk.energyRange"), summaryKey: "rangeEnergy", digits: 1, scale: 100, unit: "%" },
+  { key: "missile", label: t("quirk.missileRange"), summaryKey: "rangeMissile", digits: 1, scale: 100, unit: "%" },
+  { key: "ballistic", label: t("quirk.ballisticRange"), summaryKey: "rangeBallistic", digits: 1, scale: 100, unit: "%" },
+  { key: "additionalSensor", label: t("quirk.additionalSensor"), summaryKey: "additionalSensor", digits: 0 },
 ];
 
 const STATS_VELOCITY_SCOPES = [
   { key: "all", label: t("stats.all"), summaryKey: "velocityAll", digits: 1, scale: 100, unit: "%" },
-  { key: "energy", label: t("stats.energy"), summaryKey: "velocityEnergy", digits: 1, scale: 100, unit: "%" },
-  { key: "missile", label: t("stats.missile"), summaryKey: "velocityMissile", digits: 1, scale: 100, unit: "%" },
-  { key: "ballistic", label: t("stats.ballistic"), summaryKey: "velocityBallistic", digits: 1, scale: 100, unit: "%" },
+  { key: "energy", label: t("quirk.energyVelocity"), summaryKey: "velocityEnergy", digits: 1, scale: 100, unit: "%" },
+  { key: "missile", label: t("quirk.missileVelocity"), summaryKey: "velocityMissile", digits: 1, scale: 100, unit: "%" },
+  { key: "ballistic", label: t("quirk.ballisticVelocity"), summaryKey: "velocityBallistic", digits: 1, scale: 100, unit: "%" },
 ];
 
 const STATS_CHASSIS_AGGREGATE_MODES = [
@@ -660,6 +679,7 @@ const state = {
   statsDurabilityCategory: "total",
   statsMobilityCategory: "acceleration",
   statsQuirkCategory: "cooldown",
+  statsQuirkDurabilityScope: "max",
   statsCooldownScope: "all",
   statsHeatScope: "all",
   statsRangeScope: "all",
@@ -1756,6 +1776,7 @@ function velocityQuirkSummary(quirks) {
 
 function rangeQuirkSummary(quirks) {
   const allRange = quirkIncrease(quirks, "all_range_multiplier");
+  const additionalSensor = additionalSensorSummaryMax(quirks);
   const groups = [
     {
       label: t("quirk.energyRange"),
@@ -1777,6 +1798,7 @@ function rangeQuirkSummary(quirks) {
   return renderQuirkSummary(t("quirk.rangeSummary"), "quirk-summary-range", [
     { label: t("quirk.maxRange"), className: "quirk-summary-max", value: maxRange },
     ...groups,
+    { label: t("quirk.additionalSensor"), className: "quirk-tone-default", value: additionalSensor, format: "number" },
   ]);
 }
 
@@ -1917,11 +1939,37 @@ function jamDurationSummaryMax(quirks) {
   return quirkReductionMax(quirks, (name) => name.includes("jam") && name.includes("duration") && name.endsWith("_multiplier"));
 }
 
+function durabilityQuirkSummaryValues(quirks) {
+  const values = {};
+  for (const quirk of quirks) {
+    values[quirk.name.toLowerCase()] = number(quirk.value);
+  }
+
+  const armorSuffixes = INFO_COMPONENTS.flatMap((component) => [component.suffix, component.rearSuffix].filter(Boolean));
+  const totalArmor = armorSuffixes.reduce((sum, suffix) => (
+    sum + number(values.armorresist_all_additive) + number(values[`armorresist_${suffix}_additive`])
+  ), 0);
+  const totalStructure = INFO_COMPONENTS.reduce((sum, component) => (
+    sum + number(values.internalresist_all_additive) + number(values[`internalresist_${component.suffix}_additive`])
+  ), 0);
+
+  return {
+    totalArmor,
+    totalStructure,
+    totalDurability: totalArmor + totalStructure,
+    critPrevention: Math.max(0, -number(values.critchance_receiving_multiplier)),
+  };
+}
+
 function quirkSummaryStats(quirks) {
+  const durability = durabilityQuirkSummaryValues(quirks);
   return {
     cooldown: cooldownSummaryMax(quirks),
     heat: heatSummaryMax(quirks),
-    durability: durabilitySummaryTotal(quirks),
+    durability: durability.totalDurability,
+    durabilityArmor: durability.totalArmor,
+    durabilityStructure: durability.totalStructure,
+    durabilityCritPrevent: durability.critPrevention,
     range: rangeSummaryMax(quirks),
     velocity: velocitySummaryMax(quirks),
     all: cooldownSummaryMax(quirks),
@@ -1951,19 +1999,7 @@ function quirkSummaryStats(quirks) {
 }
 
 function durabilitySummaryTotal(quirks) {
-  const values = {};
-  for (const quirk of quirks) {
-    values[quirk.name.toLowerCase()] = number(quirk.value);
-  }
-
-  const armorSuffixes = INFO_COMPONENTS.flatMap((component) => [component.suffix, component.rearSuffix].filter(Boolean));
-  const totalArmor = armorSuffixes.reduce((sum, suffix) => (
-    sum + number(values.armorresist_all_additive) + number(values[`armorresist_${suffix}_additive`])
-  ), 0);
-  const totalStructure = INFO_COMPONENTS.reduce((sum, component) => (
-    sum + number(values.internalresist_all_additive) + number(values[`internalresist_${component.suffix}_additive`])
-  ), 0);
-  return totalArmor + totalStructure;
+  return durabilityQuirkSummaryValues(quirks).totalDurability;
 }
 
 function specialQuirkCategories(quirks) {
@@ -2016,20 +2052,7 @@ function renderQuirkOverviewCard(quirks) {
 }
 
 function durabilityQuirkSummary(quirks) {
-  const values = {};
-  for (const quirk of quirks) {
-    values[quirk.name.toLowerCase()] = number(quirk.value);
-  }
-
-  const armorSuffixes = INFO_COMPONENTS.flatMap((component) => [component.suffix, component.rearSuffix].filter(Boolean));
-  const totalArmor = armorSuffixes.reduce((sum, suffix) => (
-    sum + number(values.armorresist_all_additive) + number(values[`armorresist_${suffix}_additive`])
-  ), 0);
-  const totalStructure = INFO_COMPONENTS.reduce((sum, component) => (
-    sum + number(values.internalresist_all_additive) + number(values[`internalresist_${component.suffix}_additive`])
-  ), 0);
-  const totalDurability = totalArmor + totalStructure;
-  const critPrevention = Math.max(0, -number(values.critchance_receiving_multiplier));
+  const { totalArmor, totalStructure, totalDurability, critPrevention } = durabilityQuirkSummaryValues(quirks);
 
   return renderQuirkSummary(t("quirk.durabilitySummary"), "quirk-summary-durability", [
     { label: t("quirk.maxDurability"), className: "quirk-summary-max", value: totalDurability, format: "number" },
@@ -2687,6 +2710,10 @@ function activeStatsQuirkCategory() {
   return STATS_QUIRK_CATEGORIES.find((category) => category.key === state.statsQuirkCategory) || STATS_QUIRK_CATEGORIES[0];
 }
 
+function activeStatsQuirkDurabilityScope() {
+  return STATS_QUIRK_DURABILITY_SCOPES.find((scope) => scope.key === state.statsQuirkDurabilityScope) || STATS_QUIRK_DURABILITY_SCOPES[0];
+}
+
 function activeStatsCooldownScope() {
   return STATS_COOLDOWN_SCOPES.find((scope) => scope.key === state.statsCooldownScope) || STATS_COOLDOWN_SCOPES[0];
 }
@@ -2709,13 +2736,15 @@ function activeStatsCategory() {
     const category = activeStatsQuirkCategory();
     const scope = category.key === "cooldown"
       ? activeStatsCooldownScope()
-      : category.key === "heat"
-        ? activeStatsHeatScope()
-        : category.key === "range"
-          ? activeStatsRangeScope()
-          : category.key === "velocity"
-            ? activeStatsVelocityScope()
-            : null;
+      : category.key === "durability"
+        ? activeStatsQuirkDurabilityScope()
+        : category.key === "heat"
+          ? activeStatsHeatScope()
+          : category.key === "range"
+            ? activeStatsRangeScope()
+            : category.key === "velocity"
+              ? activeStatsVelocityScope()
+              : null;
     if (!scope) return category;
     return {
       ...category,
@@ -2727,7 +2756,13 @@ function activeStatsCategory() {
       unit: scope.unit,
     };
   }
-  return activeStatsDurabilityCategory();
+  const category = activeStatsDurabilityCategory();
+  const scope = activeStatsDurabilityScope();
+  return {
+    ...category,
+    label: `${category.label} / ${scope.label}`,
+    metaLabel: `${category.metaLabel} / ${scope.label}`,
+  };
 }
 
 function statsDurabilityFilterMatches(mech) {
@@ -2880,6 +2915,11 @@ function renderStatsConditionControls() {
     cooldownScopeMenu.hidden = !state.statsDetailMenusExpanded || state.activeStatsView !== "quirks" || activeStatsQuirkCategory().key !== "cooldown";
   }
 
+  const quirkDurabilityScopeMenu = $("stats-quirk-durability-scope-menu");
+  if (quirkDurabilityScopeMenu) {
+    quirkDurabilityScopeMenu.hidden = !state.statsDetailMenusExpanded || state.activeStatsView !== "quirks" || activeStatsQuirkCategory().key !== "durability";
+  }
+
   const heatScopeMenu = $("stats-heat-scope-menu");
   if (heatScopeMenu) {
     heatScopeMenu.hidden = !state.statsDetailMenusExpanded || state.activeStatsView !== "quirks" || activeStatsQuirkCategory().key !== "heat";
@@ -2925,6 +2965,12 @@ function renderStatsConditionControls() {
 
   document.querySelectorAll("[data-stats-cooldown-scope]").forEach((button) => {
     const active = button.dataset.statsCooldownScope === state.statsCooldownScope;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  document.querySelectorAll("[data-stats-quirk-durability-scope]").forEach((button) => {
+    const active = button.dataset.statsQuirkDurabilityScope === state.statsQuirkDurabilityScope;
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
@@ -3702,6 +3748,13 @@ function bindEvents() {
     button.addEventListener("click", () => {
       if (button.disabled) return;
       state.statsCooldownScope = button.dataset.statsCooldownScope;
+      renderStatsPanel();
+    });
+  });
+  document.querySelectorAll("[data-stats-quirk-durability-scope]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.disabled) return;
+      state.statsQuirkDurabilityScope = button.dataset.statsQuirkDurabilityScope;
       renderStatsPanel();
     });
   });

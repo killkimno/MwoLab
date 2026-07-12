@@ -146,7 +146,7 @@
         <section id="tab-stats" class="tab-panel stats-panel" hidden>
           <div class="stats-toolbar" aria-label="통계 종류" data-i18n-aria-label="stats.kind">
             <div class="stats-toolbar-group">
-              <button id="stats-detail-toggle" class="stats-expand-button" type="button" aria-label="통계 하위 메뉴 접기" data-i18n-aria-label="stats.collapse" aria-expanded="true" aria-controls="stats-category-menu stats-cooldown-scope-menu stats-heat-scope-menu stats-range-scope-menu stats-velocity-scope-menu stats-scope-menu stats-mode-menu stats-condition-controls">▼</button>
+              <button id="stats-detail-toggle" class="stats-expand-button" type="button" aria-label="통계 하위 메뉴 접기" data-i18n-aria-label="stats.collapse" aria-expanded="true" aria-controls="stats-category-menu stats-cooldown-scope-menu stats-quirk-durability-scope-menu stats-heat-scope-menu stats-range-scope-menu stats-velocity-scope-menu stats-scope-menu stats-mode-menu stats-condition-controls">▼</button>
               <div class="stats-rank-toggle" role="group" aria-label="순위 표시 방식" data-i18n-aria-label="stats.rankMode">
                 <button class="stats-rank-button active" type="button" data-stats-rank-mode="individual" data-i18n="stats.individual">개별</button>
                 <button class="stats-rank-button" type="button" data-stats-rank-mode="chassis" data-i18n="stats.chassis">기종별</button>
@@ -182,42 +182,56 @@
           </div>
           <div id="stats-cooldown-scope-menu" class="stats-subnav stats-category-nav" data-stats-detail-menu data-stats-view-section="quirks" aria-label="쿨다운 하위 메뉴" data-i18n-aria-label="stats.cooldownScope">
             <button class="stats-subbutton active" type="button" data-stats-cooldown-scope="all" data-i18n="stats.all">전체</button>
-            <button class="stats-subbutton" type="button" data-stats-cooldown-scope="energy" data-i18n="stats.energy">에너지</button>
-            <button class="stats-subbutton" type="button" data-stats-cooldown-scope="missile" data-i18n="stats.missile">미사일</button>
-            <button class="stats-subbutton" type="button" data-stats-cooldown-scope="ballistic" data-i18n="stats.ballistic">발리스틱</button>
-            <button class="stats-subbutton" type="button" data-stats-cooldown-scope="duration" data-i18n="stats.duration">듀레이션</button>
-            <button class="stats-subbutton" type="button" data-stats-cooldown-scope="rotaryRof" data-i18n="stats.rotaryRof">로터리 ROF</button>
-            <button class="stats-subbutton" type="button" data-stats-cooldown-scope="machineGunRof" data-i18n="stats.machineGunRof">머신건 ROF</button>
+            <button class="stats-subbutton" type="button" data-stats-cooldown-scope="energy" data-i18n="quirk.energyCooldown">ENERGY 쿨 다운</button>
+            <button class="stats-subbutton" type="button" data-stats-cooldown-scope="missile" data-i18n="quirk.missileCooldown">MISSILE 쿨 다운</button>
+            <button class="stats-subbutton" type="button" data-stats-cooldown-scope="ballistic" data-i18n="quirk.ballisticCooldown">BALLISTIC 쿨 다운</button>
+            <button class="stats-subbutton" type="button" data-stats-cooldown-scope="duration" data-i18n="quirk.energyDuration">ENERGY 듀레이션</button>
+            <button class="stats-subbutton" type="button" data-stats-cooldown-scope="rotaryRof" data-i18n="quirk.racRof">RAC ROF</button>
+            <button class="stats-subbutton" type="button" data-stats-cooldown-scope="machineGunRof" data-i18n="quirk.mgRof">MG ROF</button>
             <button class="stats-subbutton" type="button" data-stats-cooldown-scope="jamChance" data-i18n="stats.jamChance">잼찬스</button>
             <button class="stats-subbutton" type="button" data-stats-cooldown-scope="jamDuration" data-i18n="stats.jamDuration">잼 듀레이션</button>
             <button class="stats-subbutton" type="button" data-stats-cooldown-scope="select" disabled data-i18n="stats.quirkSelect">쿼크 선택</button>
           </div>
+          <div id="stats-quirk-durability-scope-menu" class="stats-subnav stats-category-nav" data-stats-detail-menu data-stats-view-section="quirks" aria-label="내구도 쿼크 하위 메뉴" data-i18n-aria-label="stats.quirkDurabilityScope">
+            <button class="stats-subbutton active" type="button" data-stats-quirk-durability-scope="max" data-i18n="stats.all">전체</button>
+            <button class="stats-subbutton" type="button" data-stats-quirk-durability-scope="armor" data-i18n="quirk.armor">아머</button>
+            <button class="stats-subbutton" type="button" data-stats-quirk-durability-scope="structure" data-i18n="quirk.structure">스트럭쳐</button>
+            <button class="stats-subbutton" type="button" data-stats-quirk-durability-scope="critPrevent" data-i18n="quirk.critPrevent">크리 방지</button>
+          </div>
           <div id="stats-heat-scope-menu" class="stats-subnav stats-category-nav" data-stats-detail-menu data-stats-view-section="quirks" aria-label="발열 하위 메뉴" data-i18n-aria-label="stats.heatScope">
             <button class="stats-subbutton active" type="button" data-stats-heat-scope="all" data-i18n="stats.all">전체</button>
-            <button class="stats-subbutton" type="button" data-stats-heat-scope="energy" data-i18n="stats.energy">에너지</button>
-            <button class="stats-subbutton" type="button" data-stats-heat-scope="missile" data-i18n="stats.missile">미사일</button>
-            <button class="stats-subbutton" type="button" data-stats-heat-scope="ballistic" data-i18n="stats.ballistic">발리스틱</button>
-            <button class="stats-subbutton" type="button" data-stats-heat-scope="heatDissipation" data-i18n="stats.heatDissipation">열 방출</button>
+            <button class="stats-subbutton" type="button" data-stats-heat-scope="energy" data-i18n="quirk.energyHeat">ENERGY 발열</button>
+            <button class="stats-subbutton" type="button" data-stats-heat-scope="missile" data-i18n="quirk.missileHeat">MISSILE 발열</button>
+            <button class="stats-subbutton" type="button" data-stats-heat-scope="ballistic" data-i18n="quirk.ballisticHeat">BALLISTIC 발열</button>
+            <button class="stats-subbutton" type="button" data-stats-heat-scope="heatDissipation" data-i18n="quirk.heatDissipation">HEAT DISSIPATION</button>
             <button class="stats-subbutton" type="button" data-stats-heat-scope="select" disabled data-i18n="stats.quirkSelect">쿼크 선택</button>
           </div>
           <div id="stats-range-scope-menu" class="stats-subnav stats-category-nav" data-stats-detail-menu data-stats-view-section="quirks" aria-label="사거리 하위 메뉴" data-i18n-aria-label="stats.rangeScope">
             <button class="stats-subbutton active" type="button" data-stats-range-scope="all" data-i18n="stats.all">전체</button>
-            <button class="stats-subbutton" type="button" data-stats-range-scope="energy" data-i18n="stats.energy">에너지</button>
-            <button class="stats-subbutton" type="button" data-stats-range-scope="missile" data-i18n="stats.missile">미사일</button>
-            <button class="stats-subbutton" type="button" data-stats-range-scope="ballistic" data-i18n="stats.ballistic">발리스틱</button>
-            <button class="stats-subbutton" type="button" data-stats-range-scope="additionalSensor" data-i18n="stats.additionalSensor">추가 센서</button>
+            <button class="stats-subbutton" type="button" data-stats-range-scope="energy" data-i18n="quirk.energyRange">ENERGY 사거리</button>
+            <button class="stats-subbutton" type="button" data-stats-range-scope="missile" data-i18n="quirk.missileRange">MISSILE 사거리</button>
+            <button class="stats-subbutton" type="button" data-stats-range-scope="ballistic" data-i18n="quirk.ballisticRange">BALLISTIC 사거리</button>
+            <button class="stats-subbutton" type="button" data-stats-range-scope="additionalSensor" data-i18n="quirk.additionalSensor">추가 센서</button>
           </div>
           <div id="stats-velocity-scope-menu" class="stats-subnav stats-category-nav" data-stats-detail-menu data-stats-view-section="quirks" aria-label="탄속 하위 메뉴" data-i18n-aria-label="stats.velocityScope">
             <button class="stats-subbutton active" type="button" data-stats-velocity-scope="all" data-i18n="stats.all">전체</button>
-            <button class="stats-subbutton" type="button" data-stats-velocity-scope="energy" data-i18n="stats.energy">에너지</button>
-            <button class="stats-subbutton" type="button" data-stats-velocity-scope="missile" data-i18n="stats.missile">미사일</button>
-            <button class="stats-subbutton" type="button" data-stats-velocity-scope="ballistic" data-i18n="stats.ballistic">발리스틱</button>
+            <button class="stats-subbutton" type="button" data-stats-velocity-scope="energy" data-i18n="quirk.energyVelocity">ENERGY 탄속</button>
+            <button class="stats-subbutton" type="button" data-stats-velocity-scope="missile" data-i18n="quirk.missileVelocity">MISSILE 탄속</button>
+            <button class="stats-subbutton" type="button" data-stats-velocity-scope="ballistic" data-i18n="quirk.ballisticVelocity">BALLISTIC 탄속</button>
           </div>
           <div id="stats-scope-menu" class="stats-subnav stats-scope-nav" data-stats-detail-menu data-stats-view-section="durability" aria-label="내구도 범위" data-i18n-aria-label="stats.scope">
             <button class="stats-subbutton active" type="button" data-stats-durability-scope="all" data-i18n="stats.all">전체</button>
             <button class="stats-subbutton" type="button" data-stats-durability-scope="torsoShoulders" data-i18n="stats.torsoShoulders">어깨+몸통</button>
             <button class="stats-subbutton" type="button" data-stats-durability-scope="torso" data-i18n="stats.torso">몸통</button>
             <button class="stats-subbutton" type="button" data-stats-durability-scope="shoulders" data-i18n="stats.shoulders">어깨</button>
+            <button class="stats-subbutton" type="button" data-stats-durability-scope="head" data-i18n="component.head">머리</button>
+            <button class="stats-subbutton" type="button" data-stats-durability-scope="centerTorso" data-i18n="component.centerTorso">몸통</button>
+            <button class="stats-subbutton" type="button" data-stats-durability-scope="leftTorso" data-i18n="component.leftTorso">왼쪽 어깨</button>
+            <button class="stats-subbutton" type="button" data-stats-durability-scope="rightTorso" data-i18n="component.rightTorso">오른쪽 어깨</button>
+            <button class="stats-subbutton" type="button" data-stats-durability-scope="leftArm" data-i18n="component.leftArm">왼쪽 팔</button>
+            <button class="stats-subbutton" type="button" data-stats-durability-scope="rightArm" data-i18n="component.rightArm">오른쪽 팔</button>
+            <button class="stats-subbutton" type="button" data-stats-durability-scope="leftLeg" data-i18n="component.leftLeg">왼쪽 다리</button>
+            <button class="stats-subbutton" type="button" data-stats-durability-scope="rightLeg" data-i18n="component.rightLeg">오른쪽 다리</button>
           </div>
           <div id="stats-mode-menu" class="stats-subnav" data-stats-detail-menu aria-label="순위 비교 방식" data-i18n-aria-label="stats.mode">
             <button class="stats-subbutton active" type="button" data-stats-durability-mode="all" data-i18n="stats.allList">전체 목록</button>
