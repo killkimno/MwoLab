@@ -148,6 +148,10 @@ const TEXT = {
     "stats.chassis": "기종별",
     "stats.aggregateMode": "기종별 집계 방식",
     "stats.category": "통계 카테고리",
+    "stats.cooldownScope": "쿨다운 하위 메뉴",
+    "stats.heatScope": "발열 하위 메뉴",
+    "stats.rangeScope": "사거리 하위 메뉴",
+    "stats.velocityScope": "탄속 하위 메뉴",
     "stats.scope": "내구도 범위",
     "stats.mode": "순위 비교 방식",
     "stats.workspace": "통계",
@@ -174,6 +178,16 @@ const TEXT = {
     "stats.chassisInfo": "기본 정보",
     "stats.modelCount": "모델 수",
     "stats.hardpoints": "하드포인트",
+    "stats.energy": "에너지",
+    "stats.missile": "미사일",
+    "stats.ballistic": "발리스틱",
+    "stats.duration": "듀레이션",
+    "stats.rotaryRof": "로터리 ROF",
+    "stats.machineGunRof": "머신건 ROF",
+    "stats.heatDissipation": "열 방출",
+    "stats.additionalSensor": "추가 센서",
+    "stats.jamChance": "잼찬스",
+    "stats.jamDuration": "잼 듀레이션",
     "stats.quirkSelect": "쿼크 선택",
     "equipment.noItem": "장비가 선택되지 않았습니다",
     "build.noEngine": "엔진 없음",
@@ -343,6 +357,10 @@ const TEXT = {
     "stats.chassis": "By chassis",
     "stats.aggregateMode": "Chassis aggregate mode",
     "stats.category": "Stats category",
+    "stats.cooldownScope": "Cooldown submenu",
+    "stats.heatScope": "Heat submenu",
+    "stats.rangeScope": "Range submenu",
+    "stats.velocityScope": "Velocity submenu",
     "stats.scope": "Durability scope",
     "stats.mode": "Ranking comparison mode",
     "stats.workspace": "Stats",
@@ -369,6 +387,16 @@ const TEXT = {
     "stats.chassisInfo": "Basic Info",
     "stats.modelCount": "Model Count",
     "stats.hardpoints": "Hardpoints",
+    "stats.energy": "Energy",
+    "stats.missile": "Missile",
+    "stats.ballistic": "Ballistic",
+    "stats.duration": "Duration",
+    "stats.rotaryRof": "Rotary ROF",
+    "stats.machineGunRof": "Machine Gun ROF",
+    "stats.heatDissipation": "Heat Dissipation",
+    "stats.additionalSensor": "Additional Sensor",
+    "stats.jamChance": "Jam Chance",
+    "stats.jamDuration": "Jam Duration",
     "stats.quirkSelect": "Select quirk",
     "equipment.noItem": "No item selected",
     "build.noEngine": "No engine",
@@ -530,6 +558,41 @@ const STATS_QUIRK_CATEGORIES = [
   { key: "velocity", label: t("info.velocity"), metaLabel: t("info.velocity"), summaryKey: "velocity", digits: 1, scale: 100, unit: "%" },
 ];
 
+const STATS_COOLDOWN_SCOPES = [
+  { key: "all", label: t("stats.all"), summaryKey: "all", digits: 1, scale: 100, unit: "%" },
+  { key: "energy", label: t("stats.energy"), summaryKey: "energy", digits: 1, scale: 100, unit: "%" },
+  { key: "missile", label: t("stats.missile"), summaryKey: "missile", digits: 1, scale: 100, unit: "%" },
+  { key: "ballistic", label: t("stats.ballistic"), summaryKey: "ballistic", digits: 1, scale: 100, unit: "%" },
+  { key: "duration", label: t("stats.duration"), summaryKey: "duration", digits: 1, scale: 100, unit: "%" },
+  { key: "rotaryRof", label: t("stats.rotaryRof"), summaryKey: "rotaryRof", digits: 1, scale: 100, unit: "%" },
+  { key: "machineGunRof", label: t("stats.machineGunRof"), summaryKey: "machineGunRof", digits: 1, scale: 100, unit: "%" },
+  { key: "jamChance", label: t("stats.jamChance"), summaryKey: "jamChance", digits: 1, scale: 100, unit: "%" },
+  { key: "jamDuration", label: t("stats.jamDuration"), summaryKey: "jamDuration", digits: 1, scale: 100, unit: "%" },
+];
+
+const STATS_HEAT_SCOPES = [
+  { key: "all", label: t("stats.all"), summaryKey: "heatAll", digits: 1, scale: 100, unit: "%" },
+  { key: "energy", label: t("stats.energy"), summaryKey: "heatEnergy", digits: 1, scale: 100, unit: "%" },
+  { key: "missile", label: t("stats.missile"), summaryKey: "heatMissile", digits: 1, scale: 100, unit: "%" },
+  { key: "ballistic", label: t("stats.ballistic"), summaryKey: "heatBallistic", digits: 1, scale: 100, unit: "%" },
+  { key: "heatDissipation", label: t("stats.heatDissipation"), summaryKey: "heatDissipation", digits: 1, scale: 100, unit: "%" },
+];
+
+const STATS_RANGE_SCOPES = [
+  { key: "all", label: t("stats.all"), summaryKey: "rangeAll", digits: 1, scale: 100, unit: "%" },
+  { key: "energy", label: t("stats.energy"), summaryKey: "rangeEnergy", digits: 1, scale: 100, unit: "%" },
+  { key: "missile", label: t("stats.missile"), summaryKey: "rangeMissile", digits: 1, scale: 100, unit: "%" },
+  { key: "ballistic", label: t("stats.ballistic"), summaryKey: "rangeBallistic", digits: 1, scale: 100, unit: "%" },
+  { key: "additionalSensor", label: t("stats.additionalSensor"), summaryKey: "additionalSensor", digits: 0 },
+];
+
+const STATS_VELOCITY_SCOPES = [
+  { key: "all", label: t("stats.all"), summaryKey: "velocityAll", digits: 1, scale: 100, unit: "%" },
+  { key: "energy", label: t("stats.energy"), summaryKey: "velocityEnergy", digits: 1, scale: 100, unit: "%" },
+  { key: "missile", label: t("stats.missile"), summaryKey: "velocityMissile", digits: 1, scale: 100, unit: "%" },
+  { key: "ballistic", label: t("stats.ballistic"), summaryKey: "velocityBallistic", digits: 1, scale: 100, unit: "%" },
+];
+
 const STATS_CHASSIS_AGGREGATE_MODES = [
   { key: "average", label: t("common.average") },
   { key: "max", label: t("common.max") },
@@ -595,6 +658,10 @@ const state = {
   statsDurabilityCategory: "total",
   statsMobilityCategory: "acceleration",
   statsQuirkCategory: "cooldown",
+  statsCooldownScope: "all",
+  statsHeatScope: "all",
+  statsRangeScope: "all",
+  statsVelocityScope: "all",
   statsDurabilityMode: "all",
   selectedStatsMechId: null,
   statsConditionFaction: "",
@@ -1775,6 +1842,78 @@ function velocitySummaryMax(quirks) {
   return Math.max(allVelocity, energyVelocity, missileVelocity, ballisticVelocity);
 }
 
+function familyCooldownSummaryMax(quirks, type) {
+  const allCooldown = quirkReduction(quirks, "all_cooldown_multiplier");
+  const familyCooldown = quirkReduction(quirks, `${type}_cooldown_multiplier`);
+  const weaponCooldown = type === "energy"
+    ? energyWeaponCooldownMax(quirks)
+    : weaponStatMax(quirks, cooldownQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), type);
+  return allCooldown + familyCooldown + weaponCooldown;
+}
+
+function familyHeatSummaryMax(quirks, type) {
+  const allHeat = quirkReduction(quirks, "all_heat_multiplier");
+  const familyHeat = quirkReduction(quirks, `${type}_heat_multiplier`);
+  const weaponHeat = type === "energy"
+    ? energyWeaponHeatMax(quirks)
+    : weaponStatMax(quirks, heatQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), type);
+  return allHeat + familyHeat + weaponHeat;
+}
+
+function heatDissipationSummaryMax(quirks) {
+  return quirkIncrease(quirks, "heatdissipation_multiplier");
+}
+
+function familyRangeSummaryMax(quirks, type) {
+  return quirkIncrease(quirks, "all_range_multiplier")
+    + quirkIncrease(quirks, `${type}_range_multiplier`)
+    + weaponStatMax(quirks, rangeQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), type);
+}
+
+function familyVelocitySummaryMax(quirks, type) {
+  return quirkIncrease(quirks, "all_velocity_multiplier")
+    + quirkIncrease(quirks, `${type}_velocity_multiplier`)
+    + weaponStatMax(quirks, velocityQuirkPrefix, (quirk) => Math.max(0, number(quirk.value)), type);
+}
+
+function additionalSensorSummaryMax(quirks) {
+  return quirks.reduce((sum, quirk) => {
+    const name = String(quirk.name || "").toLowerCase();
+    return name.includes("sensorrange") && name.endsWith("_additive")
+      ? sum + Math.max(0, number(quirk.value))
+      : sum;
+  }, 0);
+}
+
+function durationSummaryMax(quirks) {
+  return quirkReduction(quirks, "all_duration_multiplier")
+    + quirkReduction(quirks, "energy_duration_multiplier")
+    + weaponStatMax(quirks, durationQuirkPrefix, (quirk) => Math.max(0, -number(quirk.value)), "energy");
+}
+
+function rotaryRofSummaryMax(quirks) {
+  return quirkIncrease(quirks, "rotaryautocannon_rof_multiplier");
+}
+
+function machineGunRofSummaryMax(quirks) {
+  return quirkIncrease(quirks, "ismachinegun_rof_multiplier") + quirkIncrease(quirks, "clanmachinegun_rof_multiplier");
+}
+
+function quirkReductionMax(quirks, predicate) {
+  return quirks.reduce((maxValue, quirk) => {
+    const name = String(quirk.name || "").toLowerCase();
+    return predicate(name) ? Math.max(maxValue, Math.max(0, -number(quirk.value))) : maxValue;
+  }, 0);
+}
+
+function jamChanceSummaryMax(quirks) {
+  return quirkReductionMax(quirks, (name) => name.includes("jamchance") && name.endsWith("_multiplier"));
+}
+
+function jamDurationSummaryMax(quirks) {
+  return quirkReductionMax(quirks, (name) => name.includes("jam") && name.includes("duration") && name.endsWith("_multiplier"));
+}
+
 function quirkSummaryStats(quirks) {
   return {
     cooldown: cooldownSummaryMax(quirks),
@@ -1782,6 +1921,29 @@ function quirkSummaryStats(quirks) {
     durability: durabilitySummaryTotal(quirks),
     range: rangeSummaryMax(quirks),
     velocity: velocitySummaryMax(quirks),
+    all: cooldownSummaryMax(quirks),
+    energy: familyCooldownSummaryMax(quirks, "energy"),
+    missile: familyCooldownSummaryMax(quirks, "missile"),
+    ballistic: familyCooldownSummaryMax(quirks, "ballistic"),
+    heatAll: heatSummaryMax(quirks),
+    heatEnergy: familyHeatSummaryMax(quirks, "energy"),
+    heatMissile: familyHeatSummaryMax(quirks, "missile"),
+    heatBallistic: familyHeatSummaryMax(quirks, "ballistic"),
+    heatDissipation: heatDissipationSummaryMax(quirks),
+    rangeAll: rangeSummaryMax(quirks),
+    rangeEnergy: familyRangeSummaryMax(quirks, "energy"),
+    rangeMissile: familyRangeSummaryMax(quirks, "missile"),
+    rangeBallistic: familyRangeSummaryMax(quirks, "ballistic"),
+    additionalSensor: additionalSensorSummaryMax(quirks),
+    velocityAll: velocitySummaryMax(quirks),
+    velocityEnergy: familyVelocitySummaryMax(quirks, "energy"),
+    velocityMissile: familyVelocitySummaryMax(quirks, "missile"),
+    velocityBallistic: familyVelocitySummaryMax(quirks, "ballistic"),
+    duration: durationSummaryMax(quirks),
+    rotaryRof: rotaryRofSummaryMax(quirks),
+    machineGunRof: machineGunRofSummaryMax(quirks),
+    jamChance: jamChanceSummaryMax(quirks),
+    jamDuration: jamDurationSummaryMax(quirks),
   };
 }
 
@@ -2522,9 +2684,46 @@ function activeStatsQuirkCategory() {
   return STATS_QUIRK_CATEGORIES.find((category) => category.key === state.statsQuirkCategory) || STATS_QUIRK_CATEGORIES[0];
 }
 
+function activeStatsCooldownScope() {
+  return STATS_COOLDOWN_SCOPES.find((scope) => scope.key === state.statsCooldownScope) || STATS_COOLDOWN_SCOPES[0];
+}
+
+function activeStatsHeatScope() {
+  return STATS_HEAT_SCOPES.find((scope) => scope.key === state.statsHeatScope) || STATS_HEAT_SCOPES[0];
+}
+
+function activeStatsRangeScope() {
+  return STATS_RANGE_SCOPES.find((scope) => scope.key === state.statsRangeScope) || STATS_RANGE_SCOPES[0];
+}
+
+function activeStatsVelocityScope() {
+  return STATS_VELOCITY_SCOPES.find((scope) => scope.key === state.statsVelocityScope) || STATS_VELOCITY_SCOPES[0];
+}
+
 function activeStatsCategory() {
   if (state.activeStatsView === "mobility") return activeStatsMobilityCategory();
-  if (state.activeStatsView === "quirks") return activeStatsQuirkCategory();
+  if (state.activeStatsView === "quirks") {
+    const category = activeStatsQuirkCategory();
+    const scope = category.key === "cooldown"
+      ? activeStatsCooldownScope()
+      : category.key === "heat"
+        ? activeStatsHeatScope()
+        : category.key === "range"
+          ? activeStatsRangeScope()
+          : category.key === "velocity"
+            ? activeStatsVelocityScope()
+            : null;
+    if (!scope) return category;
+    return {
+      ...category,
+      label: `${category.label} / ${scope.label}`,
+      metaLabel: `${category.metaLabel} / ${scope.label}`,
+      summaryKey: scope.summaryKey,
+      digits: scope.digits,
+      scale: scope.scale,
+      unit: scope.unit,
+    };
+  }
   return activeStatsDurabilityCategory();
 }
 
@@ -2672,6 +2871,26 @@ function renderStatsConditionControls() {
     element.hidden = !state.statsDetailMenusExpanded || (view && view !== state.activeStatsView);
   });
 
+  const cooldownScopeMenu = $("stats-cooldown-scope-menu");
+  if (cooldownScopeMenu) {
+    cooldownScopeMenu.hidden = !state.statsDetailMenusExpanded || state.activeStatsView !== "quirks" || activeStatsQuirkCategory().key !== "cooldown";
+  }
+
+  const heatScopeMenu = $("stats-heat-scope-menu");
+  if (heatScopeMenu) {
+    heatScopeMenu.hidden = !state.statsDetailMenusExpanded || state.activeStatsView !== "quirks" || activeStatsQuirkCategory().key !== "heat";
+  }
+
+  const rangeScopeMenu = $("stats-range-scope-menu");
+  if (rangeScopeMenu) {
+    rangeScopeMenu.hidden = !state.statsDetailMenusExpanded || state.activeStatsView !== "quirks" || activeStatsQuirkCategory().key !== "range";
+  }
+
+  const velocityScopeMenu = $("stats-velocity-scope-menu");
+  if (velocityScopeMenu) {
+    velocityScopeMenu.hidden = !state.statsDetailMenusExpanded || state.activeStatsView !== "quirks" || activeStatsQuirkCategory().key !== "velocity";
+  }
+
   document.querySelectorAll("[data-stats-category-view]").forEach((button) => {
     button.hidden = button.dataset.statsCategoryView !== state.activeStatsView;
   });
@@ -2696,6 +2915,30 @@ function renderStatsConditionControls() {
 
   document.querySelectorAll("[data-stats-quirk-category]").forEach((button) => {
     const active = button.dataset.statsQuirkCategory === state.statsQuirkCategory;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  document.querySelectorAll("[data-stats-cooldown-scope]").forEach((button) => {
+    const active = button.dataset.statsCooldownScope === state.statsCooldownScope;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  document.querySelectorAll("[data-stats-heat-scope]").forEach((button) => {
+    const active = button.dataset.statsHeatScope === state.statsHeatScope;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  document.querySelectorAll("[data-stats-range-scope]").forEach((button) => {
+    const active = button.dataset.statsRangeScope === state.statsRangeScope;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+
+  document.querySelectorAll("[data-stats-velocity-scope]").forEach((button) => {
+    const active = button.dataset.statsVelocityScope === state.statsVelocityScope;
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
   });
@@ -3444,6 +3687,32 @@ function bindEvents() {
     button.addEventListener("click", () => {
       if (button.disabled) return;
       state.statsQuirkCategory = button.dataset.statsQuirkCategory;
+      renderStatsPanel();
+    });
+  });
+  document.querySelectorAll("[data-stats-cooldown-scope]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.disabled) return;
+      state.statsCooldownScope = button.dataset.statsCooldownScope;
+      renderStatsPanel();
+    });
+  });
+  document.querySelectorAll("[data-stats-heat-scope]").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (button.disabled) return;
+      state.statsHeatScope = button.dataset.statsHeatScope;
+      renderStatsPanel();
+    });
+  });
+  document.querySelectorAll("[data-stats-range-scope]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.statsRangeScope = button.dataset.statsRangeScope;
+      renderStatsPanel();
+    });
+  });
+  document.querySelectorAll("[data-stats-velocity-scope]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.statsVelocityScope = button.dataset.statsVelocityScope;
       renderStatsPanel();
     });
   });
