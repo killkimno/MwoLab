@@ -3523,10 +3523,14 @@ function calculateBuild() {
   const upgradeFreeSlots = Math.max(0, totalSlotCapacity - upgradeCalculationUsage);
   Object.entries(componentUsage).forEach(([name, usage]) => {
     const slotLimit = number(definition.components?.[name]?.slots);
+    const availableSlots = Math.max(0, slotLimit - number(usage.slots));
     usage.structureSlots = number(usage.preferredStructureSlots);
     usage.armorSlots = number(usage.preferredArmorSlots);
     const componentUpgradeSlots = usage.structureSlots + usage.armorSlots;
-    usage.occupiedUpgradeSlots = Math.max(0, componentUpgradeSlots - upgradeFreeSlots);
+    usage.occupiedUpgradeSlots = Math.min(
+      componentUpgradeSlots,
+      Math.max(0, availableSlots - upgradeFreeSlots),
+    );
     usage.movableUpgradeSlots = componentUpgradeSlots - usage.occupiedUpgradeSlots;
     usage.occupiedStructureSlots = Math.min(usage.structureSlots, usage.occupiedUpgradeSlots);
     usage.occupiedArmorSlots = usage.occupiedUpgradeSlots - usage.occupiedStructureSlots;
