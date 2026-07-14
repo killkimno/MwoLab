@@ -2362,6 +2362,38 @@ h3 {
   color: #34454b;
 }
 
+.structure-upgrade-slot {
+  justify-content: flex-start;
+  border-color: #263238;
+  border-style: dotted;
+  background: #0d1315;
+  color: #536167;
+}
+
+.structure-upgrade-slot-occupied {
+  border-color: #586267;
+  border-style: solid;
+  background: #42494c;
+  color: #101617;
+  font-weight: 600;
+}
+
+.armor-upgrade-slot {
+  justify-content: flex-start;
+  border-color: #35312d;
+  border-style: dotted;
+  background: #0d1315;
+  color: #6a625a;
+}
+
+.armor-upgrade-slot-occupied {
+  border-color: #686057;
+  border-style: solid;
+  background: #4b4640;
+  color: #171411;
+  font-weight: 600;
+}
+
 .slot-item button {
   padding: 0.25rem 0.45rem;
 }
@@ -2472,10 +2504,10 @@ h3 {
   min-width: 0;
   min-height: 2rem;
   padding: 0.35rem 0.5rem;
-  border: 0;
-  border-radius: 999px;
-  background: #515253;
-  color: #69b7e8;
+  border: 1px solid #37484f;
+  border-radius: 4px;
+  background: #141d20;
+  color: var(--muted);
   font-size: 0.66rem;
   font-weight: 800;
   overflow: hidden;
@@ -2484,17 +2516,28 @@ h3 {
 }
 
 .upgrade-option:hover:not(:disabled) {
-  background: #626567;
+  border-color: #816235;
+  background: #2a2115;
+  color: var(--text);
 }
 
 .upgrade-option.active {
-  background: #65a8d2;
-  color: #081014;
+  border-color: #d5a53f;
+  background: #342916;
+  color: var(--text);
 }
 
-.upgrade-option:disabled:not(.active) {
-  color: #a5a5a5;
+.upgrade-option:disabled {
+  border-color: #2b383d;
+  background: #11191c;
+  color: #637077;
   cursor: not-allowed;
+}
+
+.upgrade-option.active:disabled {
+  border-color: #d5a53f;
+  background: #342916;
+  color: var(--text);
 }
 
 .equipment-panel.drop-valid {

@@ -85,12 +85,6 @@ const TEXT = {
     "filters.weaponMods": "무기 모드",
     "filters.omnipods": "옵니포드",
     "filters.equipmentCategory": "장비 카테고리",
-    "upgrade.title": "업그레이드",
-    "upgrade.structure": "스트럭쳐",
-    "upgrade.armor": "아머",
-    "upgrade.heatSinks": "히트싱크",
-    "upgrade.guidance": "가디언스",
-    "upgrade.fixed": "옵니멕 고정 업그레이드",
     "sort.default": "기본 정렬",
     "sort.tons": "톤수 정렬",
     "weight.light": "라이트",
@@ -205,6 +199,11 @@ const TEXT = {
     "build.engineOutside": "엔진 {rating}이 허용 범위 {min}-{max} 밖입니다",
     "build.engineTorsoOnly": "엔진은 중앙 몸통에만 장착할 수 있습니다",
     "build.engineFixed": "이 옴니멕의 엔진은 고정되어 있습니다",
+    "build.artemisRequired": "{item}은(는) 아르테미스 업그레이드가 필요합니다",
+    "build.standardGuidanceRequired": "{item}은(는) 스탠다드 유도 장치에서만 사용할 수 있습니다",
+    "build.structureSlotsUnavailable": "엔도스틸 슬롯 {count}칸을 배치할 공간이 부족합니다",
+    "build.armorSlotsUnavailable": "아머 업그레이드 슬롯 {count}칸을 배치할 공간이 부족합니다",
+    "build.upgradeSlotsUnavailable": "업그레이드 슬롯 {count}칸을 배치할 공간이 부족합니다",
     "build.missingItem": "누락된 장비 {id}",
     "build.missing": "{id} 누락",
     "build.factionMismatch": "{item}은(는) {faction} 멕에 장착할 수 없습니다",
@@ -309,12 +308,6 @@ const TEXT = {
     "filters.weaponMods": "Weapon mods",
     "filters.omnipods": "Omnipods",
     "filters.equipmentCategory": "Equipment category",
-    "upgrade.title": "Upgrades",
-    "upgrade.structure": "Structure",
-    "upgrade.armor": "Armor",
-    "upgrade.heatSinks": "Heat Sinks",
-    "upgrade.guidance": "Guidance",
-    "upgrade.fixed": "Fixed OmniMech upgrade",
     "sort.default": "Default sort",
     "sort.tons": "Sort by tonnage",
     "weight.light": "Light",
@@ -429,6 +422,11 @@ const TEXT = {
     "build.engineOutside": "Engine {rating} outside {min}-{max}",
     "build.engineTorsoOnly": "Engines can only be installed in the center torso",
     "build.engineFixed": "This OmniMech has a fixed engine",
+    "build.artemisRequired": "{item} requires the Artemis upgrade",
+    "build.standardGuidanceRequired": "{item} can only be used with Standard guidance",
+    "build.structureSlotsUnavailable": "Not enough room for {count} Endo Steel slots",
+    "build.armorSlotsUnavailable": "Not enough room for {count} armor upgrade slots",
+    "build.upgradeSlotsUnavailable": "Not enough room for {count} upgrade slots",
     "build.missingItem": "Missing item {id}",
     "build.missing": "Missing {id}",
     "build.factionMismatch": "{item} cannot be installed on a {faction} mech",
@@ -556,6 +554,24 @@ const INFO_COMPONENTS = [
 ];
 const ENGINE_COMPONENTS = new Set(["centre_torso"]);
 const ENGINE_SIDE_COMPONENTS = new Set(["left_torso", "right_torso"]);
+const FIXED_ARMOR_SLOT_ID = 1912;
+const FIXED_STRUCTURE_SLOT_ID = 1913;
+const MOVABLE_UPGRADE_SLOT_IDS = new Set([FIXED_ARMOR_SLOT_ID, FIXED_STRUCTURE_SLOT_ID]);
+const ARMOR_CONTAINER_SLOT_COUNTS = new Map([
+  [2801, 14],
+  [2802, 7],
+  [2805, 7],
+]);
+const STRUCTURE_SLOT_ORDER = [
+  "right_torso",
+  "centre_torso",
+  "left_torso",
+  "left_arm",
+  "right_arm",
+  "left_leg",
+  "right_leg",
+  "head",
+];
 
 const WEIGHT_CLASS_ORDER = ["light", "medium", "heavy", "assault"];
 
@@ -818,6 +834,89 @@ function mechById(id) {
 
 function itemSlots(item) {
   return number(item?.stats?.slots);
+}
+
+function isGuidanceWeapon(item) {
+  return item?.item_type === "weapon"
+    && Boolean(item.stats?.artemisAmmoType)
+    && !number(item.stats?.alwaysHasArtemis);
+}
+
+function isArtemisWeapon(item) {
+  return isGuidanceWeapon(item) && /artemis/i.test(String(item.name || ""));
+}
+
+function artemisEquipped(build = state.currentBuild) {
+  return Boolean(build?.upgrades?.artemis?.Equipped);
+}
+
+function guidanceUpgrade(build = state.currentBuild) {
+  return upgradeItems("guidance").find((item) => (
+    (number(item.stats?.extraSlots) > 0) === artemisEquipped(build)
+  ));
+}
+
+function effectiveItemSlots(item, build = state.currentBuild) {
+  const extraSlots = isArtemisWeapon(item) && artemisEquipped(build)
+    ? number(guidanceUpgrade(build)?.stats?.extraSlots)
+    : 0;
+  return itemSlots(item) + extraSlots;
+}
+
+function guidanceMismatch(item, build = state.currentBuild) {
+  if (!isGuidanceWeapon(item)) return "";
+  if (isArtemisWeapon(item) && !artemisEquipped(build)) {
+    return t("build.artemisRequired", { item: item.display_name || item.name });
+  }
+  if (!isArtemisWeapon(item) && artemisEquipped(build)) {
+    return t("build.standardGuidanceRequired", { item: item.display_name || item.name });
+  }
+  return "";
+}
+
+function structureUpgradeSlots(mech = state.selectedMech, build = state.currentBuild) {
+  if (!mech || !build || hasFixedOmnipods(mech)) return 0;
+  const upgrade = itemById(build.upgrades?.structure?.ItemID);
+  if (!upgrade || number(upgrade.stats?.weightPerTon, 0.1) >= 0.1) return 0;
+  return normalizeFactionKey(mech.faction) === "clan" ? 7 : 14;
+}
+
+function armorUpgradeSlots(mech = state.selectedMech, build = state.currentBuild) {
+  if (!mech || !build || hasFixedOmnipods(mech)) return 0;
+  const upgrade = itemById(build.upgrades?.armor?.ItemID);
+  if (!upgrade || /stealth/i.test(String(upgrade.name || ""))) return 0;
+  return number(ARMOR_CONTAINER_SLOT_COUNTS.get(number(upgrade.stats?.containerId)));
+}
+
+function componentBaseSlotUsage(name, definition, build, engine, fixedEngine) {
+  const compDef = definition.components?.[name] || {};
+  const buildComp = build.components?.[name] || { items: [] };
+  const internalSlots = (compDef.internals || []).reduce((sum, itemId) => {
+    if (MOVABLE_UPGRADE_SLOT_IDS.has(Number(itemId))) return sum;
+    return sum + Math.max(1, itemSlots(itemById(itemId)));
+  }, 0);
+  const sideEngineSlots = ENGINE_SIDE_COMPONENTS.has(name) ? engineSideSlots(engine) : 0;
+  const fixedEngineSlots = name === "centre_torso" && fixedEngine ? Math.max(1, itemSlots(fixedEngine)) : 0;
+  const equipmentSlots = (buildComp.items || []).reduce((sum, entry) => {
+    const item = itemById(entry.item_id);
+    return item ? sum + Math.max(1, effectiveItemSlots(item, build)) : sum;
+  }, 0);
+  return internalSlots + sideEngineSlots + fixedEngineSlots + equipmentSlots;
+}
+
+function allocateUpgradeSlots(requiredSlots, definition, build, engine, fixedEngine, reservedByComponent = {}) {
+  const byComponent = {};
+  let remaining = requiredSlots;
+  for (const name of STRUCTURE_SLOT_ORDER) {
+    const slotLimit = number(definition.components?.[name]?.slots);
+    const available = Math.max(0, slotLimit
+      - componentBaseSlotUsage(name, definition, build, engine, fixedEngine)
+      - number(reservedByComponent[name]));
+    const allocated = Math.min(available, remaining);
+    byComponent[name] = allocated;
+    remaining -= allocated;
+  }
+  return { byComponent, unallocated: remaining };
 }
 
 function itemTons(item) {
@@ -3315,11 +3414,25 @@ function calculateBuild() {
   let armor = 0;
   const engine = installedEngine();
   const structureUpgrade = itemById(state.currentBuild.upgrades?.structure?.ItemID);
-  const guidanceUpgrade = upgradeItems("guidance").find((item) => (
-    (number(item.stats?.extraSlots) > 0) === Boolean(state.currentBuild.upgrades?.artemis?.Equipped)
-  ));
-  const guidanceSlots = number(guidanceUpgrade?.stats?.extraSlots);
-  const guidanceTons = number(guidanceUpgrade?.stats?.extraTons);
+  const selectedGuidanceUpgrade = guidanceUpgrade();
+  const guidanceTons = number(selectedGuidanceUpgrade?.stats?.extraTons);
+  const requiredStructureSlots = structureUpgradeSlots(mech, state.currentBuild);
+  const requiredArmorSlots = armorUpgradeSlots(mech, state.currentBuild);
+  const structureAllocation = allocateUpgradeSlots(
+    requiredStructureSlots,
+    definition,
+    state.currentBuild,
+    engine,
+    fixedEngine,
+  );
+  const armorAllocation = allocateUpgradeSlots(
+    requiredArmorSlots,
+    definition,
+    state.currentBuild,
+    engine,
+    fixedEngine,
+    structureAllocation.byComponent,
+  );
   let heatSinkTons = 0;
   const warnings = [];
   const componentUsage = {};
@@ -3328,14 +3441,27 @@ function calculateBuild() {
     const compDef = definition.components?.[name] || {};
     const buildComp = state.currentBuild.components[name] || { items: [] };
     const internalSlots = (compDef.internals || []).reduce((sum, itemId) => {
+      if (!hasFixedOmnipods(mech) && MOVABLE_UPGRADE_SLOT_IDS.has(Number(itemId))) return sum;
       return sum + Math.max(1, itemSlots(itemById(itemId)));
     }, 0);
     const sideEngineSlots = ENGINE_SIDE_COMPONENTS.has(name) ? engineSideSlots(engine) : 0;
     const fixedEngineSlots = name === "centre_torso" && fixedEngine ? Math.max(1, itemSlots(fixedEngine)) : 0;
+    const preferredStructureSlots = number(structureAllocation.byComponent[name]);
+    const preferredArmorSlots = number(armorAllocation.byComponent[name]);
     const usage = {
       slots: internalSlots + sideEngineSlots + fixedEngineSlots,
       engineSideSlots: sideEngineSlots,
       fixedEngineSlots,
+      preferredStructureSlots,
+      preferredArmorSlots,
+      structureSlots: 0,
+      armorSlots: 0,
+      occupiedStructureSlots: 0,
+      occupiedArmorSlots: 0,
+      movableStructureSlots: 0,
+      movableArmorSlots: 0,
+      occupiedUpgradeSlots: 0,
+      movableUpgradeSlots: 0,
       hardpoints: {},
       warnings: [],
     };
@@ -3356,13 +3482,11 @@ function calculateBuild() {
       if (item.item_type === "engine" && !ENGINE_COMPONENTS.has(name)) {
         usage.warnings.push(t("build.engineTorsoOnly"));
       }
-      const slots = itemSlots(item);
-      const artemisCompatible = Boolean(state.currentBuild.upgrades?.artemis?.Equipped)
-        && item.item_type === "weapon"
-        && Boolean(item.stats?.artemisAmmoType)
-        && !number(item.stats?.alwaysHasArtemis);
-      usage.slots += slots + (artemisCompatible ? guidanceSlots : 0);
-      itemTonnage += itemTons(item) + (artemisCompatible ? guidanceTons : 0);
+      const mismatch = guidanceMismatch(item);
+      if (mismatch) usage.warnings.push(mismatch);
+      const artemisWeapon = isArtemisWeapon(item) && artemisEquipped();
+      usage.slots += effectiveItemSlots(item);
+      itemTonnage += itemTons(item) + (artemisWeapon ? guidanceTons : 0);
       heat += itemHeat(item);
       const mountType = equipmentHardpointType(item);
       if (mountType) {
@@ -3380,11 +3504,6 @@ function calculateBuild() {
       }
     }
 
-    const slotLimit = number(compDef.slots);
-    if (slotLimit && usage.slots > slotLimit) {
-      usage.warnings.push(`Slots ${usage.slots}/${slotLimit}`);
-    }
-
     for (const [type, usedHardpoints] of Object.entries(usage.hardpoints)) {
       const capacity = (compDef.hardpoints || [])
         .filter((hp) => hardpointType(hp) === type)
@@ -3393,6 +3512,43 @@ function calculateBuild() {
     }
 
     componentUsage[name] = usage;
+  }
+
+  const totalSlotCapacity = COMPONENT_ORDER.reduce((sum, name) => {
+    return sum + number(definition.components?.[name]?.slots);
+  }, 0);
+  const baseSlotUsage = Object.values(componentUsage).reduce((sum, usage) => sum + number(usage.slots), 0);
+  const requiredUpgradeSlots = requiredStructureSlots + requiredArmorSlots;
+  const upgradeCalculationUsage = baseSlotUsage + requiredUpgradeSlots;
+  const upgradeFreeSlots = Math.max(0, totalSlotCapacity - upgradeCalculationUsage);
+  Object.entries(componentUsage).forEach(([name, usage]) => {
+    const slotLimit = number(definition.components?.[name]?.slots);
+    usage.structureSlots = number(usage.preferredStructureSlots);
+    usage.armorSlots = number(usage.preferredArmorSlots);
+    const componentUpgradeSlots = usage.structureSlots + usage.armorSlots;
+    usage.occupiedUpgradeSlots = Math.max(0, componentUpgradeSlots - upgradeFreeSlots);
+    usage.movableUpgradeSlots = componentUpgradeSlots - usage.occupiedUpgradeSlots;
+    usage.occupiedStructureSlots = Math.min(usage.structureSlots, usage.occupiedUpgradeSlots);
+    usage.occupiedArmorSlots = usage.occupiedUpgradeSlots - usage.occupiedStructureSlots;
+    usage.movableStructureSlots = usage.structureSlots - usage.occupiedStructureSlots;
+    usage.movableArmorSlots = usage.armorSlots - usage.occupiedArmorSlots;
+    usage.slots += usage.occupiedUpgradeSlots;
+    if (slotLimit && usage.slots > slotLimit) {
+      usage.warnings.push(`Slots ${usage.slots}/${slotLimit}`);
+    }
+  });
+  // Component slot counts only include upgrade slots that are currently forced
+  // into that component. The build-wide count must reserve every movable upgrade
+  // slot, including black candidates, because they share the same remaining capacity.
+  const displayedSlotUsage = Object.values(componentUsage).reduce((sum, usage) => sum + number(usage.slots), 0);
+  const currentSlotUsage = upgradeCalculationUsage;
+  const freeSlots = upgradeFreeSlots;
+
+  if (structureAllocation.unallocated) {
+    warnings.push(t("build.structureSlotsUnavailable", { count: structureAllocation.unallocated }));
+  }
+  if (armorAllocation.unallocated) {
+    warnings.push(t("build.armorSlotsUnavailable", { count: armorAllocation.unallocated }));
   }
 
   for (const [name, usage] of Object.entries(componentUsage)) {
@@ -3423,7 +3579,31 @@ function calculateBuild() {
     warnings.push(t("build.noEngine"));
   }
 
-  return { maxTons, totalTons, heat, alpha, ammo, armor, engine, warnings, componentUsage };
+  return {
+    maxTons,
+    totalTons,
+    heat,
+    alpha,
+    ammo,
+    armor,
+    engine,
+    totalSlotCapacity,
+    baseSlotUsage,
+    displayedSlotUsage,
+    structureCalculationUsage: upgradeCalculationUsage,
+    upgradeCalculationUsage,
+    currentSlotUsage,
+    freeSlots,
+    structureFreeSlots: upgradeFreeSlots,
+    upgradeFreeSlots,
+    structureSlots: requiredStructureSlots,
+    armorSlots: requiredArmorSlots,
+    upgradeSlots: requiredUpgradeSlots,
+    unallocatedStructureSlots: structureAllocation.unallocated,
+    unallocatedArmorSlots: armorAllocation.unallocated,
+    warnings,
+    componentUsage,
+  };
 }
 
 function renderSummary() {
@@ -3438,6 +3618,7 @@ function renderSummary() {
     [t("common.heat"), fmt(calc.heat)],
     [t("common.ammo"), fmt(calc.ammo, 0)],
     [t("common.engine"), calc.engine ? number(calc.engine.stats?.rating) : "-"],
+    [t("common.slots"), `${calc.currentSlotUsage}/${calc.totalSlotCapacity}`],
     [t("common.status"), calc.warnings.length ? t("common.check") : t("common.ok")],
   ]
     .map(([label, value]) => `<div class="pill"><strong>${value}</strong><span>${label}</span></div>`)
@@ -3711,7 +3892,8 @@ function renderEquipmentList() {
   const rows = ids
     .map((id) => itemById(id))
     .filter(Boolean)
-    .filter((item) => itemMatchesMechFaction(item));
+    .filter((item) => itemMatchesMechFaction(item))
+    .filter((item) => !guidanceMismatch(item));
 
   const sectionOrder = ["energy", "missile", "ballistic", "ams", "ammo", "engines", "equipment", "other"];
   const grouped = new Map();
@@ -3738,7 +3920,7 @@ function renderEquipmentList() {
             return `
               <button class="item-row ${mountType || item.item_type}${active}" data-item="${item.id}" type="button" draggable="true" title="${item.display_name}">
                 <span class="item-row-name"><span class="item-type-mark">${HARDPOINT_LABELS[mountType] || String(item.item_type || "?")[0].toUpperCase()}</span><strong>${item.display_name}</strong></span>
-                <span>${itemSlots(item)}</span>
+                <span>${effectiveItemSlots(item)}</span>
                 <span>${fmt(itemTons(item))}</span>
               </button>
             `;
@@ -3789,10 +3971,10 @@ function renderUpgradeControls() {
     return;
   }
   const categories = [
-    { key: "structure", label: t("upgrade.structure") },
-    { key: "armor", label: t("upgrade.armor") },
-    { key: "heatsinks", label: t("upgrade.heatSinks") },
-    { key: "guidance", label: t("upgrade.guidance") },
+    { key: "structure", label: "Structure" },
+    { key: "armor", label: "Armor" },
+    { key: "heatsinks", label: "Heat Sinks" },
+    { key: "guidance", label: "Guidance" },
   ];
   const omniLocked = hasFixedOmnipods(state.selectedMech);
   controls.innerHTML = categories.map((category) => {
@@ -3815,7 +3997,7 @@ function renderUpgradeControls() {
             const active = option.value === activeValue;
             const fixed = omniLocked && category.key !== "guidance";
             const disabled = !state.currentBuild || fixed;
-            return `<button class="upgrade-option${active ? " active" : ""}" type="button" data-upgrade-category="${category.key}" data-upgrade-value="${option.value}" aria-pressed="${active}" ${disabled ? "disabled" : ""} ${fixed ? `title="${t("upgrade.fixed")}"` : ""}>${option.label}</button>`;
+            return `<button class="upgrade-option${active ? " active" : ""}" type="button" data-upgrade-category="${category.key}" data-upgrade-value="${option.value}" aria-pressed="${active}" ${disabled ? "disabled" : ""} ${fixed ? 'title="Fixed OmniMech upgrade"' : ""}>${option.label}</button>`;
           }).join("")}
         </div>
       </div>
@@ -3882,12 +4064,15 @@ function selectUpgrade(category, value) {
     };
     if (category === "heatsinks") applyHeatSinkUpgrade(item);
   }
-  renderUpgradeControls();
+  if (guidanceMismatch(itemById(state.selectedItemId))) state.selectedItemId = null;
+  renderEquipmentList();
+  renderSelectedItem();
   renderVariant();
 }
 
 function renderOmnipodList() {
-  $("selected-item").hidden = true;
+  $("selected-item").hidden = false;
+  $("selected-item").textContent = t("filters.omnipods");
   $("warehouse-columns").classList.add("omnipod-columns");
   $("warehouse-columns").innerHTML = `<span>Omnipod</span>${HARDPOINT_ORDER.map((type) => `<span>${HARDPOINT_LABELS[type]}</span>`).join("")}`;
   const chassis = String(state.selectedMech?.chassis || "").toLowerCase();
@@ -3925,7 +4110,7 @@ function renderOmnipodList() {
 function renderSelectedItem() {
   const item = itemById(state.selectedItemId);
   $("selected-item").textContent = item
-    ? `${item.display_name} · ${fmt(itemTons(item))} ${t("common.tons")} · ${itemSlots(item)} ${t("common.slots")}`
+    ? `${item.display_name} · ${fmt(itemTons(item))} ${t("common.tons")} · ${effectiveItemSlots(item)} ${t("common.slots")}`
     : t("equipment.noItem");
 }
 
@@ -3938,11 +4123,20 @@ function renderComponents() {
     const slotLimit = number(compDef.slots);
     const hardpointCounts = hardpointCountsFromHardpoints(compDef.hardpoints || []);
     const hps = renderHardpointBadges(hardpointCounts, "component-hardpoint");
-    const internalRows = (compDef.internals || []).map((itemId) => renderFixedSlot(itemId)).join("");
+    const internalRows = (compDef.internals || [])
+      .filter((itemId) => hasFixedOmnipods(state.selectedMech) || !MOVABLE_UPGRADE_SLOT_IDS.has(Number(itemId)))
+      .map((itemId) => renderFixedSlot(itemId))
+      .join("");
     const fixedEngineRows = usage.fixedEngineSlots ? renderFixedEngine(calc.engine, usage.fixedEngineSlots) : "";
+    const structureRows = usage.structureSlots
+      ? renderStructureSlots(usage.structureSlots, usage.occupiedStructureSlots)
+      : "";
+    const armorRows = usage.armorSlots
+      ? renderArmorSlots(usage.armorSlots, usage.occupiedArmorSlots)
+      : "";
     const sideEngineRows = usage.engineSideSlots ? renderEngineSideSlots(calc.engine, usage.engineSideSlots) : "";
     const itemRows = buildComp.items.map((entry, index) => renderLoadoutItem(name, entry, index)).join("");
-    const emptySlots = Math.max(0, slotLimit - usage.slots);
+    const emptySlots = Math.max(0, slotLimit - usage.slots - number(usage.movableUpgradeSlots));
     const emptyRows = Array.from({ length: emptySlots }, () => `<div class="critical-slot empty-slot">-</div>`).join("");
     return `
       <article class="component component-location-${name} ${usage.warnings.length ? "invalid" : ""}" data-component-drop="${name}">
@@ -3954,7 +4148,7 @@ function renderComponents() {
             ${usage.warnings.length ? `<div class="warnings">${usage.warnings.join(" / ")}</div>` : ""}
           </div>
         </div>
-        <div class="component-items">${internalRows}${fixedEngineRows}${itemRows}${emptyRows}${sideEngineRows}</div>
+        <div class="component-items">${internalRows}${fixedEngineRows}${itemRows}${structureRows}${armorRows}${emptyRows}${sideEngineRows}</div>
       </article>
     `;
   }).join("");
@@ -3977,10 +4171,30 @@ function renderFixedEngine(engine, slots) {
   return `<div class="critical-slot fixed-slot engine-fixed-slot" style="--slot-span:${slots}" title="${name} / ${slots} slots">${name} · ${slots}S</div>`;
 }
 
+function renderStructureSlots(slots, occupiedSlots = 0) {
+  return Array.from({ length: slots }, (_, index) => {
+    const occupied = index < occupiedSlots;
+    const classes = occupied
+      ? "critical-slot structure-upgrade-slot structure-upgrade-slot-occupied"
+      : "critical-slot empty-slot structure-upgrade-slot";
+    return `<div class="${classes}" title="Endo Steel slot">${t("stats.structure")}</div>`;
+  }).join("");
+}
+
+function renderArmorSlots(slots, occupiedSlots = 0) {
+  return Array.from({ length: slots }, (_, index) => {
+    const occupied = index < occupiedSlots;
+    const classes = occupied
+      ? "critical-slot armor-upgrade-slot armor-upgrade-slot-occupied"
+      : "critical-slot empty-slot armor-upgrade-slot";
+    return `<div class="${classes}" title="Armor upgrade slot">${t("common.armor")}</div>`;
+  }).join("");
+}
+
 function renderLoadoutItem(component, entry, index) {
   const item = itemById(entry.item_id);
   if (!item) return `<div class="slot-item missing-item">${t("build.missing", { id: entry.item_id })}</div>`;
-  const slots = Math.max(1, itemSlots(item));
+  const slots = Math.max(1, effectiveItemSlots(item));
   const mountType = equipmentHardpointType(item);
   return `
     <div class="slot-item ${mountType || item.item_type}" data-loadout-item="${component}:${index}" draggable="true" style="--slot-span:${slots}" title="${item.display_name} / ${slots} slots / ${fmt(itemTons(item))} tons">
@@ -4140,13 +4354,36 @@ function dropValidation(item, component, source = null) {
       faction: factionLabel(state.selectedMech?.faction),
     });
   }
+  const guidanceWarning = guidanceMismatch(item);
+  if (guidanceWarning) return guidanceWarning;
   if (source?.component === component) return null;
   const compDef = effectiveComponentDefinition(state.selectedMech, state.currentBuild, component);
   const calc = calculateBuild();
   const usage = calc.componentUsage[component] || { slots: 0 };
   const slotLimit = number(compDef.slots);
-  const nextSlots = usage.slots + Math.max(1, itemSlots(item));
+  const addedItemSlots = Math.max(1, effectiveItemSlots(item));
+  const nextSlots = usage.slots - number(usage.occupiedUpgradeSlots) + addedItemSlots;
   if (!slotLimit || nextSlots > slotLimit) return `Slots ${nextSlots}/${slotLimit}`;
+
+  if (calc.upgradeSlots) {
+    const availableUpgradeCapacity = STRUCTURE_SLOT_ORDER.reduce((sum, name) => {
+      const componentLimit = number(effectiveComponentDefinition(state.selectedMech, state.currentBuild, name).slots);
+      const componentUsage = calc.componentUsage[name] || { slots: 0, occupiedUpgradeSlots: 0 };
+      const baseUsage = componentUsage.slots - number(componentUsage.occupiedUpgradeSlots);
+      return sum + Math.max(0, componentLimit - baseUsage);
+    }, 0);
+    const sourceInUpgradeArea = source?.component && STRUCTURE_SLOT_ORDER.includes(source.component);
+    const targetInUpgradeArea = STRUCTURE_SLOT_ORDER.includes(component);
+    let nextUpgradeCapacity = availableUpgradeCapacity
+      + (sourceInUpgradeArea ? addedItemSlots : 0)
+      - (targetInUpgradeArea ? addedItemSlots : 0);
+    if (item.item_type === "engine" && !source) {
+      nextUpgradeCapacity -= engineSideSlots(item) * 2;
+    }
+    if (nextUpgradeCapacity < calc.upgradeSlots) {
+      return t("build.upgradeSlotsUnavailable", { count: calc.upgradeSlots - nextUpgradeCapacity });
+    }
+  }
 
   if (item.item_type === "engine") {
     const proposedSideSlots = engineSideSlots(item);
@@ -4154,7 +4391,10 @@ function dropValidation(item, component, source = null) {
       const sideDef = effectiveComponentDefinition(state.selectedMech, state.currentBuild, side);
       const sideLimit = number(sideDef.slots);
       const sideUsage = calc.componentUsage[side] || { slots: 0, engineSideSlots: 0 };
-      const sideNextSlots = sideUsage.slots - number(sideUsage.engineSideSlots) + proposedSideSlots;
+      const sideNextSlots = sideUsage.slots
+        - number(sideUsage.engineSideSlots)
+        - number(sideUsage.occupiedUpgradeSlots)
+        + proposedSideSlots;
       if (!sideLimit || sideNextSlots > sideLimit) {
         return `${COMPONENT_NAMES[side] || side}: Slots ${sideNextSlots}/${sideLimit}`;
       }
@@ -4533,7 +4773,8 @@ function bindEvents() {
     const item = itemById(payload?.itemId);
     const warning = dropValidation(item, component.dataset.componentDrop, payload?.source === "component" ? payload : null);
     if (warning && payload?.source === "component") {
-      removeDraggedItem();
+      setDropStatus(warning);
+      clearDragState();
       return;
     }
     installDraggedItem(component.dataset.componentDrop);
