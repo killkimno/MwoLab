@@ -85,22 +85,19 @@
 
                   <div id="equipment-panel" class="equipment-panel">
                     <h3 class="mechlab-panel-title">Equipment</h3>
-                    <div class="toolbar equipment-toolbar">
-                      <input id="item-search" type="search" placeholder="장비 검색" data-i18n-placeholder="search.itemPlaceholder">
-                      <select id="item-family">
-                        <option value="" data-i18n="filters.allEquipment">모든 장비</option>
-                        <option value="weapons" data-i18n="filters.weapons">무기</option>
-                        <option value="ammo" data-i18n="filters.ammo">탄약</option>
-                        <option value="engines" data-i18n="filters.engines">엔진</option>
-                        <option value="equipment" data-i18n="filters.equipment">장비</option>
-                        <option value="jumpjets" data-i18n="filters.jumpjets">점프젯</option>
-                        <option value="masc">MASC</option>
-                        <option value="weapon_mods" data-i18n="filters.weaponMods">무기 모드</option>
-                      </select>
+                    <div class="equipment-category-tabs" role="tablist" aria-label="장비 카테고리" data-i18n-aria-label="filters.equipmentCategory">
+                      <button class="equipment-category-tab active" type="button" role="tab" aria-selected="true" data-equipment-category="weapons" data-i18n="filters.weapons">무기</button>
+                      <button class="equipment-category-tab" type="button" role="tab" aria-selected="false" data-equipment-category="ammo" data-i18n="filters.ammo">탄약</button>
+                      <button class="equipment-category-tab" type="button" role="tab" aria-selected="false" data-equipment-category="equipment" data-i18n="filters.equipment">장비</button>
+                      <button class="equipment-category-tab" type="button" role="tab" aria-selected="false" data-equipment-category="omnipods" data-i18n="filters.omnipods" hidden>옵니포드</button>
                     </div>
                     <div id="selected-item" class="selected-item muted" data-i18n="equipment.noItem">장비가 선택되지 않았습니다</div>
-                    <div class="warehouse-columns" aria-hidden="true"><span>Item</span><span>Slots</span><span>Tons</span></div>
+                    <div id="warehouse-columns" class="warehouse-columns" aria-hidden="true"><span>Item</span><span>Slots</span><span>Tons</span></div>
                     <div id="item-list" class="item-list"></div>
+                    <section id="upgrade-panel" class="upgrade-panel" aria-label="업그레이드" data-i18n-aria-label="upgrade.title">
+                      <h4 data-i18n="upgrade.title">업그레이드</h4>
+                      <div id="upgrade-controls" class="upgrade-controls"></div>
+                    </section>
                   </div>
                 </section>
               </div>

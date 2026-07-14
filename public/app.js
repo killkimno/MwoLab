@@ -83,6 +83,14 @@ const TEXT = {
     "filters.jumpjets": "점프젯",
     "filters.masc": "MASC",
     "filters.weaponMods": "무기 모드",
+    "filters.omnipods": "옵니포드",
+    "filters.equipmentCategory": "장비 카테고리",
+    "upgrade.title": "업그레이드",
+    "upgrade.structure": "스트럭쳐",
+    "upgrade.armor": "아머",
+    "upgrade.heatSinks": "히트싱크",
+    "upgrade.guidance": "가디언스",
+    "upgrade.fixed": "옵니멕 고정 업그레이드",
     "sort.default": "기본 정렬",
     "sort.tons": "톤수 정렬",
     "weight.light": "라이트",
@@ -299,6 +307,14 @@ const TEXT = {
     "filters.jumpjets": "Jump jets",
     "filters.masc": "MASC",
     "filters.weaponMods": "Weapon mods",
+    "filters.omnipods": "Omnipods",
+    "filters.equipmentCategory": "Equipment category",
+    "upgrade.title": "Upgrades",
+    "upgrade.structure": "Structure",
+    "upgrade.armor": "Armor",
+    "upgrade.heatSinks": "Heat Sinks",
+    "upgrade.guidance": "Guidance",
+    "upgrade.fixed": "Fixed OmniMech upgrade",
     "sort.default": "Default sort",
     "sort.tons": "Sort by tonnage",
     "weight.light": "Light",
@@ -727,6 +743,8 @@ const state = {
   selectedChassis: "",
   expandedChassis: new Set(),
   selectedItemId: null,
+  activeEquipmentCategory: "weapons",
+  omnipodDefinitionCache: new Map(),
   currentBuild: null,
   activeDrag: null,
 };
@@ -1169,7 +1187,7 @@ function applyFixedOmnipods(mech, build) {
   for (const name of COMPONENT_ORDER) {
     build.components[name] ||= { armor: 0, items: [] };
     const stockPodId = loadout.components?.[name]?.omnipod;
-    if (stockPodId) build.components[name].omnipod = stockPodId;
+    if (stockPodId && !build.components[name].omnipod) build.components[name].omnipod = stockPodId;
   }
   if (fixedOmniEngine(mech)) {
     for (const component of Object.values(build.components)) {
@@ -1243,6 +1261,29 @@ function hardpointsFromLoadoutItems(buildComponent) {
   });
 }
 
+function omnipodDefinition(pod) {
+  if (!pod?.id) return { hardpoints: [] };
+  const cacheKey = String(pod.id);
+  const cached = state.omnipodDefinitionCache.get(cacheKey);
+  if (cached) return cached;
+
+  let sourceComponent = null;
+  for (const loadout of Object.values(state.loadouts || {})) {
+    sourceComponent = Object.values(loadout.components || {}).find((component) => (
+      String(component.omnipod || "") === cacheKey
+    ));
+    if (sourceComponent) break;
+  }
+
+  let hardpoints = hardpointsFromLoadoutItems(sourceComponent);
+  if ((sourceComponent?.items || []).some((entry) => isEcm(itemById(entry.item_id)))) {
+    hardpoints = addEcmHardpoint(hardpoints);
+  }
+  const definition = { hardpoints };
+  state.omnipodDefinitionCache.set(cacheKey, definition);
+  return definition;
+}
+
 function ecmCapableOmnipodIds() {
   if (state.ecmOmnipodIds) return state.ecmOmnipodIds;
   const ids = new Set();
@@ -1301,8 +1342,9 @@ function effectiveComponentDefinition(mech = state.selectedMech, build = state.c
   const buildComponent = build?.components?.[componentName] || {};
   const pod = podById(buildComponent.omnipod);
   const stockComponent = loadoutForMech(mech).components?.[componentName] || {};
-  let hardpoints = pod?.hardpoints?.length
-    ? pod.hardpoints.map((hardpoint) => ({
+  const podHardpoints = pod ? omnipodDefinition(pod).hardpoints : [];
+  let hardpoints = podHardpoints.length
+    ? podHardpoints.map((hardpoint) => ({
       ...hardpoint,
       hardpoint_type: hardpointType(hardpoint),
     }))
@@ -3272,6 +3314,12 @@ function calculateBuild() {
   let ammo = 0;
   let armor = 0;
   const engine = installedEngine();
+  const structureUpgrade = itemById(state.currentBuild.upgrades?.structure?.ItemID);
+  const guidanceUpgrade = upgradeItems("guidance").find((item) => (
+    (number(item.stats?.extraSlots) > 0) === Boolean(state.currentBuild.upgrades?.artemis?.Equipped)
+  ));
+  const guidanceSlots = number(guidanceUpgrade?.stats?.extraSlots);
+  const guidanceTons = number(guidanceUpgrade?.stats?.extraTons);
   let heatSinkTons = 0;
   const warnings = [];
   const componentUsage = {};
@@ -3309,8 +3357,12 @@ function calculateBuild() {
         usage.warnings.push(t("build.engineTorsoOnly"));
       }
       const slots = itemSlots(item);
-      usage.slots += slots;
-      itemTonnage += itemTons(item);
+      const artemisCompatible = Boolean(state.currentBuild.upgrades?.artemis?.Equipped)
+        && item.item_type === "weapon"
+        && Boolean(item.stats?.artemisAmmoType)
+        && !number(item.stats?.alwaysHasArtemis);
+      usage.slots += slots + (artemisCompatible ? guidanceSlots : 0);
+      itemTonnage += itemTons(item) + (artemisCompatible ? guidanceTons : 0);
       heat += itemHeat(item);
       const mountType = equipmentHardpointType(item);
       if (mountType) {
@@ -3355,7 +3407,8 @@ function calculateBuild() {
   const armorPerTon = number(armorUpgrade?.stats?.armorPerTon, 32);
   const engineIncludedHeatSinks = engine ? number(engine.stats?.heatsinks) : 0;
   const adjustedItemTons = itemTonnage - Math.min(heatSinkTons, engineIncludedHeatSinks);
-  const totalTons = baseTons + adjustedItemTons + armor / armorPerTon;
+  const structureTons = maxTons * number(structureUpgrade?.stats?.weightPerTon, 0.1);
+  const totalTons = baseTons + structureTons + adjustedItemTons + armor / armorPerTon;
   if (maxTons && totalTons > maxTons + 0.1) {
     warnings.push(`Tonnage ${fmt(totalTons)}/${fmt(maxTons)}`);
   }
@@ -3629,20 +3682,36 @@ function renderMechCard(mech, activeChassis) {
 }
 
 function renderEquipmentList() {
-  const search = $("item-search").value.trim().toLowerCase();
-  const family = $("item-family").value;
-  const ids = family
-    ? state.equipment.families[family] || []
-    : Object.keys(state.equipment.items).map((id) => Number(id));
+  const isOmniMech = hasFixedOmnipods(state.selectedMech);
+  document.querySelector(".equipment-category-tabs")?.classList.toggle("has-omnipods", isOmniMech);
+  if (!isOmniMech && state.activeEquipmentCategory === "omnipods") {
+    state.activeEquipmentCategory = "weapons";
+  }
+  document.querySelectorAll("[data-equipment-category]").forEach((button) => {
+    const isOmnipodTab = button.dataset.equipmentCategory === "omnipods";
+    button.hidden = isOmnipodTab && !isOmniMech;
+    const active = button.dataset.equipmentCategory === state.activeEquipmentCategory;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  renderUpgradeControls();
+
+  if (state.activeEquipmentCategory === "omnipods") {
+    renderOmnipodList();
+    return;
+  }
+
+  $("selected-item").hidden = false;
+  $("warehouse-columns").classList.remove("omnipod-columns");
+  $("warehouse-columns").innerHTML = "<span>Item</span><span>Slots</span><span>Tons</span>";
+  const families = state.activeEquipmentCategory === "equipment"
+    ? ["engines", "equipment", "internals", "jumpjets", "masc", "weapon_mods"]
+    : [state.activeEquipmentCategory];
+  const ids = [...new Set(families.flatMap((family) => state.equipment.families[family] || []))];
   const rows = ids
     .map((id) => itemById(id))
     .filter(Boolean)
-    .filter((item) => itemMatchesMechFaction(item))
-    .filter((item) => {
-      const text = `${item.display_name} ${item.name} ${item.family}`.toLowerCase();
-      return !search || text.includes(search);
-    })
-    .slice(0, 350);
+    .filter((item) => itemMatchesMechFaction(item));
 
   const sectionOrder = ["energy", "missile", "ballistic", "ams", "ammo", "engines", "equipment", "other"];
   const grouped = new Map();
@@ -3679,6 +3748,180 @@ function renderEquipmentList() {
     .join("");
 }
 
+function upgradeItems(category) {
+  const items = (state.equipment?.families?.upgrades || [])
+    .map((id) => itemById(id))
+    .filter(Boolean)
+    .filter((item) => itemMatchesMechFaction(item));
+  return items.filter((item) => {
+    if (category === "structure") return Object.hasOwn(item.stats || {}, "weightPerTon");
+    if (category === "armor") return Object.hasOwn(item.stats || {}, "armorPerTon");
+    if (category === "heatsinks") return Object.hasOwn(item.stats || {}, "compatibleHeatSink");
+    if (category === "guidance") return Object.hasOwn(item.stats || {}, "extraSlots");
+    return false;
+  });
+}
+
+function upgradeOptionLabel(category, item) {
+  const name = String(item?.name || "").toLowerCase();
+  if (category === "structure") return name.includes("standard") ? "STANDARD" : "ENDO STEEL";
+  if (category === "armor") {
+    if (name.includes("lightferro")) return "LIGHT FERRO";
+    if (name.includes("stealth")) return "STEALTH";
+    if (name.includes("standard")) return "STANDARD";
+    return "FERRO-FIBROUS";
+  }
+  if (category === "heatsinks") return name.includes("double") ? "DOUBLE" : "SINGLE";
+  return number(item?.stats?.extraSlots) > 0 ? "ARTEMIS" : "STANDARD";
+}
+
+function activeUpgradeValue(category) {
+  if (category === "guidance") return state.currentBuild?.upgrades?.artemis?.Equipped ? "1" : "0";
+  return String(state.currentBuild?.upgrades?.[category]?.ItemID || "");
+}
+
+function renderUpgradeControls() {
+  const controls = $("upgrade-controls");
+  if (!controls) return;
+  $("upgrade-panel").hidden = !state.currentBuild;
+  if (!state.currentBuild) {
+    controls.innerHTML = "";
+    return;
+  }
+  const categories = [
+    { key: "structure", label: t("upgrade.structure") },
+    { key: "armor", label: t("upgrade.armor") },
+    { key: "heatsinks", label: t("upgrade.heatSinks") },
+    { key: "guidance", label: t("upgrade.guidance") },
+  ];
+  const omniLocked = hasFixedOmnipods(state.selectedMech);
+  controls.innerHTML = categories.map((category) => {
+    const activeValue = activeUpgradeValue(category.key);
+    const options = upgradeItems(category.key)
+      .map((item) => ({
+        item,
+        label: upgradeOptionLabel(category.key, item),
+        value: category.key === "guidance" ? (number(item.stats?.extraSlots) > 0 ? "1" : "0") : String(item.id),
+      }))
+      .sort((a, b) => {
+        const order = ["STANDARD", "SINGLE", "ENDO STEEL", "FERRO-FIBROUS", "DOUBLE", "LIGHT FERRO", "STEALTH", "ARTEMIS"];
+        return order.indexOf(a.label) - order.indexOf(b.label);
+      });
+    return `
+      <div class="upgrade-group">
+        <div class="upgrade-group-label">${category.label}</div>
+        <div class="upgrade-options">
+          ${options.map((option) => {
+            const active = option.value === activeValue;
+            const fixed = omniLocked && category.key !== "guidance";
+            const disabled = !state.currentBuild || fixed;
+            return `<button class="upgrade-option${active ? " active" : ""}" type="button" data-upgrade-category="${category.key}" data-upgrade-value="${option.value}" aria-pressed="${active}" ${disabled ? "disabled" : ""} ${fixed ? `title="${t("upgrade.fixed")}"` : ""}>${option.label}</button>`;
+          }).join("")}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function findEquipmentByName(name) {
+  const wanted = String(name || "").toLowerCase();
+  return Object.values(state.equipment?.items || {}).find((item) => (
+    String(item.name || "").toLowerCase() === wanted && itemMatchesMechFaction(item)
+  )) || null;
+}
+
+function artemisCounterpart(item, equipped) {
+  if (!item || !["weapon", "ammo"].includes(item.item_type)) return null;
+  const name = String(item.name || "");
+  const isArtemis = /artemis/i.test(name);
+  if (equipped === isArtemis) return item;
+  let targetName;
+  if (equipped) {
+    if (item.item_type === "weapon" && !item.stats?.artemisAmmoType) return null;
+    targetName = item.item_type === "weapon" ? `${name}_Artemis` : `${name}Artemis`;
+  } else {
+    targetName = name.replace(/_?Artemis/gi, "");
+  }
+  return findEquipmentByName(targetName);
+}
+
+function applyHeatSinkUpgrade(upgradeItem) {
+  const compatibleId = number(upgradeItem?.stats?.compatibleHeatSink);
+  if (!compatibleId) return;
+  Object.values(state.currentBuild?.components || {}).forEach((component) => {
+    (component.items || []).forEach((entry) => {
+      if (isHeatSink(itemById(entry.item_id))) entry.item_id = compatibleId;
+    });
+  });
+}
+
+function applyArtemisUpgrade(equipped) {
+  Object.values(state.currentBuild?.components || {}).forEach((component) => {
+    (component.items || []).forEach((entry) => {
+      const replacement = artemisCounterpart(itemById(entry.item_id), equipped);
+      if (replacement) entry.item_id = replacement.id;
+    });
+  });
+}
+
+function selectUpgrade(category, value) {
+  if (!state.currentBuild) return;
+  state.currentBuild.upgrades ||= {};
+  if (category === "guidance") {
+    const equipped = value === "1";
+    state.currentBuild.upgrades.artemis ||= {};
+    state.currentBuild.upgrades.artemis.Equipped = equipped ? 1 : 0;
+    applyArtemisUpgrade(equipped);
+  } else {
+    if (hasFixedOmnipods(state.selectedMech)) return;
+    const item = itemById(value);
+    if (!item || !upgradeItems(category).some((option) => String(option.id) === String(value))) return;
+    state.currentBuild.upgrades[category] = {
+      ...(state.currentBuild.upgrades[category] || {}),
+      ItemID: item.id,
+    };
+    if (category === "heatsinks") applyHeatSinkUpgrade(item);
+  }
+  renderUpgradeControls();
+  renderVariant();
+}
+
+function renderOmnipodList() {
+  $("selected-item").hidden = true;
+  $("warehouse-columns").classList.add("omnipod-columns");
+  $("warehouse-columns").innerHTML = `<span>Omnipod</span>${HARDPOINT_ORDER.map((type) => `<span>${HARDPOINT_LABELS[type]}</span>`).join("")}`;
+  const chassis = String(state.selectedMech?.chassis || "").toLowerCase();
+  const grouped = new Map();
+  Object.values(state.omnipods || {})
+    .filter((pod) => String(pod.chassis || "").toLowerCase() === chassis)
+    .forEach((pod) => {
+      if (!grouped.has(pod.component)) grouped.set(pod.component, []);
+      grouped.get(pod.component).push(pod);
+    });
+
+  const omnipodComponentOrder = ["head", "right_torso", "left_torso", "right_arm", "left_arm", "right_leg", "left_leg"];
+  $("item-list").innerHTML = omnipodComponentOrder
+    .filter((component) => grouped.has(component))
+    .map((component) => `
+      <section class="warehouse-section warehouse-omnipods">
+        <div class="warehouse-section-title">${String(component).replaceAll("_", " ").toUpperCase()}</div>
+        ${grouped.get(component)
+          .sort((a, b) => String(a.set).localeCompare(String(b.set), undefined, { numeric: true }))
+          .map((pod) => {
+            const counts = hardpointCountsFromHardpoints(omnipodDefinition(pod).hardpoints);
+            const active = String(state.currentBuild?.components?.[component]?.omnipod || "") === String(pod.id) ? " active" : "";
+            return `
+              <button class="omnipod-row${active}" data-omnipod="${pod.id}" data-omnipod-component="${component}" type="button" draggable="true" title="${String(pod.set).toUpperCase()} ${String(component).replaceAll("_", " ").toUpperCase()}">
+                <strong>${String(pod.set).toUpperCase()} ${String(component).replaceAll("_", " ").toUpperCase()}</strong>
+                ${HARDPOINT_ORDER.map((type) => `<span class="omnipod-hardpoint ${type}">${number(counts[type])}</span>`).join("")}
+              </button>
+            `;
+          }).join("")}
+      </section>
+    `)
+    .join("");
+}
+
 function renderSelectedItem() {
   const item = itemById(state.selectedItemId);
   $("selected-item").textContent = item
@@ -3696,9 +3939,8 @@ function renderComponents() {
     const hardpointCounts = hardpointCountsFromHardpoints(compDef.hardpoints || []);
     const hps = renderHardpointBadges(hardpointCounts, "component-hardpoint");
     const internalRows = (compDef.internals || []).map((itemId) => renderFixedSlot(itemId)).join("");
-    const engineRows = usage.fixedEngineSlots
-      ? renderFixedEngine(calc.engine, usage.fixedEngineSlots)
-      : usage.engineSideSlots ? renderEngineSideSlots(calc.engine, usage.engineSideSlots) : "";
+    const fixedEngineRows = usage.fixedEngineSlots ? renderFixedEngine(calc.engine, usage.fixedEngineSlots) : "";
+    const sideEngineRows = usage.engineSideSlots ? renderEngineSideSlots(calc.engine, usage.engineSideSlots) : "";
     const itemRows = buildComp.items.map((entry, index) => renderLoadoutItem(name, entry, index)).join("");
     const emptySlots = Math.max(0, slotLimit - usage.slots);
     const emptyRows = Array.from({ length: emptySlots }, () => `<div class="critical-slot empty-slot">-</div>`).join("");
@@ -3712,7 +3954,7 @@ function renderComponents() {
             ${usage.warnings.length ? `<div class="warnings">${usage.warnings.join(" / ")}</div>` : ""}
           </div>
         </div>
-        <div class="component-items">${internalRows}${engineRows}${itemRows}${emptyRows}</div>
+        <div class="component-items">${internalRows}${fixedEngineRows}${itemRows}${emptyRows}${sideEngineRows}</div>
       </article>
     `;
   }).join("");
@@ -3987,8 +4229,12 @@ function bindEvents() {
     state.mechSort = event.target.value;
     renderMechList();
   });
-  $("item-search").addEventListener("input", renderEquipmentList);
-  $("item-family").addEventListener("change", renderEquipmentList);
+  document.querySelectorAll("[data-equipment-category]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.activeEquipmentCategory = button.dataset.equipmentCategory;
+      renderEquipmentList();
+    });
+  });
   $("info-apply-quirks").addEventListener("change", (event) => {
     state.infoApplyQuirks = event.target.checked;
     renderMechList();
@@ -4213,7 +4459,24 @@ function bindEvents() {
     const button = event.target.closest("[data-item]");
     if (button) selectItem(button.dataset.item);
   });
+  $("upgrade-controls").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-upgrade-category]");
+    if (!button || button.disabled) return;
+    selectUpgrade(button.dataset.upgradeCategory, button.dataset.upgradeValue);
+  });
   $("item-list").addEventListener("dragstart", (event) => {
+    const podRow = event.target.closest("[data-omnipod]");
+    if (podRow) {
+      state.activeDrag = {
+        source: "omnipod",
+        podId: podRow.dataset.omnipod,
+        component: podRow.dataset.omnipodComponent,
+      };
+      podRow.classList.add("dragging");
+      event.dataTransfer.effectAllowed = "copy";
+      event.dataTransfer.setData("text/plain", `omnipod:${podRow.dataset.omnipod}`);
+      return;
+    }
     const row = event.target.closest("[data-item]");
     if (!row) return;
     state.activeDrag = { source: "warehouse", itemId: row.dataset.item };
@@ -4237,6 +4500,15 @@ function bindEvents() {
     const component = event.target.closest("[data-component-drop]");
     if (!component || !state.activeDrag) return;
     document.querySelectorAll("[data-component-drop]").forEach((target) => target.classList.remove("drop-valid", "drop-invalid"));
+    if (state.activeDrag.source === "omnipod") {
+      const valid = state.activeDrag.component === component.dataset.componentDrop;
+      component.classList.add(valid ? "drop-valid" : "drop-invalid");
+      if (valid) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+      }
+      return;
+    }
     const item = itemById(state.activeDrag.itemId);
     const warning = dropValidation(item, component.dataset.componentDrop, state.activeDrag.source === "component" ? state.activeDrag : null);
     component.classList.add(warning ? "drop-invalid" : "drop-valid");
@@ -4250,6 +4522,14 @@ function bindEvents() {
     if (!component) return;
     event.preventDefault();
     const payload = state.activeDrag;
+    if (payload?.source === "omnipod") {
+      if (payload.component === component.dataset.componentDrop) {
+        state.currentBuild.components[payload.component].omnipod = Number(payload.podId);
+        clearDragState();
+        renderVariant();
+      }
+      return;
+    }
     const item = itemById(payload?.itemId);
     const warning = dropValidation(item, component.dataset.componentDrop, payload?.source === "component" ? payload : null);
     if (warning && payload?.source === "component") {
@@ -4287,6 +4567,7 @@ function bindEvents() {
   $("reset-stock").addEventListener("click", () => {
     if (!state.selectedMech) return;
     state.currentBuild = buildFromLoadout(state.selectedMech);
+    renderUpgradeControls();
     renderVariant();
   });
   $("save-build").addEventListener("click", () => {
