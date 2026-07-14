@@ -17,7 +17,7 @@ HARDPOINT_TYPES = {
     "1": "energy",
     "2": "missile",
     "3": "ams",
-    "4": "ecm",
+    "4": "ams",
 }
 
 ITEM_FILES = [

@@ -14,8 +14,8 @@
       </div>
 
       <nav class="main-tabs" aria-label="Main tabs">
-        <button class="tab-button" type="button" data-main-tab="mechlab" aria-controls="tab-mechlab" disabled aria-disabled="true" data-i18n="tabs.mechlab">현재 멕랩</button>
-        <button class="tab-button active" type="button" data-main-tab="info" aria-controls="tab-info" data-i18n="tabs.info">정보</button>
+        <button class="tab-button active" type="button" data-main-tab="mechlab" aria-controls="tab-mechlab" data-i18n="tabs.mechlab">현재 멕랩</button>
+        <button class="tab-button" type="button" data-main-tab="info" aria-controls="tab-info" data-i18n="tabs.info">정보</button>
         <button class="tab-button" type="button" data-main-tab="compare" aria-controls="tab-compare" data-i18n="tabs.compare">비교하기</button>
         <button class="tab-button" type="button" data-main-tab="stats" aria-controls="tab-stats" data-i18n="tabs.stats">통계</button>
         <a class="donate-link" href="https://ko-fi.com/killkimno" target="_blank" rel="noopener noreferrer" aria-label="Ko-fi 후원 페이지 열기" data-i18n="donate.label" data-i18n-aria-label="donate.aria">후원하기</a>
@@ -54,36 +54,37 @@
           </aside>
 
           <div class="tab-content">
-            <section id="tab-mechlab" class="tab-panel" hidden>
-              <div class="workspace">
+            <section id="tab-mechlab" class="tab-panel active">
+              <div class="workspace mechlab-workspace">
                 <section class="variant-panel">
                   <div>
                     <h2 id="variant-name" data-i18n="info.selectMech">멕을 선택하세요</h2>
                     <div id="variant-meta" class="muted"></div>
                   </div>
                   <div class="actions">
+                    <button id="show-mech-list" type="button" data-i18n="mechlab.showList">멕 리스트</button>
                     <button id="reset-stock" type="button">Stock</button>
                     <button id="save-build" type="button">Save</button>
                     <button id="clear-build" type="button">Clear</button>
                   </div>
                 </section>
 
-                <section class="quirks-panel">
-                  <div class="section-title-row">
-                    <h3>QUIRKS</h3>
+                <details class="quirks-panel">
+                  <summary class="section-title-row">
+                    <span>QUIRKS</span>
                     <span id="quirk-count" class="muted"></span>
-                  </div>
+                  </summary>
                   <div id="quirks" class="quirks"></div>
-                </section>
+                </details>
 
                 <section class="mechlab-grid">
-                  <div class="components-panel">
-                    <h3>Components</h3>
+                  <div class="components-panel" aria-label="Hardpoints">
+                    <h3 class="mechlab-panel-title">Hardpoints</h3>
                     <div id="components" class="components"></div>
                   </div>
 
-                  <div class="equipment-panel">
-                    <h3>Equipment</h3>
+                  <div id="equipment-panel" class="equipment-panel">
+                    <h3 class="mechlab-panel-title">Equipment</h3>
                     <div class="toolbar equipment-toolbar">
                       <input id="item-search" type="search" placeholder="장비 검색" data-i18n-placeholder="search.itemPlaceholder">
                       <select id="item-family">
@@ -98,13 +99,14 @@
                       </select>
                     </div>
                     <div id="selected-item" class="selected-item muted" data-i18n="equipment.noItem">장비가 선택되지 않았습니다</div>
+                    <div class="warehouse-columns" aria-hidden="true"><span>Item</span><span>Slots</span><span>Tons</span></div>
                     <div id="item-list" class="item-list"></div>
                   </div>
                 </section>
               </div>
             </section>
 
-            <section id="tab-info" class="tab-panel info-workspace active">
+            <section id="tab-info" class="tab-panel info-workspace" hidden>
               <section class="variant-panel">
                 <div>
                   <h2 id="info-variant-name" data-i18n="info.selectMech">멕을 선택하세요</h2>

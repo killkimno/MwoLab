@@ -59,6 +59,7 @@ const TEXT = {
     "status.fileProtocol": "file://에서는 로컬 데이터를 불러올 수 없습니다. 로컬 프리뷰는 public 폴더를 http://로 서빙하세요.",
     "status.loadPathFailed": "{path} 파일을 불러올 수 없습니다",
     "status.buildSaved": "빌드를 로컬에 저장했습니다",
+    "mechlab.showList": "멕 리스트",
     "tabs.mechlab": "현재 멕랩",
     "tabs.info": "정보",
     "tabs.compare": "비교하기",
@@ -194,8 +195,11 @@ const TEXT = {
     "equipment.noItem": "장비가 선택되지 않았습니다",
     "build.noEngine": "엔진 없음",
     "build.engineOutside": "엔진 {rating}이 허용 범위 {min}-{max} 밖입니다",
+    "build.engineTorsoOnly": "엔진은 중앙 몸통에만 장착할 수 있습니다",
+    "build.engineFixed": "이 옴니멕의 엔진은 고정되어 있습니다",
     "build.missingItem": "누락된 장비 {id}",
     "build.missing": "{id} 누락",
+    "build.factionMismatch": "{item}은(는) {faction} 멕에 장착할 수 없습니다",
     "quirk.cooldownSummary": "쿨 다운 서머리",
     "quirk.heatSummary": "발열 서머리",
     "quirk.velocitySummary": "탄속 서머리",
@@ -271,6 +275,7 @@ const TEXT = {
     "status.fileProtocol": "Local data cannot be loaded from file://. Serve the public folder over http:// for local preview.",
     "status.loadPathFailed": "Could not load {path}",
     "status.buildSaved": "Build saved locally",
+    "mechlab.showList": "Mech List",
     "tabs.mechlab": "Current MechLab",
     "tabs.info": "Info",
     "tabs.compare": "Compare",
@@ -406,8 +411,11 @@ const TEXT = {
     "equipment.noItem": "No item selected",
     "build.noEngine": "No engine",
     "build.engineOutside": "Engine {rating} outside {min}-{max}",
+    "build.engineTorsoOnly": "Engines can only be installed in the center torso",
+    "build.engineFixed": "This OmniMech has a fixed engine",
     "build.missingItem": "Missing item {id}",
     "build.missing": "Missing {id}",
+    "build.factionMismatch": "{item} cannot be installed on a {faction} mech",
     "quirk.cooldownSummary": "Cooldown Summary",
     "quirk.heatSummary": "Heat Summary",
     "quirk.velocitySummary": "Velocity Summary",
@@ -511,6 +519,15 @@ const COMPONENT_NAMES = {
   right_leg: t("component.rightLeg"),
 };
 
+const HARDPOINT_ORDER = ["energy", "missile", "ballistic", "ams", "ecm"];
+const HARDPOINT_LABELS = {
+  energy: "E",
+  missile: "M",
+  ballistic: "B",
+  ams: "AMS",
+  ecm: "ECM",
+};
+
 const INFO_COMPONENTS = [
   { key: "head", label: t("component.head"), suffix: "hd" },
   { key: "centre_torso", label: t("component.centerTorso"), suffix: "ct", rearSuffix: "ctr" },
@@ -521,6 +538,8 @@ const INFO_COMPONENTS = [
   { key: "left_leg", label: t("component.leftLeg"), suffix: "ll" },
   { key: "right_leg", label: t("component.rightLeg"), suffix: "rl" },
 ];
+const ENGINE_COMPONENTS = new Set(["centre_torso"]);
+const ENGINE_SIDE_COMPONENTS = new Set(["left_torso", "right_torso"]);
 
 const WEIGHT_CLASS_ORDER = ["light", "medium", "heavy", "assault"];
 
@@ -664,7 +683,8 @@ const state = {
   equipment: null,
   loadouts: {},
   omnipods: {},
-  activeMainTab: "info",
+  activeMainTab: "mechlab",
+  mechlabBrowseMode: true,
   infoApplyQuirks: true,
   compareMode: false,
   compareMechIds: [],
@@ -701,11 +721,14 @@ const state = {
   mechHardpointTypeCache: new Map(),
   weaponQuirkTypeCache: null,
   weaponQuirkTargetCache: null,
+  ecmOmnipodIds: null,
+  fixedOmniEngineCache: new Map(),
   selectedMech: null,
   selectedChassis: "",
   expandedChassis: new Set(),
   selectedItemId: null,
   currentBuild: null,
+  activeDrag: null,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -725,6 +748,45 @@ function normalizeLookupKey(value) {
 
 function itemById(id) {
   return state.equipment?.items?.[String(id)] || null;
+}
+
+function loadoutInstalledEngine(build = state.currentBuild) {
+  for (const component of Object.values(build?.components || {})) {
+    for (const entry of component.items || []) {
+      const item = itemById(entry.item_id);
+      if (item?.item_type === "engine") return item;
+    }
+  }
+  return null;
+}
+
+function fixedOmniEngine(mech = state.selectedMech) {
+  if (!mech || !hasFixedOmnipods(mech)) return null;
+  const stats = mech.definition?.stats || {};
+  const minRating = number(stats.MinEngineRating);
+  const maxRating = number(stats.MaxEngineRating);
+  if (!minRating || minRating !== maxRating) return null;
+
+  const cacheKey = String(mech.id);
+  if (state.fixedOmniEngineCache.has(cacheKey)) return state.fixedOmniEngineCache.get(cacheKey);
+  const faction = normalizeFactionKey(mech.faction);
+  const expectedSideSlots = faction === "clan" ? 2 : faction === "innersphere" ? 3 : -1;
+  const engine = Object.values(state.equipment?.items || {}).find((item) => (
+    item.item_type === "engine"
+    && number(item.stats?.rating) === minRating
+    && number(item.stats?.sideSlots, -1) === expectedSideSlots
+    && String(item.faction || "").split(",").map(normalizeFactionKey).includes(faction)
+  )) || null;
+  state.fixedOmniEngineCache.set(cacheKey, engine);
+  return engine;
+}
+
+function installedEngine(build = state.currentBuild, mech = state.selectedMech) {
+  return fixedOmniEngine(mech) || loadoutInstalledEngine(build);
+}
+
+function engineSideSlots(engine) {
+  return Math.max(0, number(engine?.stats?.sideSlots));
 }
 
 function itemName(id) {
@@ -760,19 +822,61 @@ function isHeatSink(item) {
   return item?.ctype === "CHeatSinkStats" || String(item?.name || "").toLowerCase().includes("heatsink");
 }
 
-function hardpointBadges(mech, build = buildFromLoadout(mech)) {
-  const definition = effectiveDefinition(mech, build);
+function isEcm(item) {
+  return item?.ctype === "CGECMStats";
+}
+
+function equipmentHardpointType(item) {
+  if (isEcm(item)) return "ecm";
+  if (item?.item_type !== "weapon") return "";
+  return String(item.hardpoint_type || item.stats?.type || "").toLowerCase();
+}
+
+function hardpointSlots(hardpoint) {
+  return Math.max(1, number(hardpoint?.Slots, 1));
+}
+
+function hardpointType(hardpoint) {
+  if (String(hardpoint?.Type) === "4") return "ams";
+  return String(hardpoint?.hardpoint_type || "").toLowerCase();
+}
+
+function hardpointCountsFromDefinition(definition) {
   const counts = {};
   Object.values(definition?.components || {}).forEach((component) => {
     (component.hardpoints || []).forEach((hp) => {
-      const type = hp.hardpoint_type;
-      counts[type] = (counts[type] || 0) + number(hp.Slots, 1);
+      const type = hardpointType(hp);
+      if (!HARDPOINT_ORDER.includes(type)) return;
+      counts[type] = (counts[type] || 0) + hardpointSlots(hp);
     });
   });
-  return Object.entries(counts)
-    .filter(([type]) => ["ballistic", "energy", "missile", "ams", "ecm"].includes(type))
-    .map(([type, count]) => `<span class="badge ${type}">${type[0].toUpperCase()} ${count}</span>`)
+  return counts;
+}
+
+function hardpointCountsFromHardpoints(hardpoints = []) {
+  const counts = {};
+  hardpoints.forEach((hp) => {
+    const type = hardpointType(hp);
+    if (!HARDPOINT_ORDER.includes(type)) return;
+    counts[type] = (counts[type] || 0) + hardpointSlots(hp);
+  });
+  return counts;
+}
+
+function renderHardpointBadges(counts, className = "", showZero = false) {
+  return HARDPOINT_ORDER
+    .filter((type) => Object.hasOwn(counts, type) && (showZero || number(counts[type]) > 0))
+    .map((type) => `
+      <span class="hardpoint-chip ${type}${className ? ` ${className}` : ""}" title="${type}">
+        <span class="hardpoint-icon">${HARDPOINT_LABELS[type] || type[0].toUpperCase()}</span>
+        <span class="hardpoint-count">${number(counts[type])}</span>
+      </span>
+    `)
     .join("");
+}
+
+function hardpointBadges(mech, build = buildFromLoadout(mech)) {
+  return renderHardpointBadges(hardpointCountsFromDefinition(effectiveDefinition(mech, build)));
 }
 
 function hardpointTypes(mech, build = buildFromLoadout(mech)) {
@@ -780,12 +884,11 @@ function hardpointTypes(mech, build = buildFromLoadout(mech)) {
   const types = new Set();
   Object.values(definition?.components || {}).forEach((component) => {
     (component.hardpoints || []).forEach((hp) => {
-      const type = hp.hardpoint_type;
-      if (["missile", "energy", "ballistic", "ams", "ecm"].includes(type)) types.add(type);
+      const type = hardpointType(hp);
+      if (HARDPOINT_ORDER.includes(type)) types.add(type);
     });
   });
-  const order = ["missile", "energy", "ballistic", "ams", "ecm"];
-  return order.filter((type) => types.has(type));
+  return HARDPOINT_ORDER.filter((type) => types.has(type));
 }
 
 function stockHardpointBadges(mech) {
@@ -809,15 +912,12 @@ function stockHardpointTypes(mech) {
 }
 
 function hardpointTypeBadges(types) {
-  const labels = {
-    missile: "M",
-    energy: "E",
-    ballistic: "B",
-    ams: "AMS",
-    ecm: "ECM",
-  };
   return (types || [])
-    .map((type) => `<span class="badge ${type}">${labels[type] || type.toUpperCase()}</span>`)
+    .map((type) => `
+      <span class="hardpoint-chip ${type}" title="${type}">
+        <span class="hardpoint-icon">${HARDPOINT_LABELS[type] || type.toUpperCase()}</span>
+      </span>
+    `)
     .join("");
 }
 
@@ -915,6 +1015,22 @@ function factionRank(faction) {
 
 function factionLabel(faction) {
   return FACTION_LABELS[faction] || faction || t("common.unknown");
+}
+
+function normalizeFactionKey(faction) {
+  return String(faction || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+}
+
+function itemMatchesMechFaction(item, mech = state.selectedMech) {
+  if (!item) return false;
+  if (!mech) return true;
+  const itemFactions = String(item.faction || "")
+    .split(",")
+    .map(normalizeFactionKey)
+    .filter(Boolean);
+  if (!itemFactions.length) return true;
+  const mechFaction = normalizeFactionKey(mech?.faction);
+  return Boolean(mechFaction) && itemFactions.includes(mechFaction);
 }
 
 function factionClass(faction) {
@@ -1055,6 +1171,11 @@ function applyFixedOmnipods(mech, build) {
     const stockPodId = loadout.components?.[name]?.omnipod;
     if (stockPodId) build.components[name].omnipod = stockPodId;
   }
+  if (fixedOmniEngine(mech)) {
+    for (const component of Object.values(build.components)) {
+      component.items = (component.items || []).filter((entry) => itemById(entry.item_id)?.item_type !== "engine");
+    }
+  }
   const centre = build.components.centre_torso;
   if (centre && !centre.omnipod) {
     const setName = dominantOmnipodSet(mech, build);
@@ -1108,32 +1229,90 @@ function currentDefinition(mech = state.selectedMech) {
 }
 
 function hardpointsFromLoadoutItems(buildComponent) {
-  const byType = new Map();
-  (buildComponent?.items || []).forEach((entry) => {
+  return (buildComponent?.items || []).flatMap((entry, index) => {
     const item = itemById(entry.item_id);
-    if (item?.item_type !== "weapon") return;
-    const type = item.hardpoint_type || String(item.stats?.type || "").toLowerCase();
-    if (!type) return;
-    byType.set(type, (byType.get(type) || 0) + itemSlots(item));
+    const type = equipmentHardpointType(item);
+    if (!type) return [];
+    return [{
+      ID: `inferred-${index}`,
+      hardpoint_type: type,
+      Type: type,
+      Slots: 1,
+      inferred: true,
+    }];
   });
-  return Array.from(byType.entries()).map(([type, slots]) => ({
-    hardpoint_type: type,
-    Type: type,
-    Slots: slots,
+}
+
+function ecmCapableOmnipodIds() {
+  if (state.ecmOmnipodIds) return state.ecmOmnipodIds;
+  const ids = new Set();
+  Object.values(state.loadouts || {}).forEach((loadout) => {
+    Object.values(loadout.components || {}).forEach((component) => {
+      if (!component.omnipod) return;
+      const hasEcm = (component.items || []).some((entry) => isEcm(itemById(entry.item_id)));
+      if (hasEcm) ids.add(String(component.omnipod));
+    });
+  });
+  state.ecmOmnipodIds = ids;
+  return ids;
+}
+
+function addEcmHardpoint(hardpoints) {
+  if (hardpoints.some((hardpoint) => hardpointType(hardpoint) === "ecm")) return hardpoints;
+  return [...hardpoints, {
+    ID: "inferred-ecm",
+    hardpoint_type: "ecm",
+    Type: "ecm",
+    Slots: 1,
     inferred: true,
+  }];
+}
+
+function mergeHardpointsWithLoadout(hardpoints, buildComponent) {
+  const merged = (hardpoints || []).map((hardpoint) => ({
+    ...hardpoint,
+    hardpoint_type: hardpointType(hardpoint),
   }));
+  const inferredCounts = hardpointCountsFromHardpoints(hardpointsFromLoadoutItems(buildComponent));
+
+  for (const [type, inferredCount] of Object.entries(inferredCounts)) {
+    const matching = merged.filter((hardpoint) => hardpointType(hardpoint) === type);
+    if (!matching.length) {
+      merged.push({
+        ID: `inferred-${type}`,
+        hardpoint_type: type,
+        Type: type,
+        Slots: inferredCount,
+        inferred: true,
+      });
+      continue;
+    }
+
+    const definedCount = matching.reduce((sum, hardpoint) => sum + hardpointSlots(hardpoint), 0);
+    if (definedCount < inferredCount) {
+      matching[0].Slots = hardpointSlots(matching[0]) + inferredCount - definedCount;
+    }
+  }
+  return merged;
 }
 
 function effectiveComponentDefinition(mech = state.selectedMech, build = state.currentBuild, componentName) {
   const base = currentDefinition(mech).components?.[componentName] || {};
   const buildComponent = build?.components?.[componentName] || {};
   const pod = podById(buildComponent.omnipod);
-  const hardpoints = pod?.hardpoints?.length
-    ? pod.hardpoints
-    : (base.hardpoints?.length ? base.hardpoints : hardpointsFromLoadoutItems(buildComponent));
+  const stockComponent = loadoutForMech(mech).components?.[componentName] || {};
+  let hardpoints = pod?.hardpoints?.length
+    ? pod.hardpoints.map((hardpoint) => ({
+      ...hardpoint,
+      hardpoint_type: hardpointType(hardpoint),
+    }))
+    : mergeHardpointsWithLoadout(base.hardpoints || [], stockComponent);
+  if (pod && ecmCapableOmnipodIds().has(String(pod.id))) {
+    hardpoints = addEcmHardpoint(hardpoints);
+  }
   return {
     ...base,
-    hardpoints: hardpoints.map((hp) => ({ ...hp })),
+    hardpoints,
   };
 }
 
@@ -1150,10 +1329,10 @@ function effectiveDefinition(mech = state.selectedMech, build = state.currentBui
 }
 
 function setMainTab(tabName) {
-  if (tabName === "mechlab") tabName = "info";
   const isCompareTab = tabName === "compare";
   state.activeMainTab = tabName;
   state.compareMode = isCompareTab;
+  if (tabName === "mechlab") state.mechlabBrowseMode = true;
   if (isCompareTab) {
     state.compareMechIds = [];
     state.compareBaselineMechId = null;
@@ -1178,6 +1357,7 @@ function setMainTab(tabName) {
   renderComparePanel();
   renderStatsPanel();
   updateCompareOverlay();
+  if (tabName === "mechlab") $("mech-search").focus();
 }
 
 function addQuirk(collector, quirk, source) {
@@ -3085,12 +3265,13 @@ function calculateBuild() {
   const stats = definition.stats || {};
   const maxTons = number(stats.MaxTons);
   const baseTons = number(stats.BaseTons);
-  let itemTonnage = 0;
+  const fixedEngine = fixedOmniEngine(mech);
+  let itemTonnage = fixedEngine ? itemTons(fixedEngine) : 0;
   let heat = 0;
   let alpha = 0;
   let ammo = 0;
   let armor = 0;
-  let engine = null;
+  const engine = installedEngine();
   let heatSinkTons = 0;
   const warnings = [];
   const componentUsage = {};
@@ -3098,9 +3279,15 @@ function calculateBuild() {
   for (const name of COMPONENT_ORDER) {
     const compDef = definition.components?.[name] || {};
     const buildComp = state.currentBuild.components[name] || { items: [] };
-    const used = number(compDef.internals?.length);
+    const internalSlots = (compDef.internals || []).reduce((sum, itemId) => {
+      return sum + Math.max(1, itemSlots(itemById(itemId)));
+    }, 0);
+    const sideEngineSlots = ENGINE_SIDE_COMPONENTS.has(name) ? engineSideSlots(engine) : 0;
+    const fixedEngineSlots = name === "centre_torso" && fixedEngine ? Math.max(1, itemSlots(fixedEngine)) : 0;
     const usage = {
-      slots: used,
+      slots: internalSlots + sideEngineSlots + fixedEngineSlots,
+      engineSideSlots: sideEngineSlots,
+      fixedEngineSlots,
       hardpoints: {},
       warnings: [],
     };
@@ -3112,20 +3299,29 @@ function calculateBuild() {
         usage.warnings.push(t("build.missingItem", { id: entry.item_id }));
         continue;
       }
+      if (!itemMatchesMechFaction(item, mech)) {
+        usage.warnings.push(t("build.factionMismatch", {
+          item: item.display_name || item.name,
+          faction: factionLabel(mech.faction),
+        }));
+      }
+      if (item.item_type === "engine" && !ENGINE_COMPONENTS.has(name)) {
+        usage.warnings.push(t("build.engineTorsoOnly"));
+      }
       const slots = itemSlots(item);
       usage.slots += slots;
       itemTonnage += itemTons(item);
       heat += itemHeat(item);
+      const mountType = equipmentHardpointType(item);
+      if (mountType) {
+        const type = mountType;
+        usage.hardpoints[type] = (usage.hardpoints[type] || 0) + 1;
+      }
       if (item.item_type === "weapon") {
-        const type = item.hardpoint_type || String(item.stats?.type || "").toLowerCase();
-        usage.hardpoints[type] = (usage.hardpoints[type] || 0) + slots;
         alpha += number(item.stats?.damage) * number(item.stats?.numFiring, 1);
       }
       if (item.item_type === "ammo") {
         ammo += number(item.stats?.numShots);
-      }
-      if (item.item_type === "engine") {
-        engine = item;
       }
       if (isHeatSink(item)) {
         heatSinkTons += itemTons(item);
@@ -3137,13 +3333,11 @@ function calculateBuild() {
       usage.warnings.push(`Slots ${usage.slots}/${slotLimit}`);
     }
 
-    for (const [type, usedSlots] of Object.entries(usage.hardpoints)) {
+    for (const [type, usedHardpoints] of Object.entries(usage.hardpoints)) {
       const capacity = (compDef.hardpoints || [])
-        .filter((hp) => hp.hardpoint_type === type)
-        .reduce((sum, hp) => sum + number(hp.Slots, 1), 0);
-      if (!capacity) {
-        usage.warnings.push(`No ${type} hardpoint`);
-      }
+        .filter((hp) => hardpointType(hp) === type)
+        .reduce((sum, hp) => sum + hardpointSlots(hp), 0);
+      if (usedHardpoints > capacity) usage.warnings.push(`${type} hardpoints ${usedHardpoints}/${capacity}`);
     }
 
     componentUsage[name] = usage;
@@ -3206,7 +3400,12 @@ function renderMechList() {
   const layout = $("mech-browser-layout");
   const list = $("mech-list");
   const toggle = $("mech-list-view-toggle");
-  layout.classList.toggle("large-mech-list-layout", state.largeMechList);
+  const isMechlab = state.activeMainTab === "mechlab";
+  const mechlabBrowsing = isMechlab && state.mechlabBrowseMode;
+  const mechlabFocused = isMechlab && !state.mechlabBrowseMode;
+  layout.classList.toggle("mechlab-browse-layout", mechlabBrowsing);
+  layout.classList.toggle("mechlab-focused-layout", mechlabFocused);
+  layout.classList.toggle("large-mech-list-layout", state.largeMechList && !isMechlab);
   list.classList.toggle("mech-list-large", state.largeMechList);
   if (toggle) {
     toggle.classList.toggle("active", state.largeMechList);
@@ -3438,30 +3637,45 @@ function renderEquipmentList() {
   const rows = ids
     .map((id) => itemById(id))
     .filter(Boolean)
+    .filter((item) => itemMatchesMechFaction(item))
     .filter((item) => {
       const text = `${item.display_name} ${item.name} ${item.family}`.toLowerCase();
       return !search || text.includes(search);
     })
     .slice(0, 350);
 
-  $("item-list").innerHTML = rows
-    .map((item) => {
-      const active = String(state.selectedItemId) === String(item.id) ? " active" : "";
-      const icon = `<span class="badge">${item.item_type[0] || "?"}</span>`;
-      return `
-        <button class="item-row${active}" data-item="${item.id}" type="button">
-          ${icon}
-          <span>
-            <span class="row-title"><strong>${item.display_name}</strong><span>${fmt(itemTons(item))}t</span></span>
-            <span class="badge-line">
-              <span class="badge">${item.family}</span>
-              <span class="badge">${itemSlots(item)} ${t("common.slots")}</span>
-              ${item.hardpoint_type ? `<span class="badge ${item.hardpoint_type}">${item.hardpoint_type}</span>` : ""}
-            </span>
-          </span>
-        </button>
-      `;
-    })
+  const sectionOrder = ["energy", "missile", "ballistic", "ams", "ammo", "engines", "equipment", "other"];
+  const grouped = new Map();
+  rows.forEach((item) => {
+    let section = "other";
+    if (item.item_type === "weapon") section = HARDPOINT_ORDER.includes(item.hardpoint_type) ? item.hardpoint_type : "other";
+    else if (item.item_type === "ammo") section = "ammo";
+    else if (item.item_type === "engine") section = "engines";
+    else if (["module", "jumpjet", "masc", "weapon_mod", "upgrade"].includes(item.item_type)) section = "equipment";
+    if (!grouped.has(section)) grouped.set(section, []);
+    grouped.get(section).push(item);
+  });
+
+  $("item-list").innerHTML = sectionOrder
+    .filter((section) => grouped.has(section))
+    .map((section) => `
+      <section class="warehouse-section warehouse-${section}">
+        <div class="warehouse-section-title">${section.toUpperCase()}</div>
+        ${grouped.get(section)
+          .sort((a, b) => String(a.display_name).localeCompare(String(b.display_name)))
+          .map((item) => {
+            const active = String(state.selectedItemId) === String(item.id) ? " active" : "";
+            const mountType = equipmentHardpointType(item);
+            return `
+              <button class="item-row ${mountType || item.item_type}${active}" data-item="${item.id}" type="button" draggable="true" title="${item.display_name}">
+                <span class="item-row-name"><span class="item-type-mark">${HARDPOINT_LABELS[mountType] || String(item.item_type || "?")[0].toUpperCase()}</span><strong>${item.display_name}</strong></span>
+                <span>${itemSlots(item)}</span>
+                <span>${fmt(itemTons(item))}</span>
+              </button>
+            `;
+          }).join("")}
+      </section>
+    `)
     .join("");
 }
 
@@ -3479,47 +3693,58 @@ function renderComponents() {
     const compDef = effectiveComponentDefinition(state.selectedMech, state.currentBuild, name);
     const usage = calc.componentUsage[name] || { slots: 0, warnings: [] };
     const slotLimit = number(compDef.slots);
-    const hps = (compDef.hardpoints || [])
-      .map((hp) => `<span class="badge ${hp.hardpoint_type}">${hp.hardpoint_type} ${hp.Slots || 1}</span>`)
-      .join("");
-    const items = buildComp.items.length
-      ? buildComp.items.map((entry, index) => renderLoadoutItem(name, entry, index)).join("")
-      : `<div class="empty">${t("common.empty")}</div>`;
+    const hardpointCounts = hardpointCountsFromHardpoints(compDef.hardpoints || []);
+    const hps = renderHardpointBadges(hardpointCounts, "component-hardpoint");
+    const internalRows = (compDef.internals || []).map((itemId) => renderFixedSlot(itemId)).join("");
+    const engineRows = usage.fixedEngineSlots
+      ? renderFixedEngine(calc.engine, usage.fixedEngineSlots)
+      : usage.engineSideSlots ? renderEngineSideSlots(calc.engine, usage.engineSideSlots) : "";
+    const itemRows = buildComp.items.map((entry, index) => renderLoadoutItem(name, entry, index)).join("");
+    const emptySlots = Math.max(0, slotLimit - usage.slots);
+    const emptyRows = Array.from({ length: emptySlots }, () => `<div class="critical-slot empty-slot">-</div>`).join("");
     return `
-      <article class="component ${usage.warnings.length ? "invalid" : ""}">
+      <article class="component component-location-${name} ${usage.warnings.length ? "invalid" : ""}" data-component-drop="${name}">
         <div class="component-head">
           <div>
             <div class="component-title">${COMPONENT_NAMES[name] || name}</div>
-            <div class="component-meta muted">${t("common.armor")} ${buildComp.armor || 0} · ${t("common.slots")} ${usage.slots}/${slotLimit || "?"}</div>
-            <div class="badge-line">${hps}</div>
-            ${usage.warnings.length ? `<div class="warnings">${usage.warnings.join(" · ")}</div>` : ""}
+            <div class="component-meta muted">${t("common.armor")} ${buildComp.armor || 0} / ${t("common.slots")} ${usage.slots}/${slotLimit || "?"}</div>
+            ${hps ? `<div class="hardpoint-line">${hps}</div>` : ""}
+            ${usage.warnings.length ? `<div class="warnings">${usage.warnings.join(" / ")}</div>` : ""}
           </div>
-          <button data-add-to="${name}" type="button">${t("common.add")}</button>
         </div>
-        <div class="component-items">${items}</div>
+        <div class="component-items">${internalRows}${engineRows}${itemRows}${emptyRows}</div>
       </article>
     `;
   }).join("");
 }
 
+function renderFixedSlot(itemId) {
+  const item = itemById(itemId);
+  const name = item?.display_name || item?.name || "Fixed Structure Slot";
+  const slots = Math.max(1, itemSlots(item));
+  return `<div class="critical-slot fixed-slot" style="--slot-span:${slots}" title="${name} / ${slots} slots">${name}</div>`;
+}
+
+function renderEngineSideSlots(engine, slots) {
+  const name = engine?.display_name || t("common.engine");
+  return `<div class="critical-slot fixed-slot engine-side-slot" style="--slot-span:${slots}" title="${name} / ${slots} slots">${t("common.engine")} · ${slots}S</div>`;
+}
+
+function renderFixedEngine(engine, slots) {
+  const name = engine?.display_name || t("common.engine");
+  return `<div class="critical-slot fixed-slot engine-fixed-slot" style="--slot-span:${slots}" title="${name} / ${slots} slots">${name} · ${slots}S</div>`;
+}
+
 function renderLoadoutItem(component, entry, index) {
   const item = itemById(entry.item_id);
-  if (!item) {
-    return `<div class="slot-item"><span></span><span>${t("build.missing", { id: entry.item_id })}</span><button data-remove="${component}:${index}" type="button">${t("common.remove")}</button></div>`;
-  }
-  const icon = `<span class="badge">${item.item_type[0] || "?"}</span>`;
+  if (!item) return `<div class="slot-item missing-item">${t("build.missing", { id: entry.item_id })}</div>`;
+  const slots = Math.max(1, itemSlots(item));
+  const mountType = equipmentHardpointType(item);
   return `
-    <div class="slot-item">
-      ${icon}
-      <span>
-        <strong>${item.display_name}</strong>
-        <span class="badge-line">
-          <span class="badge">${fmt(itemTons(item))}t</span>
-          <span class="badge">${itemSlots(item)} ${t("common.slots")}</span>
-          ${item.hardpoint_type ? `<span class="badge ${item.hardpoint_type}">${item.hardpoint_type}</span>` : ""}
-        </span>
-      </span>
-      <button class="danger" data-remove="${component}:${index}" type="button">${t("common.remove")}</button>
+    <div class="slot-item ${mountType || item.item_type}" data-loadout-item="${component}:${index}" draggable="true" style="--slot-span:${slots}" title="${item.display_name} / ${slots} slots / ${fmt(itemTons(item))} tons">
+      <span class="slot-item-mark">${HARDPOINT_LABELS[mountType] || String(item.item_type || "?")[0].toUpperCase()}</span>
+      <strong>${item.display_name}</strong>
+      <span class="slot-item-slots">${slots}S</span>
     </div>
   `;
 }
@@ -3569,9 +3794,20 @@ function renderAll() {
 function selectMech(id) {
   state.selectedMech = mechById(id) || state.mechs[0];
   state.selectedChassis = state.selectedMech?.chassis || "";
+  if (!itemMatchesMechFaction(itemById(state.selectedItemId), state.selectedMech)) {
+    state.selectedItemId = null;
+  }
   if (state.selectedChassis) state.expandedChassis.add(state.selectedChassis);
   state.currentBuild = loadBuild(state.selectedMech);
+  if (state.activeMainTab === "mechlab") state.mechlabBrowseMode = false;
   renderAll();
+  if (state.activeMainTab === "mechlab") document.querySelector(".tab-content").scrollTop = 0;
+}
+
+function showMechlabList() {
+  state.mechlabBrowseMode = true;
+  renderMechList();
+  $("mech-search").focus();
 }
 
 function toggleCompareMech(id) {
@@ -3642,23 +3878,101 @@ function selectItem(id) {
   renderSelectedItem();
 }
 
-function addSelectedItem(component) {
-  const item = itemById(state.selectedItemId);
-  if (!item || !state.currentBuild?.components?.[component]) return;
-  state.currentBuild.components[component].items.push({
+function buildEntryForItem(item) {
+  return {
     type: item.item_type === "weapon" ? "weapon" : item.item_type === "ammo" ? "ammo" : "module",
     item_id: item.id,
     weapon_group: null,
+  };
+}
+
+function dropValidation(item, component, source = null) {
+  if (!item || !state.currentBuild?.components?.[component]) return "Invalid drop target";
+  if (item.item_type === "engine" && fixedOmniEngine()) return t("build.engineFixed");
+  if (item.item_type === "engine" && !ENGINE_COMPONENTS.has(component)) {
+    return t("build.engineTorsoOnly");
+  }
+  if (!itemMatchesMechFaction(item)) {
+    return t("build.factionMismatch", {
+      item: item.display_name || item.name,
+      faction: factionLabel(state.selectedMech?.faction),
+    });
+  }
+  if (source?.component === component) return null;
+  const compDef = effectiveComponentDefinition(state.selectedMech, state.currentBuild, component);
+  const calc = calculateBuild();
+  const usage = calc.componentUsage[component] || { slots: 0 };
+  const slotLimit = number(compDef.slots);
+  const nextSlots = usage.slots + Math.max(1, itemSlots(item));
+  if (!slotLimit || nextSlots > slotLimit) return `Slots ${nextSlots}/${slotLimit}`;
+
+  if (item.item_type === "engine") {
+    const proposedSideSlots = engineSideSlots(item);
+    for (const side of ENGINE_SIDE_COMPONENTS) {
+      const sideDef = effectiveComponentDefinition(state.selectedMech, state.currentBuild, side);
+      const sideLimit = number(sideDef.slots);
+      const sideUsage = calc.componentUsage[side] || { slots: 0, engineSideSlots: 0 };
+      const sideNextSlots = sideUsage.slots - number(sideUsage.engineSideSlots) + proposedSideSlots;
+      if (!sideLimit || sideNextSlots > sideLimit) {
+        return `${COMPONENT_NAMES[side] || side}: Slots ${sideNextSlots}/${sideLimit}`;
+      }
+    }
+  }
+
+  const type = equipmentHardpointType(item);
+  if (type) {
+    const capacity = (compDef.hardpoints || [])
+      .filter((hp) => hardpointType(hp) === type)
+      .reduce((sum, hp) => sum + hardpointSlots(hp), 0);
+    const used = state.currentBuild.components[component].items.reduce((count, entry) => {
+      const installed = itemById(entry.item_id);
+      return count + (equipmentHardpointType(installed) === type ? 1 : 0);
+    }, 0);
+    if (used + 1 > capacity) return `${type} hardpoints ${used + 1}/${capacity}`;
+  }
+  return null;
+}
+
+function setDropStatus(message) {
+  $("data-status").textContent = message;
+}
+
+function clearDragState() {
+  state.activeDrag = null;
+  document.querySelectorAll(".drop-valid, .drop-invalid, .dragging").forEach((element) => {
+    element.classList.remove("drop-valid", "drop-invalid", "dragging");
   });
+}
+
+function installDraggedItem(component) {
+  const payload = state.activeDrag;
+  if (!payload) return;
+  const item = itemById(payload.itemId);
+  const warning = dropValidation(item, component, payload.source === "component" ? payload : null);
+  if (warning) {
+    setDropStatus(warning);
+    return;
+  }
+  if (payload.source === "component") {
+    if (payload.component === component) return;
+    const sourceItems = state.currentBuild.components[payload.component]?.items;
+    if (!sourceItems?.[payload.index]) return;
+    const [entry] = sourceItems.splice(payload.index, 1);
+    state.currentBuild.components[component].items.push(entry);
+  } else {
+    state.currentBuild.components[component].items.push(buildEntryForItem(item));
+  }
+  clearDragState();
   renderVariant();
 }
 
-function removeItem(key) {
-  const [component, indexText] = key.split(":");
-  const index = Number(indexText);
-  const items = state.currentBuild?.components?.[component]?.items;
-  if (!items || !Number.isInteger(index)) return;
-  items.splice(index, 1);
+function removeDraggedItem() {
+  const payload = state.activeDrag;
+  if (payload?.source !== "component") return;
+  const items = state.currentBuild?.components?.[payload.component]?.items;
+  if (!items?.[payload.index]) return;
+  items.splice(payload.index, 1);
+  clearDragState();
   renderVariant();
 }
 
@@ -3686,6 +4000,7 @@ function bindEvents() {
     renderMechList();
     updateCompareOverlay();
   });
+  $("show-mech-list").addEventListener("click", showMechlabList);
   $("compare-clear-compare").addEventListener("click", clearCompareMechs);
   $("compare-deltas").addEventListener("change", (event) => {
     state.compareShowDeltas = event.target.checked;
@@ -3898,12 +4213,77 @@ function bindEvents() {
     const button = event.target.closest("[data-item]");
     if (button) selectItem(button.dataset.item);
   });
-  $("components").addEventListener("click", (event) => {
-    const add = event.target.closest("[data-add-to]");
-    const remove = event.target.closest("[data-remove]");
-    if (add) addSelectedItem(add.dataset.addTo);
-    if (remove) removeItem(remove.dataset.remove);
+  $("item-list").addEventListener("dragstart", (event) => {
+    const row = event.target.closest("[data-item]");
+    if (!row) return;
+    state.activeDrag = { source: "warehouse", itemId: row.dataset.item };
+    row.classList.add("dragging");
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData("text/plain", `warehouse:${row.dataset.item}`);
   });
+  $("components").addEventListener("dragstart", (event) => {
+    const row = event.target.closest("[data-loadout-item]");
+    if (!row) return;
+    const [component, indexText] = row.dataset.loadoutItem.split(":");
+    const index = Number(indexText);
+    const entry = state.currentBuild?.components?.[component]?.items?.[index];
+    if (!entry) return;
+    state.activeDrag = { source: "component", component, index, itemId: entry.item_id };
+    row.classList.add("dragging");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `component:${component}:${index}`);
+  });
+  $("components").addEventListener("dragover", (event) => {
+    const component = event.target.closest("[data-component-drop]");
+    if (!component || !state.activeDrag) return;
+    document.querySelectorAll("[data-component-drop]").forEach((target) => target.classList.remove("drop-valid", "drop-invalid"));
+    const item = itemById(state.activeDrag.itemId);
+    const warning = dropValidation(item, component.dataset.componentDrop, state.activeDrag.source === "component" ? state.activeDrag : null);
+    component.classList.add(warning ? "drop-invalid" : "drop-valid");
+    if (!warning || state.activeDrag.source === "component") {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = state.activeDrag.source === "warehouse" ? "copy" : "move";
+    }
+  });
+  $("components").addEventListener("drop", (event) => {
+    const component = event.target.closest("[data-component-drop]");
+    if (!component) return;
+    event.preventDefault();
+    const payload = state.activeDrag;
+    const item = itemById(payload?.itemId);
+    const warning = dropValidation(item, component.dataset.componentDrop, payload?.source === "component" ? payload : null);
+    if (warning && payload?.source === "component") {
+      removeDraggedItem();
+      return;
+    }
+    installDraggedItem(component.dataset.componentDrop);
+  });
+  $("equipment-panel").addEventListener("dragover", (event) => {
+    if (state.activeDrag?.source !== "component") return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    $("equipment-panel").classList.add("drop-valid");
+  });
+  $("equipment-panel").addEventListener("dragleave", (event) => {
+    if (!$("equipment-panel").contains(event.relatedTarget)) $("equipment-panel").classList.remove("drop-valid");
+  });
+  $("equipment-panel").addEventListener("drop", (event) => {
+    event.preventDefault();
+    removeDraggedItem();
+  });
+  document.addEventListener("dragover", (event) => {
+    if (state.activeDrag?.source !== "component") return;
+    if (event.target.closest("[data-component-drop]")) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  });
+  document.addEventListener("drop", (event) => {
+    if (state.activeDrag?.source !== "component") return;
+    if (event.target.closest("[data-component-drop], #equipment-panel")) return;
+    event.preventDefault();
+    removeDraggedItem();
+  });
+  document.addEventListener("dragend", clearDragState);
   $("reset-stock").addEventListener("click", () => {
     if (!state.selectedMech) return;
     state.currentBuild = buildFromLoadout(state.selectedMech);
