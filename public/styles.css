@@ -787,7 +787,7 @@ h3 {
 
 .mechlab-workspace {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 0.65rem;
   height: 100%;
   min-height: 0;
@@ -1332,7 +1332,6 @@ h3 {
   background: #070909;
 }
 
-.quirks-panel h3,
 .info-quirks-card h3 {
   color: var(--blue);
   font-size: 0.9rem;
@@ -1866,43 +1865,67 @@ h3 {
 
 .mechlab-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(21rem, 24rem);
+  grid-template-columns: minmax(18rem, 21rem) minmax(0, 1fr) minmax(21rem, 24rem);
   gap: 0.75rem;
   min-height: 0;
   overflow: hidden;
 }
 
-.quirks-panel {
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: #070909;
-  padding: 0;
-}
-
-.quirks-panel > summary {
-  min-height: 2rem;
-  padding: 0.4rem 0.65rem;
-  color: var(--blue);
-  cursor: pointer;
-  font-size: 0.78rem;
-  font-weight: 800;
-  list-style-position: inside;
-}
-
-.quirks-panel[open] {
-  max-height: 14rem;
+.mech-summary-panel {
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
+  border-right: 1px solid var(--line);
+  background: #070909;
 }
 
-.quirks-panel[open] > summary {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: #0d1416;
+.mech-summary-name {
+  min-height: 4.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #263036;
+  color: #d8dddf;
+  font-size: 1.55rem;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
 }
 
-.quirks-panel .quirks {
-  padding: 0 0.65rem 0.65rem;
+.mech-summary-stats {
+  display: grid;
+  gap: 1rem;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.mech-summary-row {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.mech-summary-label {
+  color: #7da2b0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.mech-summary-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.45rem;
+  color: #e2e7e9;
+  font-size: 1.45rem;
+}
+
+.mech-summary-value strong {
+  color: #5fa8d3;
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .section-title-row {
@@ -2195,8 +2218,17 @@ h3 {
   height: 1.8rem;
   margin: 0;
   color: #aebdc2;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   line-height: 1.8rem;
+}
+
+.mechlab-workspace .hardpoint-chip {
+  min-height: 1.45rem;
+  font-size: 0.8rem;
+}
+
+.mechlab-workspace .hardpoint-icon {
+  height: 1.45rem;
 }
 
 .components {
@@ -2205,10 +2237,10 @@ h3 {
     ". . head . ."
     "right-arm right-torso centre-torso left-torso left-arm"
     ". right-leg . left-leg .";
-  grid-template-columns: repeat(5, minmax(9.5rem, 1fr));
+  grid-template-columns: repeat(5, minmax(12rem, 1fr));
   align-items: start;
   gap: 0.45rem;
-  min-width: 51rem;
+  min-width: 62rem;
   padding-bottom: 0.5rem;
 }
 
@@ -2244,7 +2276,7 @@ h3 {
 }
 
 .component-head {
-  min-height: 5.25rem;
+  min-height: 9.5rem;
   padding: 0.5rem 0.55rem;
   background: var(--panel-2);
   border-bottom: 1px solid var(--line);
@@ -2252,19 +2284,180 @@ h3 {
 
 .component-title {
   color: #d7e2e5;
-  font-size: 0.78rem;
+  font-size: 0.86rem;
   font-weight: 700;
   text-transform: uppercase;
 }
 
-.component-meta {
-  margin-top: 0.18rem;
-  font-size: 0.68rem;
+.component-stat-title {
+  margin: 0.4rem -0.55rem 0;
+  padding: 0.2rem 0.55rem;
+  border-top: 1px solid #344147;
+  border-bottom: 1px solid #28343a;
+  background: #111719;
+  color: #bec9cd;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.component-armor-controls {
+  display: grid;
+  gap: 0.28rem;
+  margin: 0 -0.55rem;
+  padding: 0.2rem 0;
+  background: #171e22;
+}
+
+.component-armor-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  min-height: 2.12rem;
+  padding: 0.12rem 0.35rem;
+  background: #090d0f;
+}
+
+.component-armor-allocation {
+  display: grid;
+  grid-template-columns: minmax(1.8rem, 1fr) auto 1.9rem;
+  gap: 0.18rem;
+  align-items: center;
+  min-width: 0;
+  padding-right: 0.35rem;
+  border-right: 1px solid #28343a;
+}
+
+.component-armor-capacity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding-left: 0.4rem;
+}
+
+.component-armor-side,
+.component-armor-limit-label,
+.component-armor-max-row span {
+  color: #93a4aa;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.component-armor-value {
+  color: #e5c84e;
+  font-size: 1.1rem;
+  line-height: 1;
+  text-align: right;
+}
+
+.component-armor-stepper {
+  display: grid;
+  grid-template-rows: repeat(2, 1rem);
+  gap: 1px;
+  width: 1.8rem;
+}
+
+.component-armor-stepper button {
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  min-width: 1.8rem;
+  height: 1rem;
+  padding: 0;
+  border-color: #45545b;
+  border-radius: 2px;
+  background: #252c31;
+  color: #e8edef;
+  font-size: 0.8rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.component-armor-stepper button:disabled {
+  border-color: #283238;
+  background: #171d20;
+  color: #56636a;
+  cursor: default;
+  opacity: 1;
+}
+
+.component-armor-limit {
+  color: #d8bd43;
+  font-size: 0.86rem;
+  text-align: right;
+}
+
+.component-armor-value.quirk-tone-armor,
+.component-armor-limit.quirk-tone-armor,
+.component-armor-max-row strong.quirk-tone-armor {
+  color: #f3f4ee;
+}
+
+.component-armor-max-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  min-height: 1.55rem;
+  padding: 0.18rem 0.35rem;
+  background: #090d0f;
+}
+
+.component-armor-max-row > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 0.4rem;
+  border-left: 1px solid #28343a;
+}
+
+.component-structure-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 1.55rem;
+  padding: 0.18rem 0.35rem;
+}
+
+.component-armor-max-row strong,
+.component-structure-row strong {
+  color: #c8d0d3;
+  font-size: 0.8rem;
+}
+
+.component-structure-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.component-structure-value.boosted > span:first-child {
+  color: var(--green);
+}
+
+.component-structure-detail {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.18rem;
+  color: #93a4aa;
+  font-weight: 600;
+}
+
+.component-structure-bonus {
+  color: var(--yellow);
+}
+
+.component-structure-row {
+  margin: 0 -0.55rem -0.5rem;
+  border-top: 1px solid #344147;
+  background: #20272b;
+  color: #b9c4c8;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .component-items {
   display: grid;
-  grid-auto-rows: minmax(1.42rem, auto);
+  grid-auto-rows: minmax(1.54rem, auto);
   gap: 1px;
   padding: 3px;
   background: #080d0f;
@@ -2276,11 +2469,11 @@ h3 {
   grid-row: span var(--slot-span, 1);
   gap: 0.35rem;
   align-items: center;
-  min-height: calc(1.42rem * var(--slot-span, 1) + (var(--slot-span, 1) - 1) * 1px);
+  min-height: calc(1.54rem * var(--slot-span, 1) + (var(--slot-span, 1) - 1) * 1px);
   padding: 0 0.32rem 0 0;
   border: 1px solid #35515d;
   border-radius: 2px;
-  background: repeating-linear-gradient(to bottom, #14242a 0, #14242a 1.38rem, #20333b 1.38rem, #20333b calc(1.38rem + 1px));
+  background: repeating-linear-gradient(to bottom, #14242a 0, #14242a 1.5rem, #20333b 1.5rem, #20333b calc(1.5rem + 1px));
   cursor: grab;
   overflow: hidden;
 }
@@ -2298,7 +2491,7 @@ h3 {
   min-width: 0;
   overflow: hidden;
   color: #e5eef0;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2309,13 +2502,13 @@ h3 {
   place-items: center;
   background: #263e47;
   color: #c7d9df;
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 900;
 }
 
 .slot-item-slots {
   color: #9fb2b8;
-  font-size: 0.64rem;
+  font-size: 0.71rem;
   font-weight: 800;
 }
 
@@ -2334,22 +2527,22 @@ h3 {
   display: flex;
   align-items: center;
   min-width: 0;
-  min-height: 1.42rem;
+  min-height: 1.54rem;
   padding: 0 0.35rem;
   border: 1px solid #24343a;
   border-radius: 2px;
   overflow: hidden;
   color: #7f9197;
-  font-size: 0.64rem;
+  font-size: 0.72rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .fixed-slot {
   grid-row: span var(--slot-span, 1);
-  min-height: calc(1.42rem * var(--slot-span, 1) + (var(--slot-span, 1) - 1) * 1px);
+  min-height: calc(1.54rem * var(--slot-span, 1) + (var(--slot-span, 1) - 1) * 1px);
   border-color: #68777c;
-  background: repeating-linear-gradient(to bottom, #252c2f 0, #252c2f 1.38rem, #3a4549 1.38rem, #3a4549 calc(1.38rem + 1px));
+  background: repeating-linear-gradient(to bottom, #252c2f 0, #252c2f 1.5rem, #3a4549 1.5rem, #3a4549 calc(1.5rem + 1px));
   box-shadow: inset 3px 0 #8a989d;
   color: #e0e5e7;
   font-weight: 700;
@@ -2426,7 +2619,7 @@ h3 {
   border-radius: 0;
   background: #080d0f;
   color: #91a3aa;
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 900;
 }
 
@@ -2449,7 +2642,7 @@ h3 {
   padding: 0.45rem 0.55rem;
   border: 1px solid #263840;
   background: #11191c;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2478,7 +2671,7 @@ h3 {
 .upgrade-panel h4 {
   margin: 0 0 0.45rem;
   color: #aebdc2;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -2491,7 +2684,7 @@ h3 {
 .upgrade-group-label {
   margin-bottom: 0.25rem;
   color: #d7e2e5;
-  font-size: 0.74rem;
+  font-size: 0.82rem;
 }
 
 .upgrade-options {
@@ -2508,7 +2701,7 @@ h3 {
   border-radius: 4px;
   background: #141d20;
   color: var(--muted);
-  font-size: 0.66rem;
+  font-size: 0.74rem;
   font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2580,7 +2773,7 @@ h3 {
   border-bottom: 0;
   background: #172126;
   color: #82959c;
-  font-size: 0.64rem;
+  font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
 }
@@ -2616,7 +2809,7 @@ h3 {
   border-bottom: 1px solid #35474f;
   background: #202c31;
   color: #9eb1b7;
-  font-size: 0.66rem;
+  font-size: 0.74rem;
   font-weight: 900;
 }
 
@@ -2658,14 +2851,14 @@ h3 {
   min-width: 0;
   padding: 0 0.45rem;
   overflow: hidden;
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .omnipod-hardpoint {
   padding: 0 0.25rem;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 900;
   text-align: center;
 }
@@ -2688,7 +2881,7 @@ h3 {
   min-width: 0;
   padding: 0 0.35rem;
   overflow: hidden;
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2699,7 +2892,7 @@ h3 {
   place-items: center;
   background: #26363d;
   color: #aebfc5;
-  font-size: 0.65rem;
+  font-size: 0.72rem;
   font-weight: 900;
 }
 
@@ -2745,7 +2938,7 @@ h3 {
   }
 
   .mechlab-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(19rem, 22rem);
+    grid-template-columns: minmax(16rem, 18rem) minmax(0, 1fr) minmax(19rem, 22rem);
   }
 
   .info-grid {
@@ -2810,6 +3003,12 @@ h3 {
   .mechlab-grid {
     grid-template-columns: 1fr;
     overflow: visible;
+  }
+
+  .mech-summary-panel {
+    min-height: 12rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
   }
 
   .components-panel {

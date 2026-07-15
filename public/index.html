@@ -69,15 +69,35 @@
                   </div>
                 </section>
 
-                <details class="quirks-panel">
-                  <summary class="section-title-row">
-                    <span>QUIRKS</span>
-                    <span id="quirk-count" class="muted"></span>
-                  </summary>
-                  <div id="quirks" class="quirks"></div>
-                </details>
-
                 <section class="mechlab-grid">
+                  <aside class="mech-summary-panel" aria-label="Mech summary">
+                    <div id="mech-summary-name" class="mech-summary-name">-</div>
+                    <div class="mech-summary-stats">
+                      <div class="mech-summary-row">
+                        <span class="mech-summary-label">TONNAGE</span>
+                        <div class="mech-summary-value">
+                          <strong id="mech-summary-current-tons">-</strong>
+                          <span>/</span>
+                          <span id="mech-summary-max-tons">-</span>
+                        </div>
+                      </div>
+                      <div class="mech-summary-row">
+                        <span class="mech-summary-label">SLOTS</span>
+                        <div class="mech-summary-value">
+                          <strong id="mech-summary-current-slots">-</strong>
+                          <span>/</span>
+                          <span id="mech-summary-max-slots">-</span>
+                        </div>
+                      </div>
+                      <div class="mech-summary-row">
+                        <span class="mech-summary-label">HEAT SINKS</span>
+                        <div class="mech-summary-value">
+                          <strong id="mech-summary-heat-sinks">-</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </aside>
+
                   <div class="components-panel" aria-label="Hardpoints">
                     <h3 class="mechlab-panel-title">Hardpoints</h3>
                     <div id="components" class="components"></div>

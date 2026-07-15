@@ -516,11 +516,11 @@ const COMPONENT_ORDER = [
   "right_leg",
 ];
 
-const REAR_ARMOR_COMPONENTS = [
-  "left_torso_rear",
-  "centre_torso_rear",
-  "right_torso_rear",
-];
+const TORSO_REAR_COMPONENTS = {
+  left_torso: "left_torso_rear",
+  centre_torso: "centre_torso_rear",
+  right_torso: "right_torso_rear",
+};
 
 const COMPONENT_NAMES = {
   head: t("component.head"),
@@ -751,6 +751,7 @@ const state = {
   mechListSummaryCache: new Map(),
   mechHardpointBadgeCache: new Map(),
   mechHardpointTypeCache: new Map(),
+  mechlabQuirkValuesCache: new Map(),
   weaponQuirkTypeCache: null,
   weaponQuirkTargetCache: null,
   ecmOmnipodIds: null,
@@ -1282,6 +1283,7 @@ function dominantOmnipodSet(mech, build) {
 
 function applyFixedOmnipods(mech, build) {
   const loadout = loadoutForMech(mech);
+  normalizeRearArmor(build, mech, loadout);
   build.components ||= {};
   for (const name of COMPONENT_ORDER) {
     build.components[name] ||= { armor: 0, items: [] };
@@ -1302,6 +1304,27 @@ function applyFixedOmnipods(mech, build) {
   return build;
 }
 
+function normalizeRearArmor(build, mech, loadout = loadoutForMech(mech)) {
+  const current = build?.rearArmor;
+  if (current && typeof current === "object" && !Array.isArray(current)) {
+    build.rearArmor = Object.fromEntries(
+      Object.keys(TORSO_REAR_COMPONENTS).map((name) => [name, Math.max(0, number(current[name]))]),
+    );
+    return build.rearArmor;
+  }
+
+  let remaining = Math.max(0, number(current));
+  const rearArmor = {};
+  for (const [name, rearName] of Object.entries(TORSO_REAR_COMPONENTS)) {
+    const stockValue = Math.max(0, number(loadout?.components?.[rearName]?.armor));
+    rearArmor[name] = Math.min(stockValue, remaining);
+    remaining -= rearArmor[name];
+  }
+  if (remaining > 0) rearArmor.centre_torso += remaining;
+  build.rearArmor = rearArmor;
+  return rearArmor;
+}
+
 function buildFromLoadout(mech) {
   const loadout = loadoutForMech(mech);
   const components = {};
@@ -1313,9 +1336,11 @@ function buildFromLoadout(mech) {
       items: (component.items || []).map((entry) => ({ ...entry })),
     };
   }
-  const rearArmor = REAR_ARMOR_COMPONENTS.reduce((sum, name) => {
-    return sum + number(loadout.components?.[name]?.armor);
-  }, 0);
+  const rearArmor = Object.fromEntries(
+    Object.entries(TORSO_REAR_COMPONENTS).map(([name, rearName]) => (
+      [name, number(loadout.components?.[rearName]?.armor)]
+    )),
+  );
   return applyFixedOmnipods(mech, {
     mechId: mech.id,
     loadoutName: mech.stock_loadout,
@@ -1558,6 +1583,15 @@ function effectiveQuirkValues(mech = state.selectedMech, build = state.currentBu
   effectiveQuirks(mech, build).forEach((quirk) => {
     values[quirk.name.toLowerCase()] = number(quirk.value);
   });
+  return values;
+}
+
+function mechlabQuirkValues(mech = state.selectedMech, build = state.currentBuild) {
+  const omnipodKey = COMPONENT_ORDER.map((name) => build?.components?.[name]?.omnipod || "").join(":");
+  const key = `${mech?.id || ""}:${omnipodKey}`;
+  if (state.mechlabQuirkValuesCache.has(key)) return state.mechlabQuirkValuesCache.get(key);
+  const values = effectiveQuirkValues(mech, build);
+  state.mechlabQuirkValuesCache.set(key, values);
   return values;
 }
 
@@ -3405,7 +3439,6 @@ function calculateBuild() {
   const definition = effectiveDefinition(mech, state.currentBuild);
   const stats = definition.stats || {};
   const maxTons = number(stats.MaxTons);
-  const baseTons = number(stats.BaseTons);
   const fixedEngine = fixedOmniEngine(mech);
   let itemTonnage = fixedEngine ? itemTons(fixedEngine) : 0;
   let heat = 0;
@@ -3433,7 +3466,7 @@ function calculateBuild() {
     fixedEngine,
     structureAllocation.byComponent,
   );
-  let heatSinkTons = 0;
+  let installedHeatSinkCount = 0;
   const warnings = [];
   const componentUsage = {};
 
@@ -3500,7 +3533,7 @@ function calculateBuild() {
         ammo += number(item.stats?.numShots);
       }
       if (isHeatSink(item)) {
-        heatSinkTons += itemTons(item);
+        installedHeatSinkCount += 1;
       }
     }
 
@@ -3561,14 +3594,15 @@ function calculateBuild() {
     }
   }
 
-  armor += number(state.currentBuild.rearArmor);
+  armor += Object.values(state.currentBuild.rearArmor || {}).reduce((sum, value) => sum + number(value), 0);
   const armorUpgradeId = state.currentBuild.upgrades?.armor?.ItemID;
   const armorUpgrade = itemById(armorUpgradeId);
   const armorPerTon = number(armorUpgrade?.stats?.armorPerTon, 32);
   const engineIncludedHeatSinks = engine ? number(engine.stats?.heatsinks) : 0;
-  const adjustedItemTons = itemTonnage - Math.min(heatSinkTons, engineIncludedHeatSinks);
-  const structureTons = maxTons * number(structureUpgrade?.stats?.weightPerTon, 0.1);
-  const totalTons = baseTons + structureTons + adjustedItemTons + armor / armorPerTon;
+  const totalHeatSinkCount = installedHeatSinkCount + engineIncludedHeatSinks;
+  const rawStructureTons = maxTons * number(structureUpgrade?.stats?.weightPerTon, 0.1);
+  const structureTons = Math.ceil(rawStructureTons * 2) / 2;
+  const totalTons = structureTons + itemTonnage + armor / armorPerTon;
   if (maxTons && totalTons > maxTons + 0.1) {
     warnings.push(`Tonnage ${fmt(totalTons)}/${fmt(maxTons)}`);
   }
@@ -3591,6 +3625,9 @@ function calculateBuild() {
     ammo,
     armor,
     engine,
+    installedHeatSinkCount,
+    engineIncludedHeatSinks,
+    totalHeatSinkCount,
     totalSlotCapacity,
     baseSlotUsage,
     displayedSlotUsage,
@@ -3610,8 +3647,7 @@ function calculateBuild() {
   };
 }
 
-function renderSummary() {
-  const calc = state.selectedMech && state.currentBuild ? calculateBuild() : null;
+function renderSummary(calc = state.selectedMech && state.currentBuild ? calculateBuild() : null) {
   if (!calc) {
     $("summary-strip").innerHTML = "";
     return;
@@ -3678,6 +3714,16 @@ function renderMechList() {
       `;
     })
     .join("");
+}
+
+function renderMechSummary(calc = null) {
+  const mech = state.selectedMech;
+  $("mech-summary-name").textContent = mech?.display_name || "-";
+  $("mech-summary-current-tons").textContent = calc ? fmt(calc.totalTons) : "-";
+  $("mech-summary-max-tons").textContent = calc ? fmt(calc.maxTons) : "-";
+  $("mech-summary-current-slots").textContent = calc ? fmt(calc.currentSlotUsage, 0) : "-";
+  $("mech-summary-max-slots").textContent = calc ? fmt(calc.totalSlotCapacity, 0) : "-";
+  $("mech-summary-heat-sinks").textContent = calc ? fmt(calc.totalHeatSinkCount, 0) : "-";
 }
 
 function filteredMechsForList() {
@@ -4118,13 +4164,76 @@ function renderSelectedItem() {
     : t("equipment.noItem");
 }
 
-function renderComponents() {
-  const calc = calculateBuild();
+function componentArmorCapacity(name, componentDefinition) {
+  if (name === "head") return 18;
+  return Math.max(0, number(componentDefinition?.hp) * 2);
+}
+
+function componentDurabilityQuirkValues(name, values) {
+  const component = INFO_COMPONENTS.find((entry) => entry.key === name);
+  if (!component) return { frontArmor: 0, rearArmor: 0, structure: 0 };
+  return {
+    frontArmor: quirkAdd(values, "armorresist", component.suffix),
+    rearArmor: component.rearSuffix
+      ? number(values.armorresist_all_additive) + number(values[`armorresist_${component.rearSuffix}_additive`])
+      : 0,
+    structure: quirkAdd(values, "internalresist", component.suffix),
+  };
+}
+
+function renderArmorStepper(
+  name,
+  side,
+  value,
+  capacity,
+  pairedValue = 0,
+  showLabel = true,
+  quirkBonus = 0,
+  finalMax = capacity,
+  maxBoosted = false,
+) {
+  const available = Math.max(0, capacity - value - pairedValue);
+  const label = side === "rear" ? "REAR" : "FRONT";
+  const finalValue = value + quirkBonus;
+  const quirkOnly = value === 0 && quirkBonus !== 0;
+  return `
+    <div class="component-armor-row">
+      <div class="component-armor-allocation">
+        <span class="component-armor-side">${showLabel ? label : ""}</span>
+        <strong class="component-armor-value${quirkOnly ? " quirk-tone-armor" : ""}">${fmt(finalValue)}</strong>
+        <div class="component-armor-stepper" aria-label="${COMPONENT_NAMES[name] || name} ${side} armor">
+          <button type="button" data-armor-component="${name}" data-armor-side="${side}" data-armor-delta="1" ${available <= 0 ? "disabled" : ""} aria-label="Increase ${side} armor">+</button>
+          <button type="button" data-armor-component="${name}" data-armor-side="${side}" data-armor-delta="-1" ${value <= 0 ? "disabled" : ""} aria-label="Decrease ${side} armor">-</button>
+        </div>
+      </div>
+      <div class="component-armor-capacity">
+        <span class="component-armor-limit-label">${side === "rear" ? "MAX" : "AVL"}</span>
+        <strong class="component-armor-limit${side === "rear" && maxBoosted ? " quirk-tone-armor" : ""}">${side === "rear" ? fmt(finalMax) : available}</strong>
+      </div>
+    </div>
+  `;
+}
+
+function renderComponents(calc = calculateBuild()) {
+  const quirkValues = mechlabQuirkValues();
   $("components").innerHTML = COMPONENT_ORDER.map((name) => {
     const buildComp = state.currentBuild.components[name] || { items: [] };
     const compDef = effectiveComponentDefinition(state.selectedMech, state.currentBuild, name);
     const usage = calc.componentUsage[name] || { slots: 0, warnings: [] };
     const slotLimit = number(compDef.slots);
+    const armorCapacity = componentArmorCapacity(name, compDef);
+    const frontArmor = Math.max(0, number(buildComp.armor));
+    const rearArmor = Math.max(0, number(state.currentBuild.rearArmor?.[name]));
+    const torso = Object.hasOwn(TORSO_REAR_COMPONENTS, name);
+    const durabilityQuirks = componentDurabilityQuirkValues(name, quirkValues);
+    const totalArmorQuirk = durabilityQuirks.frontArmor + durabilityQuirks.rearArmor;
+    const finalArmorMax = armorCapacity + totalArmorQuirk;
+    const structure = number(compDef.hp);
+    const finalStructure = structure + durabilityQuirks.structure;
+    const armorControls = torso
+      ? `${renderArmorStepper(name, "front", frontArmor, armorCapacity, rearArmor, true, durabilityQuirks.frontArmor)}${renderArmorStepper(name, "rear", rearArmor, armorCapacity, frontArmor, true, durabilityQuirks.rearArmor, finalArmorMax, totalArmorQuirk !== 0)}`
+      : `${renderArmorStepper(name, "front", frontArmor, armorCapacity, 0, false, durabilityQuirks.frontArmor)}
+        <div class="component-armor-max-row"><span></span><div><span>MAX</span><strong class="${totalArmorQuirk !== 0 ? "quirk-tone-armor" : ""}">${fmt(finalArmorMax)}</strong></div></div>`;
     const hardpointCounts = hardpointCountsFromHardpoints(compDef.hardpoints || []);
     const hps = renderHardpointBadges(hardpointCounts, "component-hardpoint");
     const internalRows = (compDef.internals || [])
@@ -4147,7 +4256,14 @@ function renderComponents() {
         <div class="component-head">
           <div>
             <div class="component-title">${COMPONENT_NAMES[name] || name}</div>
-            <div class="component-meta muted">${t("common.armor")} ${buildComp.armor || 0} / ${t("common.slots")} ${usage.slots}/${slotLimit || "?"}</div>
+            <div class="component-stat-title">ARMOR</div>
+            <div class="component-armor-controls">${armorControls}</div>
+            <div class="component-structure-row">
+              <span>STRUCTURE</span>
+              <strong class="component-structure-value${durabilityQuirks.structure !== 0 ? " boosted" : ""}">
+                <span>${fmt(finalStructure)}</span>${durabilityQuirks.structure !== 0 ? `<span class="component-structure-detail">(<span>${fmt(structure)}</span><span>${durabilityQuirks.structure > 0 ? "+" : "-"}</span><span class="component-structure-bonus">${fmt(Math.abs(durabilityQuirks.structure))}</span>)</span>` : ""}
+              </strong>
+            </div>
             ${hps ? `<div class="hardpoint-line">${hps}</div>` : ""}
             ${usage.warnings.length ? `<div class="warnings">${usage.warnings.join(" / ")}</div>` : ""}
           </div>
@@ -4209,12 +4325,6 @@ function renderLoadoutItem(component, entry, index) {
   `;
 }
 
-function renderQuirks() {
-  const quirks = effectiveQuirks();
-  $("quirk-count").textContent = "";
-  $("quirks").innerHTML = renderQuirkList(quirks, t("info.noQuirksForMech"));
-}
-
 function renderVariant() {
   const mech = state.selectedMech;
   if (!mech) return;
@@ -4223,17 +4333,16 @@ function renderVariant() {
   $("variant-meta").textContent = `${factionLabel(mech.faction)} - ${WEIGHT_CLASS_LABELS[mech.weight_class] || mech.weight_class || t("common.unknown")} - ${stats.MaxTons || "?"} ${t("common.tons")} - ${t("common.engine")} ${stats.MinEngineRating || "?"}-${stats.MaxEngineRating || "?"}`;
   const calc = calculateBuild();
   $("data-status").textContent = calc.warnings.length ? calc.warnings.join(" - ") : t("status.loadedData", { count: state.index.counts.mechs });
-  renderSummary();
-  renderQuirks();
-  renderComponents();
+  renderSummary(calc);
+  renderMechSummary(calc);
+  renderComponents(calc);
 }
 
 function renderSelectionPrompt() {
   $("variant-name").textContent = t("info.selectMech");
   $("variant-meta").textContent = t("info.selectMechHint");
   renderSummary();
-  $("quirk-count").textContent = "";
-  $("quirks").innerHTML = `<div class="empty">${t("info.quirksPrompt")}</div>`;
+  renderMechSummary();
   $("components").innerHTML = `<div class="empty">${t("info.componentsPrompt")}</div>`;
 }
 
@@ -4428,6 +4537,68 @@ function clearDragState() {
   document.querySelectorAll(".drop-valid, .drop-invalid, .dragging").forEach((element) => {
     element.classList.remove("drop-valid", "drop-invalid", "dragging");
   });
+}
+
+function adjustArmorAllocation(button) {
+  if (!state.currentBuild) return false;
+  const component = button.dataset.armorComponent;
+  const side = button.dataset.armorSide;
+  const delta = number(Number(button.dataset.armorDelta));
+  const buildComponent = state.currentBuild.components?.[component];
+  if (!buildComponent || !delta || !["front", "rear"].includes(side)) return false;
+
+  state.currentBuild.rearArmor ||= {};
+  const componentDefinition = effectiveComponentDefinition(state.selectedMech, state.currentBuild, component);
+  const capacity = componentArmorCapacity(component, componentDefinition);
+  const current = side === "rear"
+    ? number(state.currentBuild.rearArmor[component])
+    : number(buildComponent.armor);
+  const pairedValue = side === "rear"
+    ? number(buildComponent.armor)
+    : number(state.currentBuild.rearArmor[component]);
+  const max = Math.max(0, capacity - pairedValue);
+  const value = Math.min(max, Math.max(0, current + delta));
+  if (value === current) return false;
+
+  if (side === "rear") {
+    state.currentBuild.rearArmor[component] = value;
+  } else {
+    buildComponent.armor = value;
+  }
+  renderVariant();
+  return true;
+}
+
+let armorHoldDelay = null;
+let armorHoldInterval = null;
+let armorClickReset = null;
+let suppressArmorClick = false;
+
+function clearArmorHoldTimers() {
+  clearTimeout(armorHoldDelay);
+  clearInterval(armorHoldInterval);
+  armorHoldDelay = null;
+  armorHoldInterval = null;
+}
+
+function stopArmorHold() {
+  clearArmorHoldTimers();
+  clearTimeout(armorClickReset);
+  armorClickReset = setTimeout(() => {
+    suppressArmorClick = false;
+  }, 0);
+}
+
+function startArmorHold(button) {
+  clearArmorHoldTimers();
+  clearTimeout(armorClickReset);
+  suppressArmorClick = true;
+  if (!adjustArmorAllocation(button)) return;
+  armorHoldDelay = setTimeout(() => {
+    armorHoldInterval = setInterval(() => {
+      if (!adjustArmorAllocation(button)) stopArmorHold();
+    }, 90);
+  }, 350);
 }
 
 function installDraggedItem(component) {
@@ -4708,6 +4879,23 @@ function bindEvents() {
     if (!button || button.disabled) return;
     selectUpgrade(button.dataset.upgradeCategory, button.dataset.upgradeValue);
   });
+  $("components").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-armor-component]");
+    if (!button || button.disabled) return;
+    if (suppressArmorClick) {
+      event.preventDefault();
+      return;
+    }
+    adjustArmorAllocation(button);
+  });
+  $("components").addEventListener("pointerdown", (event) => {
+    const button = event.target.closest("[data-armor-component]");
+    if (!button || button.disabled || event.button !== 0) return;
+    event.preventDefault();
+    startArmorHold(button);
+  });
+  document.addEventListener("pointerup", stopArmorHold);
+  document.addEventListener("pointercancel", stopArmorHold);
   $("item-list").addEventListener("dragstart", (event) => {
     const podRow = event.target.closest("[data-omnipod]");
     if (podRow) {
@@ -4824,7 +5012,11 @@ function bindEvents() {
     if (!state.currentBuild) return;
     for (const component of Object.values(state.currentBuild.components)) {
       component.items = [];
+      component.armor = 0;
     }
+    state.currentBuild.rearArmor = Object.fromEntries(
+      Object.keys(TORSO_REAR_COMPONENTS).map((name) => [name, 0]),
+    );
     renderVariant();
   });
 }
