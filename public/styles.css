@@ -1928,6 +1928,355 @@ h3 {
   line-height: 1;
 }
 
+.mech-summary-actions {
+  padding: 0 1rem 1rem;
+}
+
+.simulation-open-button {
+  width: 100%;
+  min-height: 3rem;
+  border-color: #3f788d;
+  background: #16313c;
+  color: #bfeaff;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.simulation-open-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+body.simulation-open {
+  overflow: hidden;
+}
+
+.simulation-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: #020506b8;
+}
+
+.simulation-overlay[hidden] {
+  display: none;
+}
+
+.simulation-dialog {
+  display: grid;
+  grid-template-rows: auto auto auto auto auto minmax(0, 1fr);
+  width: min(56rem, 55vw);
+  height: min(46rem, calc(100vh - 3rem));
+  min-width: 38rem;
+  overflow: hidden;
+  border: 1px solid #46798b;
+  border-radius: 6px;
+  background: #101719;
+  box-shadow: 0 1.5rem 5rem #000c;
+}
+
+.simulation-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--line);
+  background: #172328;
+}
+
+.simulation-header h2 {
+  color: var(--blue);
+  font-size: 1.15rem;
+  text-transform: uppercase;
+}
+
+.simulation-header p {
+  margin-top: 0.3rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.simulation-close-button {
+  min-width: 2.3rem;
+  min-height: 2.3rem;
+  padding: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.simulation-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #26383f;
+  background: #0a1012;
+}
+
+.simulation-metrics > div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.7rem;
+  border-left: 3px solid var(--blue);
+  background: #142026;
+}
+
+.simulation-metrics span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.simulation-metrics strong {
+  color: var(--green);
+  font-size: 1.55rem;
+}
+
+.simulation-heat-metric {
+  border-left-color: var(--yellow) !important;
+}
+
+.simulation-heat-readout {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.simulation-heat-readout strong {
+  color: var(--yellow);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.simulation-heat-readout small {
+  color: #f0a74d;
+  font-size: 0.68rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.simulation-heat-bar {
+  height: 0.34rem;
+  margin-top: 0.22rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #3b3230;
+}
+
+.simulation-heat-bar i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(90deg, var(--yellow), #ef8d3e 65%, var(--red));
+  box-shadow: 0 0 0.4rem #df654f88;
+  will-change: transform;
+}
+
+.simulation-heat-metric.overheated {
+  border-left-color: var(--red) !important;
+  background: #371714;
+  animation: simulation-overheat-pulse 0.7s ease-in-out infinite alternate;
+}
+
+.simulation-heat-metric.overheated strong,
+.simulation-heat-metric.overheated small,
+.simulation-heat-metric.overheated > span {
+  color: #ff8974;
+}
+
+@keyframes simulation-overheat-pulse {
+  from { box-shadow: inset 0 0 0 #df654f00; }
+  to { box-shadow: inset 0 0 1.1rem #df654f44; }
+}
+
+.simulation-group-status {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.45rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid #26383f;
+}
+
+.simulation-group-key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.4rem;
+  border: 1px solid #35505b;
+  border-radius: 4px;
+  background: #111b1f;
+}
+
+.simulation-group-key strong {
+  color: var(--blue);
+  font-size: 1.15rem;
+}
+
+.simulation-group-key span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.simulation-group-key.active {
+  border-color: var(--yellow);
+  background: #3b3413;
+  box-shadow: inset 0 0 0 1px #e9c94a55;
+}
+
+.simulation-group-key.active strong {
+  color: var(--yellow);
+}
+
+.simulation-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.55rem 1rem;
+}
+
+.simulation-toolbar > strong {
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.simulation-list-header,
+.simulation-weapon-row {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) 4.8rem 4.5rem 9rem;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.simulation-list-header {
+  min-height: 1.7rem;
+  padding: 0 0.7rem;
+  border-block: 1px solid #29414a;
+  background: #1a282d;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.simulation-weapon-list {
+  min-height: 0;
+  overflow: auto;
+  padding-bottom: 0.5rem;
+}
+
+.simulation-weapon-row {
+  min-height: 2.65rem;
+  padding: 0.28rem 0.7rem;
+  border-bottom: 1px solid #223238;
+}
+
+.simulation-weapon-row > span {
+  color: #dce6e9;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.simulation-weapon-name {
+  display: grid;
+  min-width: 0;
+  padding-left: 0.4rem;
+  border-left: 3px solid var(--purple);
+}
+
+.simulation-weapon-name strong {
+  font-size: 0.78rem;
+  line-height: 1.1;
+}
+
+.simulation-weapon-name.energy { border-left-color: var(--yellow); }
+.simulation-weapon-name.missile { border-left-color: var(--missile); }
+.simulation-weapon-name.ballistic { border-left-color: var(--purple); }
+
+.simulation-weapon-name strong,
+.simulation-weapon-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.simulation-weapon-name span {
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.1;
+}
+
+.simulation-cooldown {
+  height: 0.22rem;
+  margin-top: 0.2rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #273238;
+}
+
+.simulation-cooldown i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+  background: linear-gradient(90deg, #327fa0, var(--blue));
+  box-shadow: 0 0 0.35rem #49a6c877;
+  will-change: transform;
+}
+
+.simulation-group-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.18rem;
+}
+
+.simulation-group-option {
+  cursor: pointer;
+}
+
+.simulation-group-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.simulation-group-option span {
+  display: grid;
+  place-items: center;
+  min-height: 1.55rem;
+  border: 1px solid #38525c;
+  border-radius: 3px;
+  background: #182328;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.simulation-group-option:hover span,
+.simulation-group-option.active span,
+.simulation-group-option input:focus-visible + span {
+  border-color: var(--blue);
+  background: #214557;
+  color: #fff;
+}
+
+.simulation-empty {
+  display: grid;
+  place-items: center;
+  min-height: 10rem;
+  color: var(--muted);
+}
+
 .section-title-row {
   display: flex;
   align-items: baseline;
@@ -2923,6 +3272,10 @@ h3 {
 }
 
 @media (max-width: 1050px) {
+  .simulation-dialog {
+    width: min(48rem, 82vw);
+  }
+
   .mech-browser-layout {
     grid-template-columns: 1fr;
     grid-template-rows: auto minmax(0, 1fr);
@@ -2966,6 +3319,46 @@ h3 {
 }
 
 @media (max-width: 680px) {
+  .simulation-overlay {
+    padding: 0;
+  }
+
+  .simulation-dialog {
+    width: 100vw;
+    height: 100vh;
+    min-width: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .simulation-metrics {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.35rem;
+    padding-inline: 0.55rem;
+  }
+
+  .simulation-metrics > div {
+    padding-inline: 0.4rem;
+  }
+
+  .simulation-metrics strong {
+    font-size: 1.15rem;
+  }
+
+  .simulation-list-header,
+  .simulation-weapon-row {
+    grid-template-columns: minmax(8rem, 1fr) 4rem 4rem 8.5rem;
+  }
+
+  .simulation-weapon-list {
+    overflow: auto;
+  }
+
+  .simulation-weapon-row,
+  .simulation-list-header {
+    min-width: 27rem;
+  }
+
   .variant-panel {
     grid-template-columns: 1fr;
     display: grid;

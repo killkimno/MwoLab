@@ -5,3 +5,4 @@ local-mech-icons/
 .local-preview-*.log
 __pycache__/
 *.pyc
+.vs/

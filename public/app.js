@@ -60,6 +60,23 @@ const TEXT = {
     "status.loadPathFailed": "{path} 파일을 불러올 수 없습니다",
     "status.buildSaved": "빌드를 로컬에 저장했습니다",
     "mechlab.showList": "멕 리스트",
+    "simulation.open": "시뮬레이션",
+    "simulation.title": "DPS 시뮬레이션",
+    "simulation.hint": "숫자 키 1~4를 누르고 있는 동안 해당 그룹을 발사합니다.",
+    "simulation.close": "시뮬레이션 닫기",
+    "simulation.elapsed": "경과 시간",
+    "simulation.damage": "누적 데미지",
+    "simulation.heat": "발열",
+    "simulation.overheated": "오버히트",
+    "simulation.groups": "무기 그룹 지정",
+    "simulation.reset": "측정 초기화",
+    "simulation.weapon": "무기",
+    "simulation.damageShort": "데미지",
+    "simulation.cycle": "주기",
+    "simulation.cooldown": "쿨타임",
+    "simulation.group": "그룹",
+    "simulation.groupStatus": "무기 그룹 상태",
+    "simulation.noWeapons": "장착된 무기가 없습니다.",
     "tabs.mechlab": "현재 멕랩",
     "tabs.info": "정보",
     "tabs.compare": "비교하기",
@@ -283,6 +300,23 @@ const TEXT = {
     "status.loadPathFailed": "Could not load {path}",
     "status.buildSaved": "Build saved locally",
     "mechlab.showList": "Mech List",
+    "simulation.open": "Simulation",
+    "simulation.title": "DPS Simulation",
+    "simulation.hint": "Hold number keys 1-4 to fire the assigned weapon groups.",
+    "simulation.close": "Close simulation",
+    "simulation.elapsed": "Elapsed",
+    "simulation.damage": "Total damage",
+    "simulation.heat": "Heat",
+    "simulation.overheated": "OVERHEATED",
+    "simulation.groups": "Weapon groups",
+    "simulation.reset": "Reset run",
+    "simulation.weapon": "Weapon",
+    "simulation.damageShort": "Damage",
+    "simulation.cycle": "Cycle",
+    "simulation.cooldown": "Cooldown",
+    "simulation.group": "Group",
+    "simulation.groupStatus": "Weapon group status",
+    "simulation.noWeapons": "No weapons are installed.",
     "tabs.mechlab": "Current MechLab",
     "tabs.info": "Info",
     "tabs.compare": "Compare",
@@ -764,6 +798,24 @@ const state = {
   omnipodDefinitionCache: new Map(),
   currentBuild: null,
   activeDrag: null,
+  simulation: {
+    open: false,
+    weapons: [],
+    assignments: new Map(),
+    heldGroups: new Set(),
+    nextFireAt: new Map(),
+    activeBurns: new Map(),
+    continuousFireAt: new Map(),
+    totalDamage: 0,
+    currentHeat: 0,
+    maxHeat: 30,
+    coolingRate: 0,
+    heatSinkCount: 0,
+    lastHeatUpdateAt: null,
+    overheated: false,
+    startedAt: null,
+    frameId: null,
+  },
 };
 
 const $ = (id) => document.getElementById(id);
@@ -804,6 +856,14 @@ function fixedOmniEngine(mech = state.selectedMech) {
 
   const cacheKey = String(mech.id);
   if (state.fixedOmniEngineCache.has(cacheKey)) return state.fixedOmniEngineCache.get(cacheKey);
+  const explicitEngine = Object.values(mech.definition?.components || {})
+    .flatMap((component) => component.fixed || [])
+    .map((itemId) => itemById(itemId))
+    .find((item) => item?.item_type === "engine");
+  if (explicitEngine) {
+    state.fixedOmniEngineCache.set(cacheKey, explicitEngine);
+    return explicitEngine;
+  }
   const faction = normalizeFactionKey(mech.faction);
   const expectedSideSlots = faction === "clan" ? 2 : faction === "innersphere" ? 3 : -1;
   const engine = Object.values(state.equipment?.items || {}).find((item) => (
@@ -896,13 +956,19 @@ function componentBaseSlotUsage(name, definition, build, engine, fixedEngine) {
     if (MOVABLE_UPGRADE_SLOT_IDS.has(Number(itemId))) return sum;
     return sum + Math.max(1, itemSlots(itemById(itemId)));
   }, 0);
+  const fixedEquipmentSlots = (compDef.fixed || []).reduce((sum, itemId) => {
+    const item = itemById(itemId);
+    if (!item || item.item_type === "engine") return sum;
+    if (name === "centre_torso" && isHeatSink(item)) return sum;
+    return sum + Math.max(1, effectiveItemSlots(item, build));
+  }, 0);
   const sideEngineSlots = ENGINE_SIDE_COMPONENTS.has(name) ? engineSideSlots(engine) : 0;
   const fixedEngineSlots = name === "centre_torso" && fixedEngine ? Math.max(1, itemSlots(fixedEngine)) : 0;
   const equipmentSlots = (buildComp.items || []).reduce((sum, entry) => {
     const item = itemById(entry.item_id);
     return item ? sum + Math.max(1, effectiveItemSlots(item, build)) : sum;
   }, 0);
-  return internalSlots + sideEngineSlots + fixedEngineSlots + equipmentSlots;
+  return internalSlots + fixedEquipmentSlots + sideEngineSlots + fixedEngineSlots + equipmentSlots;
 }
 
 function allocateUpgradeSlots(requiredSlots, definition, build, engine, fixedEngine, reservedByComponent = {}) {
@@ -1386,7 +1452,7 @@ function hardpointsFromLoadoutItems(buildComponent) {
 }
 
 function omnipodDefinition(pod) {
-  if (!pod?.id) return { hardpoints: [] };
+  if (!pod?.id) return { hardpoints: [], internals: [], fixed: [] };
   const cacheKey = String(pod.id);
   const cached = state.omnipodDefinitionCache.get(cacheKey);
   if (cached) return cached;
@@ -1399,11 +1465,20 @@ function omnipodDefinition(pod) {
     if (sourceComponent) break;
   }
 
-  let hardpoints = hardpointsFromLoadoutItems(sourceComponent);
+  let hardpoints = (pod.hardpoints || []).map((hardpoint) => ({
+    ...hardpoint,
+    hardpoint_type: hardpointType(hardpoint),
+  }));
+  if (!hardpoints.length) hardpoints = hardpointsFromLoadoutItems(sourceComponent);
+  else hardpoints = mergeHardpointsWithLoadout(hardpoints, sourceComponent);
   if ((sourceComponent?.items || []).some((entry) => isEcm(itemById(entry.item_id)))) {
     hardpoints = addEcmHardpoint(hardpoints);
   }
-  const definition = { hardpoints };
+  const definition = {
+    hardpoints,
+    internals: pod.internals || [],
+    fixed: pod.fixed || [],
+  };
   state.omnipodDefinitionCache.set(cacheKey, definition);
   return definition;
 }
@@ -1466,7 +1541,8 @@ function effectiveComponentDefinition(mech = state.selectedMech, build = state.c
   const buildComponent = build?.components?.[componentName] || {};
   const pod = podById(buildComponent.omnipod);
   const stockComponent = loadoutForMech(mech).components?.[componentName] || {};
-  const podHardpoints = pod ? omnipodDefinition(pod).hardpoints : [];
+  const podDefinition = pod ? omnipodDefinition(pod) : { hardpoints: [], internals: [], fixed: [] };
+  const podHardpoints = podDefinition.hardpoints;
   let hardpoints = podHardpoints.length
     ? podHardpoints.map((hardpoint) => ({
       ...hardpoint,
@@ -1479,6 +1555,8 @@ function effectiveComponentDefinition(mech = state.selectedMech, build = state.c
   return {
     ...base,
     hardpoints,
+    internals: base.internals || [],
+    fixed: [...(base.fixed || []), ...podDefinition.fixed],
   };
 }
 
@@ -3477,12 +3555,23 @@ function calculateBuild() {
       if (!hasFixedOmnipods(mech) && MOVABLE_UPGRADE_SLOT_IDS.has(Number(itemId))) return sum;
       return sum + Math.max(1, itemSlots(itemById(itemId)));
     }, 0);
+    const fixedItems = (compDef.fixed || [])
+      .map((itemId) => itemById(itemId))
+      .filter((item) => item && item.item_type !== "engine");
+    const fixedEquipmentSlots = fixedItems.reduce(
+      (sum, item) => sum + (
+        name === "centre_torso" && isHeatSink(item)
+          ? 0
+          : Math.max(1, effectiveItemSlots(item))
+      ),
+      0,
+    );
     const sideEngineSlots = ENGINE_SIDE_COMPONENTS.has(name) ? engineSideSlots(engine) : 0;
     const fixedEngineSlots = name === "centre_torso" && fixedEngine ? Math.max(1, itemSlots(fixedEngine)) : 0;
     const preferredStructureSlots = number(structureAllocation.byComponent[name]);
     const preferredArmorSlots = number(armorAllocation.byComponent[name]);
     const usage = {
-      slots: internalSlots + sideEngineSlots + fixedEngineSlots,
+      slots: internalSlots + fixedEquipmentSlots + sideEngineSlots + fixedEngineSlots,
       engineSideSlots: sideEngineSlots,
       fixedEngineSlots,
       preferredStructureSlots,
@@ -3500,6 +3589,17 @@ function calculateBuild() {
     };
 
     armor += number(buildComp.armor);
+    for (const item of fixedItems) {
+      itemTonnage += itemTons(item);
+      heat += itemHeat(item);
+      const mountType = equipmentHardpointType(item);
+      if (mountType) usage.hardpoints[mountType] = (usage.hardpoints[mountType] || 0) + 1;
+      if (item.item_type === "weapon") {
+        alpha += number(item.stats?.damage) * number(item.stats?.numFiring, 1);
+      }
+      if (item.item_type === "ammo") ammo += number(item.stats?.numShots);
+      if (isHeatSink(item)) installedHeatSinkCount += 1;
+    }
     for (const entry of buildComp.items) {
       const item = itemById(entry.item_id);
       if (!item) {
@@ -3724,6 +3824,470 @@ function renderMechSummary(calc = null) {
   $("mech-summary-current-slots").textContent = calc ? fmt(calc.currentSlotUsage, 0) : "-";
   $("mech-summary-max-slots").textContent = calc ? fmt(calc.totalSlotCapacity, 0) : "-";
   $("mech-summary-heat-sinks").textContent = calc ? fmt(calc.totalHeatSinkCount, 0) : "-";
+  $("open-simulation").disabled = !mech || !state.currentBuild;
+}
+
+function simulationItemKeys(item) {
+  return new Set([
+    item?.name,
+    item?.display_name,
+    ...String(item?.aliases || "").split(","),
+  ].map(normalizeLookupKey).filter(Boolean));
+}
+
+function simulationSpecificQuirkTotal(quirks, item, suffix, direction = "reduction") {
+  const keys = simulationItemKeys(item);
+  return quirks.reduce((sum, quirk) => {
+    const name = String(quirk.name || "").toLowerCase();
+    if (!name.endsWith(suffix)) return sum;
+    if (suffix === "_cooldown_multiplier" && DIRECT_COOLDOWN_QUIRKS.has(name)) return sum;
+    if (suffix === "_heat_multiplier" && DIRECT_HEAT_QUIRKS.has(name)) return sum;
+    if (suffix === "_duration_multiplier" && DIRECT_DURATION_QUIRKS.has(name)) return sum;
+    const prefix = normalizeLookupKey(name.slice(0, -suffix.length));
+    if (!prefix || !keys.has(prefix)) return sum;
+    const value = number(quirk.value);
+    return sum + (direction === "reduction" ? Math.max(0, -value) : Math.max(0, value));
+  }, 0);
+}
+
+function simulationWeaponTiming(item, quirks) {
+  const stats = item?.stats || {};
+  const type = equipmentHardpointType(item);
+  const rof = number(stats.rof);
+  if (rof > 0) {
+    const rofBonus = simulationSpecificQuirkTotal(quirks, item, "_rof_multiplier", "increase");
+    const cycle = Math.max(0.016, 1 / (rof * (1 + rofBonus)));
+    return { duration: 0, cooldown: cycle, cycle };
+  }
+
+  const cooldownReduction = quirkReduction(quirks, "all_cooldown_multiplier")
+    + quirkReduction(quirks, `${type}_cooldown_multiplier`)
+    + simulationSpecificQuirkTotal(quirks, item, "_cooldown_multiplier");
+  const durationReduction = quirkReduction(quirks, "all_duration_multiplier")
+    + (type === "energy" ? quirkReduction(quirks, "energy_duration_multiplier") : 0)
+    + simulationSpecificQuirkTotal(quirks, item, "_duration_multiplier");
+  const cooldown = Math.max(0, number(stats.cooldown) * Math.max(0, 1 - cooldownReduction));
+  const duration = Math.max(0, number(stats.duration) * Math.max(0, 1 - durationReduction));
+  return { duration, cooldown, cycle: Math.max(0.016, cooldown + duration) };
+}
+
+function simulationWeaponCycle(item, quirks) {
+  return simulationWeaponTiming(item, quirks).cycle;
+}
+
+function simulationWeaponHeat(item, quirks) {
+  const type = equipmentHardpointType(item);
+  const heatReduction = quirkReduction(quirks, "all_heat_multiplier")
+    + quirkReduction(quirks, `${type}_heat_multiplier`)
+    + simulationSpecificQuirkTotal(quirks, item, "_heat_multiplier");
+  return Math.max(0, itemHeat(item) * Math.max(0, 1 - heatReduction));
+}
+
+function isSimulationMachineGun(item) {
+  return simulationItemKeys(item).has("machinegun")
+    || normalizeLookupKey(item?.name).includes("machinegun");
+}
+
+function simulationHeatSinkItem(build = state.currentBuild) {
+  const upgrade = itemById(build?.upgrades?.heatsinks?.ItemID);
+  const compatible = itemById(upgrade?.stats?.compatibleHeatSink);
+  if (isHeatSink(compatible)) return compatible;
+  for (const component of Object.values(build?.components || {})) {
+    const installed = (component.items || [])
+      .map((entry) => itemById(entry.item_id))
+      .find(isHeatSink);
+    if (installed) return installed;
+  }
+  return null;
+}
+
+function simulationHeatSystemFromSink(sink, heatSinkCount, heatDissipation = 0) {
+  const engineCapacity = Math.abs(number(sink?.stats?.engineHeatbase));
+  const externalCapacity = Math.abs(number(sink?.stats?.heatbase));
+  const engineCapacityCount = Math.min(10, heatSinkCount);
+  const externalCapacityCount = Math.max(0, heatSinkCount - 10);
+  const maxHeat = 30
+    + engineCapacityCount * engineCapacity
+    + externalCapacityCount * externalCapacity;
+  return {
+    heatSinkCount,
+    maxHeat,
+    coolingRate: heatSinkCount * number(sink?.stats?.cooling) * (1 + heatDissipation),
+  };
+}
+
+function simulationHeatSystem() {
+  const sink = simulationHeatSinkItem();
+  const heatSinkCount = state.selectedMech && state.currentBuild
+    ? calculateBuild().totalHeatSinkCount
+    : 0;
+  const quirks = effectiveQuirks(state.selectedMech, state.currentBuild);
+  return simulationHeatSystemFromSink(
+    sink,
+    heatSinkCount,
+    quirkIncrease(quirks, "heatdissipation_multiplier"),
+  );
+}
+
+function collectSimulationWeapons() {
+  if (!state.selectedMech || !state.currentBuild) return [];
+  const definition = effectiveDefinition(state.selectedMech, state.currentBuild);
+  const quirks = effectiveQuirks(state.selectedMech, state.currentBuild);
+  const weapons = [];
+
+  for (const component of COMPONENT_ORDER) {
+    const fixed = definition.components?.[component]?.fixed || [];
+    fixed.forEach((itemId, index) => {
+      const item = itemById(itemId);
+      if (item?.item_type !== "weapon") return;
+      const timing = simulationWeaponTiming(item, quirks);
+      weapons.push({
+        key: `${state.selectedMech.id}:fixed:${component}:${index}:${item.id}`,
+        item,
+        component,
+        damage: number(item.stats?.damage) * number(item.stats?.numFiring, 1),
+        heat: simulationWeaponHeat(item, quirks),
+        continuous: isSimulationMachineGun(item),
+        ...timing,
+        entry: null,
+      });
+    });
+
+    (state.currentBuild.components?.[component]?.items || []).forEach((entry, index) => {
+      const item = itemById(entry.item_id);
+      if (item?.item_type !== "weapon") return;
+      const timing = simulationWeaponTiming(item, quirks);
+      weapons.push({
+        key: `${state.selectedMech.id}:installed:${component}:${index}:${item.id}`,
+        item,
+        component,
+        damage: number(item.stats?.damage) * number(item.stats?.numFiring, 1),
+        heat: simulationWeaponHeat(item, quirks),
+        continuous: isSimulationMachineGun(item),
+        ...timing,
+        entry,
+      });
+    });
+  }
+  return weapons;
+}
+
+function resetSimulationRun() {
+  const simulation = state.simulation;
+  simulation.heldGroups.clear();
+  simulation.nextFireAt.clear();
+  simulation.activeBurns.clear();
+  simulation.continuousFireAt.clear();
+  simulation.totalDamage = 0;
+  simulation.currentHeat = 0;
+  simulation.overheated = false;
+  simulation.lastHeatUpdateAt = null;
+  simulation.startedAt = null;
+  if (simulation.frameId !== null) cancelAnimationFrame(simulation.frameId);
+  simulation.frameId = null;
+  renderSimulationMetrics();
+  renderSimulationGroupStatus();
+}
+
+function renderSimulationMetrics(now = performance.now()) {
+  const simulation = state.simulation;
+  const elapsed = simulation.startedAt === null ? 0 : Math.max(0, (now - simulation.startedAt) / 1000);
+  $("simulation-elapsed").textContent = `${elapsed.toFixed(2)}s`;
+  $("simulation-damage").textContent = simulation.totalDamage.toFixed(2);
+  $("simulation-dps").textContent = (elapsed > 0 ? simulation.totalDamage / elapsed : 0).toFixed(2);
+  renderSimulationCooldowns(now);
+  renderSimulationHeat();
+}
+
+function renderSimulationHeat() {
+  const simulation = state.simulation;
+  const ratio = Math.max(0, Math.min(1, simulation.currentHeat / simulation.maxHeat));
+  const percent = ratio * 100;
+  $("simulation-heat-value").textContent = `${simulation.currentHeat.toFixed(2)} / ${simulation.maxHeat.toFixed(2)}`;
+  $("simulation-heat-percent").textContent = simulation.overheated
+    ? `${t("simulation.overheated")} · ${percent.toFixed(1)}% · -${fmt(simulation.coolingRate, 2)}/s`
+    : `${percent.toFixed(1)}% · -${fmt(simulation.coolingRate, 2)}/s`;
+  $("simulation-heat-fill").style.transform = `scaleX(${ratio})`;
+  $("simulation-heat-gauge").classList.toggle("overheated", simulation.overheated);
+  const bar = $("simulation-heat-fill").parentElement;
+  bar.setAttribute("aria-valuemax", String(simulation.maxHeat));
+  bar.setAttribute("aria-valuenow", String(Math.round(percent)));
+  bar.setAttribute(
+    "aria-valuetext",
+    `${simulation.currentHeat.toFixed(2)} / ${simulation.maxHeat.toFixed(2)}, ${simulation.overheated ? `${t("simulation.overheated")}, ` : ""}${percent.toFixed(1)}%`,
+  );
+}
+
+function addSimulationHeat(weapon, shotCount = 1) {
+  state.simulation.currentHeat = Math.min(
+    state.simulation.maxHeat,
+    state.simulation.currentHeat + number(weapon.heat) * shotCount,
+  );
+}
+
+function coolSimulationHeat(now) {
+  const simulation = state.simulation;
+  if (simulation.lastHeatUpdateAt === null) {
+    simulation.lastHeatUpdateAt = now;
+    return;
+  }
+  const elapsed = Math.max(0, (now - simulation.lastHeatUpdateAt) / 1000);
+  simulation.currentHeat = Math.max(0, simulation.currentHeat - simulation.coolingRate * elapsed);
+  if (simulation.overheated && simulation.currentHeat < simulation.maxHeat) simulation.overheated = false;
+  simulation.lastHeatUpdateAt = now;
+}
+
+function applySimulationOverheat() {
+  const simulation = state.simulation;
+  if (simulation.overheated || simulation.currentHeat < simulation.maxHeat) return;
+  simulation.overheated = true;
+  simulation.heldGroups.clear();
+  simulation.activeBurns.clear();
+  simulation.continuousFireAt.clear();
+  renderSimulationHeat();
+  renderSimulationGroupStatus();
+}
+
+function renderSimulationCooldowns(now = performance.now()) {
+  const weaponsByKey = new Map(state.simulation.weapons.map((weapon) => [weapon.key, weapon]));
+  document.querySelectorAll("[data-simulation-cooldown]").forEach((bar) => {
+    const weapon = weaponsByKey.get(bar.dataset.simulationCooldown);
+    if (!weapon) return;
+    const nextFire = state.simulation.nextFireAt.get(weapon.key) || 0;
+    const remaining = Math.max(0, nextFire - now);
+    const cooldownStart = nextFire - weapon.cooldown * 1000;
+    const progress = !nextFire || remaining <= 0
+      ? 1
+      : weapon.cooldown > 0 && now >= cooldownStart
+        ? Math.max(0, Math.min(1, 1 - remaining / (weapon.cooldown * 1000)))
+        : 0;
+    bar.style.transform = `scaleX(${progress})`;
+    bar.parentElement.setAttribute("aria-valuenow", String(Math.round(progress * 100)));
+  });
+}
+
+function renderSimulationGroupStatus() {
+  $("simulation-group-status").innerHTML = [1, 2, 3, 4].map((group) => {
+    const count = state.simulation.weapons.filter((weapon) => state.simulation.assignments.get(weapon.key) === group).length;
+    const active = state.simulation.heldGroups.has(group);
+    return `<div class="simulation-group-key ${active ? "active" : ""}"><strong>${group}</strong><span>${count}</span></div>`;
+  }).join("");
+}
+
+function renderSimulationWeaponList() {
+  const list = $("simulation-weapon-list");
+  if (!state.simulation.weapons.length) {
+    list.innerHTML = `<div class="simulation-empty">${t("simulation.noWeapons")}</div>`;
+    return;
+  }
+  list.innerHTML = state.simulation.weapons.map((weapon) => {
+    const selectedGroup = state.simulation.assignments.get(weapon.key) || 1;
+    const groupButtons = [1, 2, 3, 4].map((group) => `
+      <label class="simulation-group-option ${selectedGroup === group ? "active" : ""}">
+        <input type="radio" name="simulation-group-${weapon.key}" value="${group}" data-simulation-weapon="${weapon.key}" ${selectedGroup === group ? "checked" : ""}>
+        <span>${group}</span>
+      </label>
+    `).join("");
+    return `
+      <div class="simulation-weapon-row">
+        <div class="simulation-weapon-name ${equipmentHardpointType(weapon.item)}">
+          <strong>${weapon.item.display_name || weapon.item.name}</strong>
+          <span>${COMPONENT_NAMES[weapon.component] || weapon.component} · H ${fmt(weapon.heat, 2)}</span>
+          <div class="simulation-cooldown" role="progressbar" aria-label="${t("simulation.cooldown")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+            <i data-simulation-cooldown="${weapon.key}" style="transform:scaleX(1)"></i>
+          </div>
+        </div>
+        <span>${fmt(weapon.damage, 2)}</span>
+        <span>${weapon.cycle.toFixed(2)}s</span>
+        <div class="simulation-group-options">${groupButtons}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function openSimulation() {
+  if (!state.selectedMech || !state.currentBuild) return;
+  const simulation = state.simulation;
+  simulation.weapons = collectSimulationWeapons();
+  const previousAssignments = new Map(simulation.assignments);
+  simulation.assignments.clear();
+  simulation.weapons.forEach((weapon) => {
+    const savedGroup = Number(weapon.entry?.weapon_group);
+    const previousGroup = Number(previousAssignments.get(weapon.key));
+    simulation.assignments.set(
+      weapon.key,
+      savedGroup >= 1 && savedGroup <= 4
+        ? savedGroup
+        : previousGroup >= 1 && previousGroup <= 4 ? previousGroup : 1,
+    );
+  });
+  const heatSystem = simulationHeatSystem();
+  simulation.maxHeat = heatSystem.maxHeat;
+  simulation.coolingRate = heatSystem.coolingRate;
+  simulation.heatSinkCount = heatSystem.heatSinkCount;
+  simulation.open = true;
+  resetSimulationRun();
+  renderSimulationWeaponList();
+  renderSimulationGroupStatus();
+  $("simulation-overlay").hidden = false;
+  document.body.classList.add("simulation-open");
+  $("close-simulation").focus();
+}
+
+function closeSimulation() {
+  const simulation = state.simulation;
+  if (!simulation.open) return;
+  simulation.open = false;
+  simulation.heldGroups.clear();
+  simulation.continuousFireAt.clear();
+  if (simulation.frameId !== null) cancelAnimationFrame(simulation.frameId);
+  simulation.frameId = null;
+  $("simulation-overlay").hidden = true;
+  document.body.classList.remove("simulation-open");
+  $("open-simulation").focus();
+}
+
+function startSimulationBurn(weapon, startedAt, now = startedAt) {
+  const durationMs = weapon.duration * 1000;
+  if (durationMs <= 0) {
+    state.simulation.totalDamage += weapon.damage;
+    addSimulationHeat(weapon);
+    return;
+  }
+  const endsAt = startedAt + durationMs;
+  const progress = Math.max(0, Math.min(1, (now - startedAt) / durationMs));
+  const appliedDamage = weapon.damage * progress;
+  const totalHeat = number(weapon.heat);
+  const appliedHeat = totalHeat * progress;
+  state.simulation.totalDamage += appliedDamage;
+  state.simulation.currentHeat = Math.min(
+    state.simulation.maxHeat,
+    state.simulation.currentHeat + appliedHeat,
+  );
+  if (progress < 1) {
+    state.simulation.activeBurns.set(weapon.key, {
+      startedAt,
+      endsAt,
+      appliedDamage,
+      appliedHeat,
+      totalDamage: weapon.damage,
+      totalHeat,
+    });
+  }
+}
+
+function updateSimulationBurnDamage(now) {
+  for (const [weaponKey, burn] of state.simulation.activeBurns) {
+    const duration = burn.endsAt - burn.startedAt;
+    const progress = duration > 0
+      ? Math.max(0, Math.min(1, (now - burn.startedAt) / duration))
+      : 1;
+    const targetDamage = burn.totalDamage * progress;
+    const targetHeat = burn.totalHeat * progress;
+    state.simulation.totalDamage += Math.max(0, targetDamage - burn.appliedDamage);
+    state.simulation.currentHeat = Math.min(
+      state.simulation.maxHeat,
+      state.simulation.currentHeat + Math.max(0, targetHeat - burn.appliedHeat),
+    );
+    burn.appliedDamage = targetDamage;
+    burn.appliedHeat = targetHeat;
+    if (progress >= 1) state.simulation.activeBurns.delete(weaponKey);
+  }
+}
+
+function updateSimulationContinuousDamage(now) {
+  const simulation = state.simulation;
+  for (const [weaponKey, lastUpdatedAt] of simulation.continuousFireAt) {
+    const weapon = simulation.weapons.find((entry) => entry.key === weaponKey);
+    const group = weapon ? simulation.assignments.get(weapon.key) || 1 : 0;
+    if (!weapon || !simulation.heldGroups.has(group) || simulation.overheated) {
+      simulation.continuousFireAt.delete(weaponKey);
+      continue;
+    }
+    const elapsed = Math.max(0, (now - lastUpdatedAt) / 1000);
+    simulation.totalDamage += (weapon.damage / weapon.cycle) * elapsed;
+    simulation.currentHeat = Math.min(
+      simulation.maxHeat,
+      simulation.currentHeat + (weapon.heat / weapon.cycle) * elapsed,
+    );
+    simulation.continuousFireAt.set(weaponKey, now);
+  }
+}
+
+function simulationTick(now) {
+  const simulation = state.simulation;
+  if (!simulation.open || simulation.startedAt === null) {
+    simulation.frameId = null;
+    return;
+  }
+  coolSimulationHeat(now);
+  updateSimulationBurnDamage(now);
+  updateSimulationContinuousDamage(now);
+  applySimulationOverheat();
+  for (const weapon of simulation.weapons) {
+    if (weapon.continuous) continue;
+    const group = simulation.assignments.get(weapon.key) || 1;
+    if (!simulation.heldGroups.has(group)) continue;
+    const nextFire = simulation.nextFireAt.get(weapon.key) ?? now;
+    if (nextFire > now) continue;
+    const shotCount = Math.floor((now - nextFire) / (weapon.cycle * 1000)) + 1;
+    if (weapon.duration > 0) {
+      simulation.totalDamage += weapon.damage * Math.max(0, shotCount - 1);
+      addSimulationHeat(weapon, Math.max(0, shotCount - 1));
+      const latestFireAt = nextFire + Math.max(0, shotCount - 1) * weapon.cycle * 1000;
+      startSimulationBurn(weapon, latestFireAt, now);
+    } else {
+      simulation.totalDamage += weapon.damage * shotCount;
+      addSimulationHeat(weapon, shotCount);
+    }
+    simulation.nextFireAt.set(weapon.key, nextFire + shotCount * weapon.cycle * 1000);
+  }
+  applySimulationOverheat();
+  renderSimulationMetrics(now);
+  simulation.frameId = requestAnimationFrame(simulationTick);
+}
+
+function setSimulationGroupHeld(group, held) {
+  const simulation = state.simulation;
+  if (!simulation.open || (held && simulation.overheated)) return;
+  const now = performance.now();
+  if (held) {
+    if (simulation.heldGroups.has(group)) return;
+    simulation.heldGroups.add(group);
+    const groupWeapons = simulation.weapons.filter(
+      (weapon) => (simulation.assignments.get(weapon.key) || 1) === group,
+    );
+    if (groupWeapons.length && simulation.startedAt === null) simulation.startedAt = now;
+    coolSimulationHeat(now);
+    groupWeapons.forEach((weapon) => {
+      if (weapon.continuous) {
+        simulation.continuousFireAt.set(weapon.key, now);
+        return;
+      }
+      const nextFire = simulation.nextFireAt.get(weapon.key) || 0;
+      if (nextFire <= now) {
+        startSimulationBurn(weapon, now, now);
+        simulation.nextFireAt.set(weapon.key, now + weapon.cycle * 1000);
+      }
+    });
+    applySimulationOverheat();
+    renderSimulationMetrics(now);
+    if (simulation.startedAt !== null && simulation.frameId === null) {
+      simulation.frameId = requestAnimationFrame(simulationTick);
+    }
+  } else {
+    coolSimulationHeat(now);
+    updateSimulationContinuousDamage(now);
+    simulation.weapons.forEach((weapon) => {
+      if (weapon.continuous && (simulation.assignments.get(weapon.key) || 1) === group) {
+        simulation.continuousFireAt.delete(weapon.key);
+      }
+    });
+    simulation.heldGroups.delete(group);
+    applySimulationOverheat();
+    renderSimulationMetrics(now);
+  }
+  renderSimulationGroupStatus();
 }
 
 function filteredMechsForList() {
@@ -4238,6 +4802,13 @@ function renderComponent(name, calc, quirkValues) {
     .filter((itemId) => hasFixedOmnipods(state.selectedMech) || !MOVABLE_UPGRADE_SLOT_IDS.has(Number(itemId)))
     .map((itemId) => renderFixedSlot(itemId))
     .join("");
+  const fixedEquipmentRows = (compDef.fixed || [])
+    .filter((itemId) => {
+      const item = itemById(itemId);
+      return item?.item_type !== "engine" && !(name === "centre_torso" && isHeatSink(item));
+    })
+    .map((itemId) => renderFixedSlot(itemId))
+    .join("");
   const fixedEngineRows = usage.fixedEngineSlots ? renderFixedEngine(calc.engine, usage.fixedEngineSlots) : "";
   const structureRows = usage.structureSlots
     ? renderStructureSlots(usage.structureSlots, usage.occupiedStructureSlots)
@@ -4266,7 +4837,7 @@ function renderComponent(name, calc, quirkValues) {
             ${usage.warnings.length ? `<div class="warnings">${usage.warnings.join(" / ")}</div>` : ""}
           </div>
         </div>
-        <div class="component-items">${internalRows}${fixedEngineRows}${itemRows}${structureRows}${armorRows}${emptyRows}${sideEngineRows}</div>
+        <div class="component-items">${internalRows}${fixedEngineRows}${fixedEquipmentRows}${itemRows}${structureRows}${armorRows}${emptyRows}${sideEngineRows}</div>
     </article>
   `;
 }
@@ -4538,7 +5109,9 @@ function dropValidation(item, component, source = null) {
     const used = state.currentBuild.components[component].items.reduce((count, entry) => {
       const installed = itemById(entry.item_id);
       return count + (equipmentHardpointType(installed) === type ? 1 : 0);
-    }, 0);
+    }, (compDef.fixed || []).reduce((count, itemId) => (
+      count + (equipmentHardpointType(itemById(itemId)) === type ? 1 : 0)
+    ), 0));
     if (used + 1 > capacity) return `${type} hardpoints ${used + 1}/${capacity}`;
   }
   return null;
@@ -4650,6 +5223,54 @@ function removeDraggedItem() {
 }
 
 function bindEvents() {
+  $("open-simulation").addEventListener("click", openSimulation);
+  $("close-simulation").addEventListener("click", closeSimulation);
+  $("reset-simulation").addEventListener("click", resetSimulationRun);
+  $("simulation-overlay").addEventListener("mousedown", (event) => {
+    if (event.target === $("simulation-overlay")) closeSimulation();
+  });
+  $("simulation-weapon-list").addEventListener("change", (event) => {
+    const input = event.target.closest("[data-simulation-weapon]");
+    if (!input) return;
+    const group = Number(input.value);
+    const weapon = state.simulation.weapons.find((entry) => entry.key === input.dataset.simulationWeapon);
+    if (!weapon || group < 1 || group > 4) return;
+    state.simulation.assignments.set(weapon.key, group);
+    if (weapon.entry) weapon.entry.weapon_group = group;
+    resetSimulationRun();
+    renderSimulationWeaponList();
+    renderSimulationGroupStatus();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (!state.simulation.open) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeSimulation();
+      return;
+    }
+    const group = Number(event.key);
+    if (group < 1 || group > 4) return;
+    event.preventDefault();
+    setSimulationGroupHeld(group, true);
+  });
+  document.addEventListener("keyup", (event) => {
+    if (!state.simulation.open) return;
+    const group = Number(event.key);
+    if (group < 1 || group > 4) return;
+    event.preventDefault();
+    setSimulationGroupHeld(group, false);
+  });
+  window.addEventListener("blur", () => {
+    if (!state.simulation.open) return;
+    const now = performance.now();
+    coolSimulationHeat(now);
+    updateSimulationContinuousDamage(now);
+    state.simulation.heldGroups.clear();
+    state.simulation.continuousFireAt.clear();
+    applySimulationOverheat();
+    renderSimulationMetrics(now);
+    renderSimulationGroupStatus();
+  });
   document.querySelectorAll("[data-main-tab]").forEach((button) => {
     button.addEventListener("click", () => setMainTab(button.dataset.mainTab));
   });
