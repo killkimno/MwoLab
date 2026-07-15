@@ -4214,45 +4214,43 @@ function renderArmorStepper(
   `;
 }
 
-function renderComponents(calc = calculateBuild()) {
-  const quirkValues = mechlabQuirkValues();
-  $("components").innerHTML = COMPONENT_ORDER.map((name) => {
-    const buildComp = state.currentBuild.components[name] || { items: [] };
-    const compDef = effectiveComponentDefinition(state.selectedMech, state.currentBuild, name);
-    const usage = calc.componentUsage[name] || { slots: 0, warnings: [] };
-    const slotLimit = number(compDef.slots);
-    const armorCapacity = componentArmorCapacity(name, compDef);
-    const frontArmor = Math.max(0, number(buildComp.armor));
-    const rearArmor = Math.max(0, number(state.currentBuild.rearArmor?.[name]));
-    const torso = Object.hasOwn(TORSO_REAR_COMPONENTS, name);
-    const durabilityQuirks = componentDurabilityQuirkValues(name, quirkValues);
-    const totalArmorQuirk = durabilityQuirks.frontArmor + durabilityQuirks.rearArmor;
-    const finalArmorMax = armorCapacity + totalArmorQuirk;
-    const structure = number(compDef.hp);
-    const finalStructure = structure + durabilityQuirks.structure;
-    const armorControls = torso
-      ? `${renderArmorStepper(name, "front", frontArmor, armorCapacity, rearArmor, true, durabilityQuirks.frontArmor)}${renderArmorStepper(name, "rear", rearArmor, armorCapacity, frontArmor, true, durabilityQuirks.rearArmor, finalArmorMax, totalArmorQuirk !== 0)}`
-      : `${renderArmorStepper(name, "front", frontArmor, armorCapacity, 0, false, durabilityQuirks.frontArmor)}
-        <div class="component-armor-max-row"><span></span><div><span>MAX</span><strong class="${totalArmorQuirk !== 0 ? "quirk-tone-armor" : ""}">${fmt(finalArmorMax)}</strong></div></div>`;
-    const hardpointCounts = hardpointCountsFromHardpoints(compDef.hardpoints || []);
-    const hps = renderHardpointBadges(hardpointCounts, "component-hardpoint");
-    const internalRows = (compDef.internals || [])
-      .filter((itemId) => hasFixedOmnipods(state.selectedMech) || !MOVABLE_UPGRADE_SLOT_IDS.has(Number(itemId)))
-      .map((itemId) => renderFixedSlot(itemId))
-      .join("");
-    const fixedEngineRows = usage.fixedEngineSlots ? renderFixedEngine(calc.engine, usage.fixedEngineSlots) : "";
-    const structureRows = usage.structureSlots
-      ? renderStructureSlots(usage.structureSlots, usage.occupiedStructureSlots)
-      : "";
-    const armorRows = usage.armorSlots
-      ? renderArmorSlots(usage.armorSlots, usage.occupiedArmorSlots)
-      : "";
-    const sideEngineRows = usage.engineSideSlots ? renderEngineSideSlots(calc.engine, usage.engineSideSlots) : "";
-    const itemRows = buildComp.items.map((entry, index) => renderLoadoutItem(name, entry, index)).join("");
-    const emptySlots = Math.max(0, slotLimit - usage.slots - number(usage.movableUpgradeSlots));
-    const emptyRows = Array.from({ length: emptySlots }, () => `<div class="critical-slot empty-slot">-</div>`).join("");
-    return `
-      <article class="component component-location-${name} ${usage.warnings.length ? "invalid" : ""}" data-component-drop="${name}">
+function renderComponent(name, calc, quirkValues) {
+  const buildComp = state.currentBuild.components[name] || { items: [] };
+  const compDef = effectiveComponentDefinition(state.selectedMech, state.currentBuild, name);
+  const usage = calc.componentUsage[name] || { slots: 0, warnings: [] };
+  const slotLimit = number(compDef.slots);
+  const armorCapacity = componentArmorCapacity(name, compDef);
+  const frontArmor = Math.max(0, number(buildComp.armor));
+  const rearArmor = Math.max(0, number(state.currentBuild.rearArmor?.[name]));
+  const torso = Object.hasOwn(TORSO_REAR_COMPONENTS, name);
+  const durabilityQuirks = componentDurabilityQuirkValues(name, quirkValues);
+  const totalArmorQuirk = durabilityQuirks.frontArmor + durabilityQuirks.rearArmor;
+  const finalArmorMax = armorCapacity + totalArmorQuirk;
+  const structure = number(compDef.hp);
+  const finalStructure = structure + durabilityQuirks.structure;
+  const armorControls = torso
+    ? `${renderArmorStepper(name, "front", frontArmor, armorCapacity, rearArmor, true, durabilityQuirks.frontArmor)}${renderArmorStepper(name, "rear", rearArmor, armorCapacity, frontArmor, true, durabilityQuirks.rearArmor, finalArmorMax, totalArmorQuirk !== 0)}`
+    : `${renderArmorStepper(name, "front", frontArmor, armorCapacity, 0, false, durabilityQuirks.frontArmor)}
+      <div class="component-armor-max-row"><span></span><div><span>MAX</span><strong class="${totalArmorQuirk !== 0 ? "quirk-tone-armor" : ""}">${fmt(finalArmorMax)}</strong></div></div>`;
+  const hardpointCounts = hardpointCountsFromHardpoints(compDef.hardpoints || []);
+  const hps = renderHardpointBadges(hardpointCounts, "component-hardpoint");
+  const internalRows = (compDef.internals || [])
+    .filter((itemId) => hasFixedOmnipods(state.selectedMech) || !MOVABLE_UPGRADE_SLOT_IDS.has(Number(itemId)))
+    .map((itemId) => renderFixedSlot(itemId))
+    .join("");
+  const fixedEngineRows = usage.fixedEngineSlots ? renderFixedEngine(calc.engine, usage.fixedEngineSlots) : "";
+  const structureRows = usage.structureSlots
+    ? renderStructureSlots(usage.structureSlots, usage.occupiedStructureSlots)
+    : "";
+  const armorRows = usage.armorSlots
+    ? renderArmorSlots(usage.armorSlots, usage.occupiedArmorSlots)
+    : "";
+  const sideEngineRows = usage.engineSideSlots ? renderEngineSideSlots(calc.engine, usage.engineSideSlots) : "";
+  const itemRows = buildComp.items.map((entry, index) => renderLoadoutItem(name, entry, index)).join("");
+  const emptySlots = Math.max(0, slotLimit - usage.slots - number(usage.movableUpgradeSlots));
+  const emptyRows = Array.from({ length: emptySlots }, () => `<div class="critical-slot empty-slot">-</div>`).join("");
+  return `
+    <article class="component component-location-${name} ${usage.warnings.length ? "invalid" : ""}" data-component-drop="${name}">
         <div class="component-head">
           <div>
             <div class="component-title">${COMPONENT_NAMES[name] || name}</div>
@@ -4269,9 +4267,27 @@ function renderComponents(calc = calculateBuild()) {
           </div>
         </div>
         <div class="component-items">${internalRows}${fixedEngineRows}${itemRows}${structureRows}${armorRows}${emptyRows}${sideEngineRows}</div>
-      </article>
-    `;
-  }).join("");
+    </article>
+  `;
+}
+
+function renderComponents(calc = calculateBuild()) {
+  const quirkValues = mechlabQuirkValues();
+  const rendered = Object.fromEntries(
+    COMPONENT_ORDER.map((name) => [name, renderComponent(name, calc, quirkValues)]),
+  );
+  const columns = [
+    { className: "right-arm", components: ["right_arm"] },
+    { className: "right-body", components: ["right_torso", "right_leg"] },
+    { className: "center-body", components: ["head", "centre_torso"] },
+    { className: "left-body", components: ["left_torso", "left_leg"] },
+    { className: "left-arm", components: ["left_arm"] },
+  ];
+  $("components").innerHTML = columns.map((column) => `
+    <div class="component-column component-column-${column.className}">
+      ${column.components.map((name) => rendered[name]).join("")}
+    </div>
+  `).join("");
 }
 
 function renderFixedSlot(itemId) {

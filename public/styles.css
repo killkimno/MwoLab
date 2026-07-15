@@ -2233,15 +2233,28 @@ h3 {
 
 .components {
   display: grid;
-  grid-template-areas:
-    ". . head . ."
-    "right-arm right-torso centre-torso left-torso left-arm"
-    ". right-leg . left-leg .";
   grid-template-columns: repeat(5, minmax(12rem, 1fr));
   align-items: start;
-  gap: 0.45rem;
+  gap: 0.55rem;
   min-width: 62rem;
   padding-bottom: 0.5rem;
+}
+
+.component-column {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+  align-content: start;
+}
+
+.component-column-right-body,
+.component-column-left-body {
+  padding-top: 1.25rem;
+}
+
+.component-column-right-arm,
+.component-column-left-arm {
+  padding-top: 2.5rem;
 }
 
 .component {
@@ -2251,15 +2264,6 @@ h3 {
   overflow: hidden;
   transition: border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
 }
-
-.component-location-head { grid-area: head; }
-.component-location-left_arm { grid-area: left-arm; }
-.component-location-left_torso { grid-area: left-torso; }
-.component-location-centre_torso { grid-area: centre-torso; }
-.component-location-right_torso { grid-area: right-torso; }
-.component-location-right_arm { grid-area: right-arm; }
-.component-location-left_leg { grid-area: left-leg; }
-.component-location-right_leg { grid-area: right-leg; }
 
 .component.invalid {
   border-color: #7c433a;
@@ -3016,15 +3020,22 @@ h3 {
   }
 
   .components {
-    grid-template-areas:
-      "head head"
-      "right-arm left-arm"
-      "right-torso left-torso"
-      "centre-torso centre-torso"
-      "right-leg left-leg";
-    grid-template-columns: repeat(2, minmax(10rem, 1fr));
-    min-width: 22rem;
+    grid-template-columns: repeat(2, minmax(11rem, 1fr));
+    min-width: 22.5rem;
   }
+
+  .component-column {
+    display: contents;
+  }
+
+  .component-location-head { grid-column: 1 / -1; order: 1; }
+  .component-location-right_arm { order: 2; }
+  .component-location-left_arm { order: 3; }
+  .component-location-right_torso { order: 4; }
+  .component-location-left_torso { order: 5; }
+  .component-location-centre_torso { grid-column: 1 / -1; order: 6; }
+  .component-location-right_leg { order: 7; }
+  .component-location-left_leg { order: 8; }
 
   .equipment-panel {
     min-height: 34rem;
