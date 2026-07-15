@@ -994,6 +994,10 @@ function itemHeat(item) {
   return number(item?.stats?.heat);
 }
 
+function engineIncludedHeatSinkCount(engine) {
+  return engine ? Math.min(10, number(engine.stats?.heatsinks)) : 0;
+}
+
 function quirkValueText(name, value) {
   const numeric = number(value, null);
   if (numeric === null) return `${value}`;
@@ -3698,7 +3702,7 @@ function calculateBuild() {
   const armorUpgradeId = state.currentBuild.upgrades?.armor?.ItemID;
   const armorUpgrade = itemById(armorUpgradeId);
   const armorPerTon = number(armorUpgrade?.stats?.armorPerTon, 32);
-  const engineIncludedHeatSinks = engine ? number(engine.stats?.heatsinks) : 0;
+  const engineIncludedHeatSinks = engineIncludedHeatSinkCount(engine);
   const totalHeatSinkCount = installedHeatSinkCount + engineIncludedHeatSinks;
   const rawStructureTons = maxTons * number(structureUpgrade?.stats?.weightPerTon, 0.1);
   const structureTons = Math.ceil(rawStructureTons * 2) / 2;
@@ -4003,7 +4007,7 @@ function renderSimulationHeat() {
   const simulation = state.simulation;
   const ratio = Math.max(0, Math.min(1, simulation.currentHeat / simulation.maxHeat));
   const percent = ratio * 100;
-  $("simulation-heat-value").textContent = `${simulation.currentHeat.toFixed(2)} / ${simulation.maxHeat.toFixed(2)}`;
+  $("simulation-heat-value").textContent = `${simulation.currentHeat.toFixed(2)} / ${fmt(simulation.maxHeat, 1)}`;
   $("simulation-heat-percent").textContent = simulation.overheated
     ? `${t("simulation.overheated")} · ${percent.toFixed(1)}% · -${fmt(simulation.coolingRate, 2)}/s`
     : `${percent.toFixed(1)}% · -${fmt(simulation.coolingRate, 2)}/s`;
@@ -4014,7 +4018,7 @@ function renderSimulationHeat() {
   bar.setAttribute("aria-valuenow", String(Math.round(percent)));
   bar.setAttribute(
     "aria-valuetext",
-    `${simulation.currentHeat.toFixed(2)} / ${simulation.maxHeat.toFixed(2)}, ${simulation.overheated ? `${t("simulation.overheated")}, ` : ""}${percent.toFixed(1)}%`,
+    `${simulation.currentHeat.toFixed(2)} / ${fmt(simulation.maxHeat, 1)}, ${simulation.overheated ? `${t("simulation.overheated")}, ` : ""}${percent.toFixed(1)}%`,
   );
 }
 
