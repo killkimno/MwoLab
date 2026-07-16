@@ -79,7 +79,7 @@ const TEXT = {
     "mechlab.showList": "멕 리스트",
     "simulation.open": "시뮬레이션",
     "simulation.title": "DPS 시뮬레이션",
-    "simulation.hint": "숫자 키 1~4를 누르고 있는 동안 해당 그룹을 발사합니다.",
+    "simulation.hint": "버튼 또는 숫자 키 1~4를 누르고 있는 동안 해당 그룹을 발사합니다.",
     "simulation.close": "시뮬레이션 닫기",
     "simulation.elapsed": "경과 시간",
     "simulation.damage": "누적 데미지",
@@ -243,6 +243,11 @@ const TEXT = {
     "build.engineOutside": "엔진 {rating}이 허용 범위 {min}-{max} 밖입니다",
     "build.engineTorsoOnly": "엔진은 중앙 몸통에만 장착할 수 있습니다",
     "build.engineFixed": "이 옴니멕의 엔진은 고정되어 있습니다",
+    "build.engineHeatSinks": "엔진 히트싱크",
+    "build.engineHeatSinkOnly": "엔진 내부에는 히트싱크만 장착할 수 있습니다",
+    "build.engineHeatSinkFull": "엔진 히트싱크 슬롯이 가득 찼습니다",
+    "build.noEngineHeatSinkSlots": "이 엔진에는 추가 히트싱크 슬롯이 없습니다",
+    "build.heatSinkMismatch": "{item}은(는) 현재 히트싱크 업그레이드와 호환되지 않습니다",
     "build.artemisRequired": "{item}은(는) 아르테미스 업그레이드가 필요합니다",
     "build.standardGuidanceRequired": "{item}은(는) 스탠다드 유도 장치에서만 사용할 수 있습니다",
     "build.structureSlotsUnavailable": "엔도스틸 슬롯 {count}칸을 배치할 공간이 부족합니다",
@@ -346,7 +351,7 @@ const TEXT = {
     "mechlab.showList": "Mech List",
     "simulation.open": "Simulation",
     "simulation.title": "DPS Simulation",
-    "simulation.hint": "Hold number keys 1-4 to fire the assigned weapon groups.",
+    "simulation.hint": "Hold buttons or number keys 1-4 to fire the assigned weapon groups.",
     "simulation.close": "Close simulation",
     "simulation.elapsed": "Elapsed",
     "simulation.damage": "Total damage",
@@ -510,6 +515,11 @@ const TEXT = {
     "build.engineOutside": "Engine {rating} outside {min}-{max}",
     "build.engineTorsoOnly": "Engines can only be installed in the center torso",
     "build.engineFixed": "This OmniMech has a fixed engine",
+    "build.engineHeatSinks": "Engine Heat Sinks",
+    "build.engineHeatSinkOnly": "Only heat sinks can be installed inside the engine",
+    "build.engineHeatSinkFull": "Engine heat sink slots are full",
+    "build.noEngineHeatSinkSlots": "This engine has no additional heat sink slots",
+    "build.heatSinkMismatch": "{item} is incompatible with the current heat sink upgrade",
     "build.artemisRequired": "{item} requires the Artemis upgrade",
     "build.standardGuidanceRequired": "{item} can only be used with Standard guidance",
     "build.structureSlotsUnavailable": "Not enough room for {count} Endo Steel slots",
@@ -900,6 +910,7 @@ const state = {
     finished: false,
     assignments: new Map(),
     heldGroups: new Set(),
+    pointerGroups: new Map(),
     nextFireAt: new Map(),
     activeBurns: new Map(),
     continuousFireAt: new Map(),
@@ -1105,6 +1116,74 @@ function quirkValueText(name, value) {
 
 function isHeatSink(item) {
   return item?.ctype === "CHeatSinkStats" || String(item?.name || "").toLowerCase().includes("heatsink");
+}
+
+function heatSinkMatchesUpgrade(item, build = state.currentBuild) {
+  if (!item || !isHeatSink(item)) return true;
+  const upgrade = itemById(build?.upgrades?.heatsinks?.ItemID);
+  const compatibleId = number(upgrade?.stats?.compatibleHeatSink);
+  return !compatibleId || Number(item.id) === compatibleId;
+}
+
+function engineAdditionalHeatSinkCapacity(engine) {
+  return Math.max(0, number(engine?.stats?.heatsinks) - 10);
+}
+
+function fixedEngineHeatSinkItems(mech = state.selectedMech, build = state.currentBuild) {
+  if (!mech || !build) return [];
+  const definition = effectiveDefinition(mech, build);
+  return (definition.components?.centre_torso?.fixed || [])
+    .map((itemId) => itemById(itemId))
+    .filter(isHeatSink);
+}
+
+function engineHeatSinkEntries(build = state.currentBuild) {
+  if (!build) return [];
+  if (!Array.isArray(build.engineHeatSinks)) build.engineHeatSinks = [];
+  return build.engineHeatSinks;
+}
+
+function engineUserHeatSinkCapacity(
+  engine = installedEngine(),
+  mech = state.selectedMech,
+  build = state.currentBuild,
+) {
+  return Math.max(
+    0,
+    engineAdditionalHeatSinkCapacity(engine) - fixedEngineHeatSinkItems(mech, build).length,
+  );
+}
+
+function normalizeEngineHeatSinks(mech, build, { fillFromCentre = false } = {}) {
+  if (!mech || !build) return build;
+  build.components ||= {};
+  build.components.centre_torso ||= { armor: 0, items: [] };
+  const centreItems = build.components.centre_torso.items ||= [];
+  const engine = installedEngine(build, mech);
+  const capacity = engineUserHeatSinkCapacity(engine, mech, build);
+  const internal = [];
+  const overflow = [];
+
+  for (const entry of Array.isArray(build.engineHeatSinks) ? build.engineHeatSinks : []) {
+    if (isHeatSink(itemById(entry?.item_id))) internal.push({ ...entry });
+    else if (entry?.item_id) overflow.push({ ...entry });
+  }
+
+  if (fillFromCentre && capacity > internal.length) {
+    for (let index = 0; index < centreItems.length && internal.length < capacity;) {
+      const entry = centreItems[index];
+      if (!isHeatSink(itemById(entry?.item_id))) {
+        index += 1;
+        continue;
+      }
+      internal.push(centreItems.splice(index, 1)[0]);
+    }
+  }
+
+  if (internal.length > capacity) overflow.push(...internal.splice(capacity));
+  build.engineHeatSinks = internal;
+  centreItems.push(...overflow);
+  return build;
 }
 
 function isEcm(item) {
@@ -1456,6 +1535,7 @@ function dominantOmnipodSet(mech, build) {
 
 function applyFixedOmnipods(mech, build) {
   const loadout = loadoutForMech(mech);
+  const migrateEngineHeatSinks = !Array.isArray(build.engineHeatSinks);
   normalizeRearArmor(build, mech, loadout);
   build.actuatorState = Number.isFinite(build.actuatorState)
     ? Math.max(0, build.actuatorState)
@@ -1480,7 +1560,7 @@ function applyFixedOmnipods(mech, build) {
     const centrePod = findOmnipod(mech?.chassis, setName, "centre_torso");
     if (centrePod?.id) centre.omnipod = centrePod.id;
   }
-  return build;
+  return normalizeEngineHeatSinks(mech, build, { fillFromCentre: migrateEngineHeatSinks });
 }
 
 function normalizeRearArmor(build, mech, loadout = loadoutForMech(mech)) {
@@ -1618,10 +1698,16 @@ function currentBuildAsMwoLoadout() {
   const isOmni = hasFixedOmnipods(mech);
   const components = Object.fromEntries(MWO_EXPORT_COMPONENT_ORDER.map((componentName) => {
     const component = build.components?.[componentName] || {};
+    const engineSinkItemIds = componentName === "centre_torso"
+      ? engineHeatSinkEntries(build).map((entry) => Number(entry.item_id))
+      : [];
     return [componentName, {
       armor: Math.max(0, number(component.armor)),
       omnipod: component.omnipod || null,
-      itemIds: (component.items || []).map((entry) => Number(entry.item_id)),
+      itemIds: [
+        ...(component.items || []).map((entry) => Number(entry.item_id)),
+        ...engineSinkItemIds,
+      ],
     }];
   }));
   return {
@@ -3904,6 +3990,18 @@ function calculateBuild() {
     componentUsage[name] = usage;
   }
 
+  const installedEngineHeatSinks = engineHeatSinkEntries(state.currentBuild);
+  for (const entry of installedEngineHeatSinks) {
+    const item = itemById(entry.item_id);
+    if (!item) {
+      warnings.push(t("build.missingItem", { id: entry.item_id }));
+      continue;
+    }
+    itemTonnage += itemTons(item);
+    heat += itemHeat(item);
+    installedHeatSinkCount += 1;
+  }
+
   const totalSlotCapacity = COMPONENT_ORDER.reduce((sum, name) => {
     return sum + number(definition.components?.[name]?.slots);
   }, 0);
@@ -3956,6 +4054,9 @@ function calculateBuild() {
   const armorUpgrade = itemById(armorUpgradeId);
   const armorPerTon = number(armorUpgrade?.stats?.armorPerTon, 32);
   const engineIncludedHeatSinks = engineIncludedHeatSinkCount(engine);
+  const fixedEngineHeatSinkCount = fixedEngineHeatSinkItems(mech, state.currentBuild).length;
+  const engineHeatSinkCapacity = engineAdditionalHeatSinkCapacity(engine);
+  const engineUserHeatSinkSlots = Math.max(0, engineHeatSinkCapacity - fixedEngineHeatSinkCount);
   const totalHeatSinkCount = installedHeatSinkCount + engineIncludedHeatSinks;
   const rawStructureTons = maxTons * number(structureUpgrade?.stats?.weightPerTon, 0.1);
   const structureTons = Math.ceil(rawStructureTons * 2) / 2;
@@ -3984,6 +4085,10 @@ function calculateBuild() {
     engine,
     installedHeatSinkCount,
     engineIncludedHeatSinks,
+    engineHeatSinkCapacity,
+    engineUserHeatSinkSlots,
+    engineHeatSinkCount: installedEngineHeatSinks.length,
+    fixedEngineHeatSinkCount,
     totalHeatSinkCount,
     totalSlotCapacity,
     baseSlotUsage,
@@ -4156,6 +4261,10 @@ function simulationHeatSinkItem(build = state.currentBuild) {
       .find(isHeatSink);
     if (installed) return installed;
   }
+  const internal = engineHeatSinkEntries(build)
+    .map((entry) => itemById(entry.item_id))
+    .find(isHeatSink);
+  if (internal) return internal;
   return null;
 }
 
@@ -4292,6 +4401,7 @@ function finishSimulationRun() {
   const simulation = state.simulation;
   simulation.finished = true;
   simulation.heldGroups.clear();
+  simulation.pointerGroups.clear();
   simulation.continuousFireAt.clear();
   simulation.activeBurns.clear();
   renderSimulationGroupStatus();
@@ -4300,6 +4410,7 @@ function finishSimulationRun() {
 function resetSimulationRun() {
   const simulation = state.simulation;
   simulation.heldGroups.clear();
+  simulation.pointerGroups.clear();
   simulation.nextFireAt.clear();
   simulation.activeBurns.clear();
   simulation.continuousFireAt.clear();
@@ -4424,7 +4535,15 @@ function renderSimulationGroupStatus() {
   $("simulation-group-status").innerHTML = [1, 2, 3, 4].map((group) => {
     const count = state.simulation.weapons.filter((weapon) => simulationWeaponInGroup(weapon, group)).length;
     const active = state.simulation.heldGroups.has(group);
-    return `<div class="simulation-group-key ${active ? "active" : ""}"><strong>${group}</strong><span>${count}</span></div>`;
+    return `
+      <button
+        class="simulation-group-key ${active ? "active" : ""}"
+        type="button"
+        data-simulation-fire-group="${group}"
+        aria-label="${t("simulation.group")} ${group}"
+        aria-pressed="${active}"
+      ><strong>${group}</strong><span>${count}</span></button>
+    `;
   }).join("");
 }
 
@@ -4445,8 +4564,10 @@ function renderSimulationWeaponList() {
     return `
       <div class="simulation-weapon-row">
         <div class="simulation-weapon-name ${equipmentHardpointType(weapon.item)}">
-          <strong>${weapon.item.display_name || weapon.item.name}</strong>
-          <span>${COMPONENT_NAMES[weapon.component] || weapon.component} · H ${fmt(weapon.heat, 2)}</span>
+          <div class="simulation-weapon-title">
+            <strong>${weapon.item.display_name || weapon.item.name}</strong>
+            <span>H ${fmt(weapon.heat, 1)}</span>
+          </div>
           <div class="simulation-cooldown" role="progressbar" aria-label="${t("simulation.cooldown")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
             <i data-simulation-cooldown="${weapon.key}" style="transform:scaleX(1)"></i>
           </div>
@@ -4497,6 +4618,7 @@ function closeSimulation() {
   if (!simulation.open) return;
   simulation.open = false;
   simulation.heldGroups.clear();
+  simulation.pointerGroups.clear();
   simulation.continuousFireAt.clear();
   if (simulation.frameId !== null) cancelAnimationFrame(simulation.frameId);
   simulation.frameId = null;
@@ -4908,15 +5030,17 @@ function renderEquipmentList() {
     .map((id) => itemById(id))
     .filter(Boolean)
     .filter((item) => itemMatchesMechFaction(item))
+    .filter((item) => heatSinkMatchesUpgrade(item))
     .filter((item) => !guidanceMismatch(item));
 
-  const sectionOrder = ["energy", "missile", "ballistic", "ams", "ammo", "engines", "equipment", "other"];
+  const sectionOrder = ["energy", "missile", "ballistic", "ams", "ammo", "heatsinks", "engines", "equipment", "other"];
   const grouped = new Map();
   rows.forEach((item) => {
     let section = "other";
     if (item.item_type === "weapon") section = HARDPOINT_ORDER.includes(item.hardpoint_type) ? item.hardpoint_type : "other";
     else if (item.item_type === "ammo") section = "ammo";
     else if (item.item_type === "engine") section = "engines";
+    else if (isHeatSink(item)) section = "heatsinks";
     else if (["module", "jumpjet", "masc", "weapon_mod", "upgrade"].includes(item.item_type)) section = "equipment";
     if (!grouped.has(section)) grouped.set(section, []);
     grouped.get(section).push(item);
@@ -5050,6 +5174,9 @@ function applyHeatSinkUpgrade(upgradeItem) {
       if (isHeatSink(itemById(entry.item_id))) entry.item_id = compatibleId;
     });
   });
+  engineHeatSinkEntries().forEach((entry) => {
+    if (isHeatSink(itemById(entry.item_id))) entry.item_id = compatibleId;
+  });
 }
 
 function applyArtemisUpgrade(equipped) {
@@ -5079,7 +5206,8 @@ function selectUpgrade(category, value) {
     };
     if (category === "heatsinks") applyHeatSinkUpgrade(item);
   }
-  if (guidanceMismatch(itemById(state.selectedItemId))) state.selectedItemId = null;
+  const selectedItem = itemById(state.selectedItemId);
+  if (guidanceMismatch(selectedItem) || !heatSinkMatchesUpgrade(selectedItem)) state.selectedItemId = null;
   renderEquipmentList();
   renderSelectedItem();
   renderVariant();
@@ -5210,7 +5338,9 @@ function renderComponent(name, calc, quirkValues) {
     })
     .map((itemId) => renderFixedSlot(itemId))
     .join("");
-  const fixedEngineRows = usage.fixedEngineSlots ? renderFixedEngine(calc.engine, usage.fixedEngineSlots) : "";
+  const fixedEngineRows = usage.fixedEngineSlots
+    ? `${renderFixedEngine(calc.engine, usage.fixedEngineSlots)}${renderEngineHeatSinkBay(calc.engine, calc)}`
+    : "";
   const structureRows = usage.structureSlots
     ? renderStructureSlots(usage.structureSlots, usage.occupiedStructureSlots)
     : "";
@@ -5218,7 +5348,12 @@ function renderComponent(name, calc, quirkValues) {
     ? renderArmorSlots(usage.armorSlots, usage.occupiedArmorSlots)
     : "";
   const sideEngineRows = usage.engineSideSlots ? renderEngineSideSlots(calc.engine, usage.engineSideSlots) : "";
-  const itemRows = buildComp.items.map((entry, index) => renderLoadoutItem(name, entry, index)).join("");
+  const installedEngineIndex = name === "centre_torso" && !usage.fixedEngineSlots
+    ? buildComp.items.findIndex((entry) => itemById(entry.item_id)?.item_type === "engine")
+    : -1;
+  const itemRows = buildComp.items
+    .map((entry, index) => renderLoadoutItem(name, entry, index, index === installedEngineIndex ? calc : null))
+    .join("");
   const emptySlots = Math.max(0, slotLimit - usage.slots - number(usage.movableUpgradeSlots));
   const emptyRows = Array.from({ length: emptySlots }, () => `<div class="critical-slot empty-slot">-</div>`).join("");
   return `
@@ -5299,18 +5434,53 @@ function renderArmorSlots(slots, occupiedSlots = 0) {
   }).join("");
 }
 
-function renderLoadoutItem(component, entry, index) {
+function renderEngineHeatSinkBay(engine, calc) {
+  const capacity = number(calc?.engineHeatSinkCapacity, engineAdditionalHeatSinkCapacity(engine));
+  if (!engine || capacity <= 0) return "";
+  const fixedItems = fixedEngineHeatSinkItems();
+  const installedEntries = engineHeatSinkEntries();
+  const used = fixedItems.length + installedEntries.length;
+  const fixedRows = fixedItems.map((item) => `
+    <div class="engine-heat-sink-slot fixed-engine-heat-sink" title="${item.display_name || item.name}">
+      <span>F</span><strong>${item.display_name || item.name}</strong>
+    </div>
+  `).join("");
+  const installedRows = installedEntries.map((entry, index) => {
+    const item = itemById(entry.item_id);
+    const name = item?.display_name || item?.name || t("build.missing", { id: entry.item_id });
+    return `
+      <div class="engine-heat-sink-slot installed-engine-heat-sink" data-engine-heat-sink-item="${index}" draggable="true" title="${name}">
+        <span>H</span><strong>${name}</strong>
+      </div>
+    `;
+  }).join("");
+  const emptyRows = Array.from({ length: Math.max(0, capacity - used) }, () => `
+    <div class="engine-heat-sink-slot empty-engine-heat-sink">${t("common.empty")}</div>
+  `).join("");
+  return `
+    <div class="engine-heat-sink-bay" data-engine-heat-sink-drop>
+      <div class="engine-heat-sink-title">
+        <span>${t("build.engineHeatSinks")}</span>
+        <strong>${used}/${capacity}</strong>
+      </div>
+      <div class="engine-heat-sink-slots">${fixedRows}${installedRows}${emptyRows}</div>
+    </div>
+  `;
+}
+
+function renderLoadoutItem(component, entry, index, engineBayCalc = null) {
   const item = itemById(entry.item_id);
   if (!item) return `<div class="slot-item missing-item">${t("build.missing", { id: entry.item_id })}</div>`;
   const slots = Math.max(1, effectiveItemSlots(item));
   const mountType = equipmentHardpointType(item);
-  return `
+  const row = `
     <div class="slot-item ${mountType || item.item_type}" data-loadout-item="${component}:${index}" draggable="true" style="--slot-span:${slots}" title="${item.display_name} / ${slots} slots / ${fmt(itemTons(item))} tons">
       <span class="slot-item-mark">${HARDPOINT_LABELS[mountType] || String(item.item_type || "?")[0].toUpperCase()}</span>
       <strong>${item.display_name}</strong>
       <span class="slot-item-slots">${slots}S</span>
     </div>
   `;
+  return `${row}${item.item_type === "engine" && engineBayCalc ? renderEngineHeatSinkBay(item, engineBayCalc) : ""}`;
 }
 
 function renderVariant() {
@@ -5351,11 +5521,15 @@ function renderAll() {
 function selectMech(id) {
   state.selectedMech = mechById(id) || state.mechs[0];
   state.selectedChassis = state.selectedMech?.chassis || "";
-  if (!itemMatchesMechFaction(itemById(state.selectedItemId), state.selectedMech)) {
+  state.currentBuild = loadBuild(state.selectedMech);
+  const selectedItem = itemById(state.selectedItemId);
+  if (
+    !itemMatchesMechFaction(selectedItem, state.selectedMech)
+    || !heatSinkMatchesUpgrade(selectedItem)
+  ) {
     state.selectedItemId = null;
   }
   if (state.selectedChassis) state.expandedChassis.add(state.selectedChassis);
-  state.currentBuild = loadBuild(state.selectedMech);
   if (state.activeMainTab === "mechlab") state.mechlabBrowseMode = false;
   renderAll();
   if (state.activeMainTab === "mechlab") document.querySelector(".tab-content").scrollTop = 0;
@@ -5541,6 +5715,22 @@ function buildEntryForItem(item) {
   };
 }
 
+function engineHeatSinkDropValidation(item, source = null) {
+  if (!isHeatSink(item)) return t("build.engineHeatSinkOnly");
+  if (!itemMatchesMechFaction(item)) {
+    return t("build.factionMismatch", {
+      item: item.display_name || item.name,
+      faction: factionLabel(state.selectedMech?.faction),
+    });
+  }
+  const engine = installedEngine();
+  const capacity = engineUserHeatSinkCapacity(engine);
+  if (!engine || capacity <= 0) return t("build.noEngineHeatSinkSlots");
+  if (source?.source === "engineHeatSink") return null;
+  if (engineHeatSinkEntries().length >= capacity) return t("build.engineHeatSinkFull");
+  return null;
+}
+
 function dropValidation(item, component, source = null) {
   if (!item || !state.currentBuild?.components?.[component]) return "Invalid drop target";
   if (item.item_type === "engine" && fixedOmniEngine()) return t("build.engineFixed");
@@ -5553,6 +5743,9 @@ function dropValidation(item, component, source = null) {
       faction: factionLabel(state.selectedMech?.faction),
     });
   }
+  if (!heatSinkMatchesUpgrade(item)) {
+    return t("build.heatSinkMismatch", { item: item.display_name || item.name });
+  }
   const guidanceWarning = guidanceMismatch(item);
   if (guidanceWarning) return guidanceWarning;
   if (source?.component === component) return null;
@@ -5561,7 +5754,13 @@ function dropValidation(item, component, source = null) {
   const usage = calc.componentUsage[component] || { slots: 0 };
   const slotLimit = number(compDef.slots);
   const addedItemSlots = Math.max(1, effectiveItemSlots(item));
-  const nextSlots = usage.slots - number(usage.occupiedUpgradeSlots) + addedItemSlots;
+  const replacedEngineSlots = item.item_type === "engine" && source?.source !== "component"
+    ? Math.max(0, itemSlots(loadoutInstalledEngine()))
+    : 0;
+  const nextSlots = usage.slots
+    - number(usage.occupiedUpgradeSlots)
+    - replacedEngineSlots
+    + addedItemSlots;
   if (!slotLimit || nextSlots > slotLimit) return `Slots ${nextSlots}/${slotLimit}`;
 
   if (calc.upgradeSlots) {
@@ -5577,6 +5776,8 @@ function dropValidation(item, component, source = null) {
       + (sourceInUpgradeArea ? addedItemSlots : 0)
       - (targetInUpgradeArea ? addedItemSlots : 0);
     if (item.item_type === "engine" && !source) {
+      nextUpgradeCapacity += replacedEngineSlots;
+      nextUpgradeCapacity += engineSideSlots(loadoutInstalledEngine()) * 2;
       nextUpgradeCapacity -= engineSideSlots(item) * 2;
     }
     if (nextUpgradeCapacity < calc.upgradeSlots) {
@@ -5698,25 +5899,73 @@ function installDraggedItem(component) {
     setDropStatus(warning);
     return;
   }
-  if (payload.source === "component") {
+  if (payload.source === "engineHeatSink") {
+    const internal = engineHeatSinkEntries();
+    if (!internal[payload.index]) return;
+    const [entry] = internal.splice(payload.index, 1);
+    state.currentBuild.components[component].items.push(entry);
+  } else if (payload.source === "component") {
     if (payload.component === component) return;
     const sourceItems = state.currentBuild.components[payload.component]?.items;
     if (!sourceItems?.[payload.index]) return;
     const [entry] = sourceItems.splice(payload.index, 1);
     state.currentBuild.components[component].items.push(entry);
   } else {
+    if (item.item_type === "engine") {
+      Object.values(state.currentBuild.components).forEach((buildComponent) => {
+        buildComponent.items = (buildComponent.items || [])
+          .filter((entry) => itemById(entry.item_id)?.item_type !== "engine");
+      });
+    }
     state.currentBuild.components[component].items.push(buildEntryForItem(item));
   }
+  normalizeEngineHeatSinks(state.selectedMech, state.currentBuild);
+  clearDragState();
+  renderVariant();
+}
+
+function installDraggedEngineHeatSink() {
+  const payload = state.activeDrag;
+  if (!payload) return;
+  const item = itemById(payload.itemId);
+  const warning = engineHeatSinkDropValidation(item, payload);
+  if (warning) {
+    setDropStatus(warning);
+    return;
+  }
+  if (payload.source === "engineHeatSink") {
+    clearDragState();
+    return;
+  }
+  let entry;
+  if (payload.source === "component") {
+    const sourceItems = state.currentBuild.components[payload.component]?.items;
+    if (!sourceItems?.[payload.index]) return;
+    [entry] = sourceItems.splice(payload.index, 1);
+  } else {
+    entry = buildEntryForItem(item);
+  }
+  engineHeatSinkEntries().push(entry);
   clearDragState();
   renderVariant();
 }
 
 function removeDraggedItem() {
   const payload = state.activeDrag;
-  if (payload?.source !== "component") return;
-  const items = state.currentBuild?.components?.[payload.component]?.items;
-  if (!items?.[payload.index]) return;
-  items.splice(payload.index, 1);
+  if (payload?.source === "engineHeatSink") {
+    const items = engineHeatSinkEntries();
+    if (!items[payload.index]) return;
+    items.splice(payload.index, 1);
+  } else if (payload?.source === "component") {
+    const items = state.currentBuild?.components?.[payload.component]?.items;
+    if (!items?.[payload.index]) return;
+    const [removed] = items.splice(payload.index, 1);
+    if (itemById(removed.item_id)?.item_type === "engine") {
+      normalizeEngineHeatSinks(state.selectedMech, state.currentBuild);
+    }
+  } else {
+    return;
+  }
   clearDragState();
   renderVariant();
 }
@@ -5739,6 +5988,24 @@ function bindEvents() {
     state.simulation.scenarioId = input.value;
     resetSimulationRun();
   });
+  $("simulation-group-status").addEventListener("pointerdown", (event) => {
+    const button = event.target.closest("[data-simulation-fire-group]");
+    if (!button || (event.pointerType === "mouse" && event.button !== 0)) return;
+    const group = Number(button.dataset.simulationFireGroup);
+    if (group < 1 || group > 4) return;
+    event.preventDefault();
+    if (state.simulation.heldGroups.has(group)) return;
+    state.simulation.pointerGroups.set(event.pointerId, group);
+    setSimulationGroupHeld(group, true);
+  });
+  const releaseSimulationPointerGroup = (event) => {
+    const group = state.simulation.pointerGroups.get(event.pointerId);
+    if (!group) return;
+    state.simulation.pointerGroups.delete(event.pointerId);
+    setSimulationGroupHeld(group, false);
+  };
+  document.addEventListener("pointerup", releaseSimulationPointerGroup);
+  document.addEventListener("pointercancel", releaseSimulationPointerGroup);
   $("simulation-overlay").addEventListener("mousedown", (event) => {
     if (event.target === $("simulation-overlay")) closeSimulation();
   });
@@ -5809,6 +6076,7 @@ function bindEvents() {
     coolSimulationHeat(now);
     updateSimulationContinuousDamage(now);
     state.simulation.heldGroups.clear();
+    state.simulation.pointerGroups.clear();
     state.simulation.continuousFireAt.clear();
     applySimulationOverheat();
     renderSimulationMetrics(now);
@@ -6097,6 +6365,17 @@ function bindEvents() {
     event.dataTransfer.setData("text/plain", `warehouse:${row.dataset.item}`);
   });
   $("components").addEventListener("dragstart", (event) => {
+    const engineSinkRow = event.target.closest("[data-engine-heat-sink-item]");
+    if (engineSinkRow) {
+      const index = Number(engineSinkRow.dataset.engineHeatSinkItem);
+      const entry = engineHeatSinkEntries()[index];
+      if (!entry) return;
+      state.activeDrag = { source: "engineHeatSink", index, itemId: entry.item_id };
+      engineSinkRow.classList.add("dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", `engine-heatsink:${index}`);
+      return;
+    }
     const row = event.target.closest("[data-loadout-item]");
     if (!row) return;
     const [component, indexText] = row.dataset.loadoutItem.split(":");
@@ -6109,6 +6388,19 @@ function bindEvents() {
     event.dataTransfer.setData("text/plain", `component:${component}:${index}`);
   });
   $("components").addEventListener("dragover", (event) => {
+    const engineBay = event.target.closest("[data-engine-heat-sink-drop]");
+    if (engineBay && state.activeDrag) {
+      document.querySelectorAll("[data-component-drop], [data-engine-heat-sink-drop]")
+        .forEach((target) => target.classList.remove("drop-valid", "drop-invalid"));
+      const item = itemById(state.activeDrag.itemId);
+      const warning = engineHeatSinkDropValidation(item, state.activeDrag);
+      engineBay.classList.add(warning ? "drop-invalid" : "drop-valid");
+      if (!warning) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = state.activeDrag.source === "warehouse" ? "copy" : "move";
+      }
+      return;
+    }
     const component = event.target.closest("[data-component-drop]");
     if (!component || !state.activeDrag) return;
     document.querySelectorAll("[data-component-drop]").forEach((target) => target.classList.remove("drop-valid", "drop-invalid"));
@@ -6130,6 +6422,12 @@ function bindEvents() {
     }
   });
   $("components").addEventListener("drop", (event) => {
+    const engineBay = event.target.closest("[data-engine-heat-sink-drop]");
+    if (engineBay) {
+      event.preventDefault();
+      installDraggedEngineHeatSink();
+      return;
+    }
     const component = event.target.closest("[data-component-drop]");
     if (!component) return;
     event.preventDefault();
@@ -6152,7 +6450,7 @@ function bindEvents() {
     installDraggedItem(component.dataset.componentDrop);
   });
   $("equipment-panel").addEventListener("dragover", (event) => {
-    if (state.activeDrag?.source !== "component") return;
+    if (!["component", "engineHeatSink"].includes(state.activeDrag?.source)) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
     $("equipment-panel").classList.add("drop-valid");
@@ -6165,13 +6463,13 @@ function bindEvents() {
     removeDraggedItem();
   });
   document.addEventListener("dragover", (event) => {
-    if (state.activeDrag?.source !== "component") return;
+    if (!["component", "engineHeatSink"].includes(state.activeDrag?.source)) return;
     if (event.target.closest("[data-component-drop]")) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
   });
   document.addEventListener("drop", (event) => {
-    if (state.activeDrag?.source !== "component") return;
+    if (!["component", "engineHeatSink"].includes(state.activeDrag?.source)) return;
     if (event.target.closest("[data-component-drop], #equipment-panel")) return;
     event.preventDefault();
     removeDraggedItem();
@@ -6194,6 +6492,7 @@ function bindEvents() {
       component.items = [];
       component.armor = 0;
     }
+    state.currentBuild.engineHeatSinks = [];
     state.currentBuild.rearArmor = Object.fromEntries(
       Object.keys(TORSO_REAR_COMPONENTS).map((name) => [name, 0]),
     );

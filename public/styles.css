@@ -2081,7 +2081,7 @@ body.simulation-open {
   z-index: 1000;
   display: grid;
   place-items: center;
-  padding: 1.5rem;
+  padding: 0.5rem;
   background: #020506b8;
 }
 
@@ -2091,10 +2091,10 @@ body.simulation-open {
 
 .simulation-dialog {
   display: grid;
-  grid-template-rows: auto auto auto auto auto auto minmax(0, 1fr);
-  width: min(56rem, 55vw);
-  height: min(46rem, calc(100vh - 3rem));
-  min-width: 38rem;
+  grid-template-rows: auto auto auto auto auto auto auto minmax(0, 1fr);
+  width: min(54rem, calc(100vw - 1rem));
+  height: calc(100vh - 1rem);
+  min-width: 44rem;
   overflow: hidden;
   border: 1px solid #46798b;
   border-radius: 6px;
@@ -2107,7 +2107,7 @@ body.simulation-open {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.1rem;
+  padding: 0.65rem 0.85rem;
   border-bottom: 1px solid var(--line);
   background: #172328;
 }
@@ -2119,14 +2119,14 @@ body.simulation-open {
 }
 
 .simulation-header p {
-  margin-top: 0.3rem;
+  margin-top: 0.18rem;
   color: var(--muted);
   font-size: 0.82rem;
 }
 
 .simulation-close-button {
-  min-width: 2.3rem;
-  min-height: 2.3rem;
+  min-width: 2rem;
+  min-height: 2rem;
   padding: 0;
   font-size: 1.4rem;
   line-height: 1;
@@ -2135,8 +2135,8 @@ body.simulation-open {
 .simulation-metrics {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.6rem;
-  padding: 0.85rem 1rem;
+  gap: 0.4rem;
+  padding: 0.48rem 0.7rem;
   border-bottom: 1px solid #26383f;
   background: #0a1012;
 }
@@ -2144,7 +2144,7 @@ body.simulation-open {
 .simulation-metrics > div {
   display: grid;
   gap: 0.15rem;
-  padding: 0.55rem 0.7rem;
+  padding: 0.36rem 0.55rem;
   border-left: 3px solid var(--blue);
   background: #142026;
 }
@@ -2158,7 +2158,7 @@ body.simulation-open {
 
 .simulation-metrics strong {
   color: var(--green);
-  font-size: 1.55rem;
+  font-size: 1.35rem;
 }
 
 .simulation-heat-metric {
@@ -2224,8 +2224,8 @@ body.simulation-open {
 
 .simulation-scenario-panel {
   display: grid;
-  gap: 0.55rem;
-  padding: 0.65rem 1rem 0.75rem;
+  gap: 0.38rem;
+  padding: 0.42rem 0.7rem 0.48rem;
   border-bottom: 1px solid #26383f;
   background: #0d1518;
 }
@@ -2263,8 +2263,8 @@ body.simulation-open {
 .simulation-scenario-option span {
   display: grid;
   place-items: center;
-  min-height: 1.8rem;
-  padding: 0.2rem 0.45rem;
+  min-height: 1.55rem;
+  padding: 0.12rem 0.38rem;
   overflow: hidden;
   border: 1px solid #344d57;
   border-radius: 3px;
@@ -2287,7 +2287,7 @@ body.simulation-open {
 
 .simulation-target-stage {
   position: relative;
-  min-height: 5.4rem;
+  min-height: 4.5rem;
   overflow: hidden;
   border: 1px solid #304850;
   border-radius: 4px;
@@ -2312,7 +2312,7 @@ body.simulation-open {
 .simulation-enemy {
   position: absolute;
   z-index: 2;
-  bottom: 0.35rem;
+  bottom: 0.18rem;
   left: 50%;
   display: grid;
   justify-items: center;
@@ -2331,8 +2331,8 @@ body.simulation-open {
 
 .simulation-enemy-figure {
   position: relative;
-  width: 3rem;
-  height: 3.4rem;
+  width: 2.6rem;
+  height: 2.85rem;
   filter: drop-shadow(0 0 0.45rem #dc4e47aa);
 }
 
@@ -2346,50 +2346,50 @@ body.simulation-open {
 .simulation-enemy-head {
   top: 0;
   left: 50%;
-  width: 0.9rem;
-  height: 0.7rem;
+  width: 0.78rem;
+  height: 0.58rem;
   transform: translateX(-50%);
   clip-path: polygon(18% 0, 82% 0, 100% 38%, 80% 100%, 20% 100%, 0 38%);
 }
 
 .simulation-enemy-body {
-  top: 0.65rem;
+  top: 0.52rem;
   left: 50%;
-  width: 1.7rem;
-  height: 1.55rem;
+  width: 1.48rem;
+  height: 1.3rem;
   transform: translateX(-50%);
   clip-path: polygon(12% 0, 88% 0, 100% 28%, 82% 100%, 18% 100%, 0 28%);
 }
 
 .simulation-enemy-arm {
-  top: 0.85rem;
-  width: 0.48rem;
-  height: 1.55rem;
+  top: 0.7rem;
+  width: 0.42rem;
+  height: 1.3rem;
 }
 
 .simulation-enemy-arm.left {
-  left: 0.22rem;
+  left: 0.18rem;
   transform: rotate(8deg);
 }
 
 .simulation-enemy-arm.right {
-  right: 0.22rem;
+  right: 0.18rem;
   transform: rotate(-8deg);
 }
 
 .simulation-enemy-leg {
-  top: 2.05rem;
-  width: 0.55rem;
-  height: 1.25rem;
+  top: 1.72rem;
+  width: 0.48rem;
+  height: 1.05rem;
 }
 
 .simulation-enemy-leg.left {
-  left: 0.78rem;
+  left: 0.66rem;
   transform: rotate(4deg);
 }
 
 .simulation-enemy-leg.right {
-  right: 0.78rem;
+  right: 0.66rem;
   transform: rotate(-4deg);
 }
 
@@ -2465,8 +2465,8 @@ body.simulation-open {
 .simulation-group-status {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.45rem;
-  padding: 0.65rem 1rem;
+  gap: 0.35rem;
+  padding: 0.38rem 0.7rem;
   border-bottom: 1px solid #26383f;
 }
 
@@ -2475,10 +2475,16 @@ body.simulation-open {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 2.4rem;
+  min-height: 2rem;
+  padding: 0.15rem 0.35rem;
   border: 1px solid #35505b;
   border-radius: 4px;
   background: #111b1f;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  touch-action: none;
+  user-select: none;
 }
 
 .simulation-group-key strong {
@@ -2497,8 +2503,23 @@ body.simulation-open {
   box-shadow: inset 0 0 0 1px #e9c94a55;
 }
 
+.simulation-group-key:hover {
+  border-color: var(--blue);
+  background: #172a31;
+}
+
 .simulation-group-key.active strong {
   color: var(--yellow);
+}
+
+.simulation-fire-hint {
+  margin: 0;
+  padding: 0.22rem 0.7rem 0.3rem;
+  border-bottom: 1px solid #26383f;
+  background: #0d1518;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-align: center;
 }
 
 .simulation-toolbar {
@@ -2506,7 +2527,7 @@ body.simulation-open {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.55rem 1rem;
+  padding: 0.35rem 0.7rem;
 }
 
 .simulation-toolbar > strong {
@@ -2517,14 +2538,14 @@ body.simulation-open {
 .simulation-list-header,
 .simulation-weapon-row {
   display: grid;
-  grid-template-columns: minmax(10rem, 1fr) 4.8rem 4.5rem 9rem;
+  grid-template-columns: minmax(12rem, 1fr) 4.8rem 4.5rem 9rem;
   align-items: center;
   gap: 0.35rem;
 }
 
 .simulation-list-header {
-  min-height: 1.7rem;
-  padding: 0 0.7rem;
+  min-height: 1.45rem;
+  padding: 0 0.55rem;
   border-block: 1px solid #29414a;
   background: #1a282d;
   color: var(--muted);
@@ -2536,12 +2557,12 @@ body.simulation-open {
 .simulation-weapon-list {
   min-height: 0;
   overflow: auto;
-  padding-bottom: 0.5rem;
+  padding-bottom: 0;
 }
 
 .simulation-weapon-row {
-  min-height: 2.65rem;
-  padding: 0.28rem 0.7rem;
+  min-height: 2.05rem;
+  padding: 0.16rem 0.55rem;
   border-bottom: 1px solid #223238;
 }
 
@@ -2553,36 +2574,42 @@ body.simulation-open {
 
 .simulation-weapon-name {
   display: grid;
+  gap: 0.12rem;
   min-width: 0;
-  padding-left: 0.4rem;
+  padding-left: 0.32rem;
   border-left: 3px solid var(--purple);
-}
-
-.simulation-weapon-name strong {
-  font-size: 0.78rem;
-  line-height: 1.1;
 }
 
 .simulation-weapon-name.energy { border-left-color: var(--yellow); }
 .simulation-weapon-name.missile { border-left-color: var(--missile); }
 .simulation-weapon-name.ballistic { border-left-color: var(--purple); }
 
-.simulation-weapon-name strong,
-.simulation-weapon-name span {
+.simulation-weapon-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.simulation-weapon-title strong {
+  min-width: 0;
   overflow: hidden;
+  font-size: 0.76rem;
+  line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.simulation-weapon-name span {
+.simulation-weapon-title span {
+  flex: 0 0 auto;
   color: var(--muted);
   font-size: 0.62rem;
-  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 .simulation-cooldown {
-  height: 0.22rem;
-  margin-top: 0.2rem;
+  height: 0.18rem;
   overflow: hidden;
   border-radius: 999px;
   background: #273238;
@@ -2601,7 +2628,7 @@ body.simulation-open {
 .simulation-group-options {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 0.18rem;
+  gap: 0.14rem;
 }
 
 .simulation-group-option {
@@ -2617,7 +2644,7 @@ body.simulation-open {
 .simulation-group-option span {
   display: grid;
   place-items: center;
-  min-height: 1.55rem;
+  min-height: 1.35rem;
   border: 1px solid #38525c;
   border-radius: 3px;
   background: #182328;
@@ -3240,6 +3267,109 @@ body.simulation-open {
 .slot-item.ecm { border-color: #3d7068; }
 .slot-item.ecm .slot-item-mark { background: #19453f; color: #6ed3c2; }
 
+.engine-heat-sink-bay {
+  display: grid;
+  gap: 2px;
+  padding: 0.25rem;
+  border: 1px solid #42606a;
+  border-radius: 2px;
+  background: #0b1417;
+  transition: border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+}
+
+.engine-heat-sink-bay.drop-valid {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px rgba(73, 191, 127, 0.45);
+}
+
+.engine-heat-sink-bay.drop-invalid {
+  border-color: var(--red);
+  opacity: 0.6;
+}
+
+.engine-heat-sink-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 1.25rem;
+  padding: 0 0.25rem;
+  color: #8fb5c0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.engine-heat-sink-title strong {
+  color: #d8e5e8;
+}
+
+.engine-heat-sink-slots {
+  display: grid;
+  gap: 2px;
+}
+
+.engine-heat-sink-slot {
+  display: grid;
+  grid-template-columns: 1.35rem minmax(0, 1fr);
+  align-items: center;
+  min-height: 1.45rem;
+  overflow: hidden;
+  border: 1px solid #35515d;
+  border-radius: 2px;
+  background: #14242a;
+  color: #c7d9df;
+  font-size: 0.7rem;
+}
+
+.engine-heat-sink-slot > span {
+  align-self: stretch;
+  display: grid;
+  place-items: center;
+  background: #284650;
+  color: #8fd3df;
+  font-weight: 900;
+}
+
+.engine-heat-sink-slot strong {
+  min-width: 0;
+  padding: 0 0.35rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.installed-engine-heat-sink {
+  cursor: grab;
+}
+
+.installed-engine-heat-sink:active {
+  cursor: grabbing;
+}
+
+.installed-engine-heat-sink.dragging {
+  opacity: 0.4;
+}
+
+.fixed-engine-heat-sink {
+  border-color: #68777c;
+  background: #333b3e;
+  color: #e0e5e7;
+}
+
+.fixed-engine-heat-sink > span {
+  background: #59666b;
+  color: #eef3f4;
+}
+
+.empty-engine-heat-sink {
+  display: flex;
+  justify-content: center;
+  border-style: dashed;
+  border-color: #26373d;
+  background: #0d1315;
+  color: #40545b;
+}
+
 .critical-slot {
   display: flex;
   align-items: center;
@@ -3637,7 +3767,8 @@ body.simulation-open {
 
 @media (max-width: 1050px) {
   .simulation-dialog {
-    width: min(48rem, 82vw);
+    width: min(54rem, calc(100vw - 1rem));
+    min-width: 0;
   }
 
   .mech-browser-layout {
@@ -3726,7 +3857,7 @@ body.simulation-open {
   }
 
   .simulation-target-stage {
-    min-height: 4.8rem;
+    min-height: 4.2rem;
   }
 
   .simulation-list-header,
