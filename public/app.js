@@ -4498,6 +4498,7 @@ function renderSimulationCooldowns(now = performance.now()) {
         ? Math.max(0, Math.min(1, 1 - remaining / (weapon.cooldown * 1000)))
         : 0;
     bar.style.transform = `scaleX(${progress})`;
+    bar.parentElement.classList.toggle("ready", progress >= 1);
     bar.parentElement.setAttribute("aria-valuenow", String(Math.round(progress * 100)));
   });
 }
@@ -4568,9 +4569,9 @@ function renderSimulationWeaponList() {
             <strong>${weapon.item.display_name || weapon.item.name}</strong>
             <span>H ${fmt(weapon.heat, 1)}</span>
           </div>
-          <div class="simulation-cooldown" role="progressbar" aria-label="${t("simulation.cooldown")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
-            <i data-simulation-cooldown="${weapon.key}" style="transform:scaleX(1)"></i>
-          </div>
+        </div>
+        <div class="simulation-cooldown ready" role="progressbar" aria-label="${t("simulation.cooldown")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+          <i data-simulation-cooldown="${weapon.key}" style="transform:scaleX(1)"></i>
         </div>
         <span>${fmt(weapon.damage, 2)}</span>
         <span>${weapon.cycle.toFixed(2)}s</span>
