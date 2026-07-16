@@ -2093,7 +2093,8 @@ body.simulation-open {
   display: grid;
   grid-template-rows: auto auto auto auto auto auto auto minmax(0, 1fr);
   width: min(54rem, calc(100vw - 1rem));
-  height: calc(100vh - 1rem);
+  height: 75vh;
+  height: 75dvh;
   min-width: 44rem;
   overflow: hidden;
   border: 1px solid #46798b;
@@ -2287,7 +2288,7 @@ body.simulation-open {
 
 .simulation-target-stage {
   position: relative;
-  min-height: 4.5rem;
+  min-height: 6.75rem;
   overflow: hidden;
   border: 1px solid #304850;
   border-radius: 4px;
@@ -3857,7 +3858,7 @@ body.simulation-open {
   }
 
   .simulation-target-stage {
-    min-height: 4.2rem;
+    min-height: 6.3rem;
   }
 
   .simulation-list-header,

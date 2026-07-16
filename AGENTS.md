@@ -3,6 +3,11 @@
 - Do not start, inspect, probe, or verify the local preview/dev server unless the user explicitly asks for it.
 - The user manually handles whether the server is running and whether the app can be opened.
 
+## Simulation UI Rules
+
+- Keep simulation controls and HUD placement close to the in-game layout when practical; otherwise prioritize clear sightlines, comfortable reach, and immediate readability.
+- Place elapsed time, total damage, DPS, and heat together immediately above the weapon firing controls.
+
 ## Quirk Parsing Rules
 
 - Quirk names are parsed case-insensitively. Normalize quirk names and weapon lookup keys before matching.

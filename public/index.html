@@ -318,21 +318,6 @@
           </div>
           <button id="close-simulation" class="simulation-close-button" type="button" aria-label="닫기" data-i18n-aria-label="simulation.close">×</button>
         </header>
-        <div class="simulation-metrics" aria-live="polite">
-          <div><span data-i18n="simulation.elapsed">경과 시간</span><strong id="simulation-elapsed">0.00s</strong></div>
-          <div><span data-i18n="simulation.damage">누적 데미지</span><strong id="simulation-damage">0.00</strong></div>
-          <div><span>DPS</span><strong id="simulation-dps">0.00</strong></div>
-          <div id="simulation-heat-gauge" class="simulation-heat-metric">
-            <span data-i18n="simulation.heat">발열</span>
-            <div class="simulation-heat-readout">
-              <strong id="simulation-heat-value">0.00 / 30.00</strong>
-              <small id="simulation-heat-percent">0.0%</small>
-            </div>
-            <div class="simulation-heat-bar" role="progressbar" aria-label="발열" data-i18n-aria-label="simulation.heat" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0">
-              <i id="simulation-heat-fill"></i>
-            </div>
-          </div>
-        </div>
         <section class="simulation-scenario-panel" aria-labelledby="simulation-scenario-title">
           <div class="simulation-scenario-toolbar">
             <strong id="simulation-scenario-title" data-i18n="simulation.scenario">시나리오</strong>
@@ -374,6 +359,21 @@
             </div>
           </div>
         </section>
+        <div class="simulation-metrics" aria-live="polite">
+          <div><span data-i18n="simulation.elapsed">경과 시간</span><strong id="simulation-elapsed">0.00s</strong></div>
+          <div><span data-i18n="simulation.damage">누적 데미지</span><strong id="simulation-damage">0.00</strong></div>
+          <div><span>DPS</span><strong id="simulation-dps">0.00</strong></div>
+          <div id="simulation-heat-gauge" class="simulation-heat-metric">
+            <span data-i18n="simulation.heat">발열</span>
+            <div class="simulation-heat-readout">
+              <strong id="simulation-heat-value">0.00 / 30.00</strong>
+              <small id="simulation-heat-percent">0.0%</small>
+            </div>
+            <div class="simulation-heat-bar" role="progressbar" aria-label="발열" data-i18n-aria-label="simulation.heat" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0">
+              <i id="simulation-heat-fill"></i>
+            </div>
+          </div>
+        </div>
         <div id="simulation-group-status" class="simulation-group-status" aria-label="무기 그룹 상태" data-i18n-aria-label="simulation.groupStatus"></div>
         <p class="simulation-fire-hint" data-i18n="simulation.hint">버튼 또는 숫자 키 1~4를 누르고 있는 동안 해당 그룹을 발사합니다.</p>
         <div class="simulation-toolbar">
