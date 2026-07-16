@@ -59,6 +59,23 @@ const TEXT = {
     "status.fileProtocol": "file://에서는 로컬 데이터를 불러올 수 없습니다. 로컬 프리뷰는 public 폴더를 http://로 서빙하세요.",
     "status.loadPathFailed": "{path} 파일을 불러올 수 없습니다",
     "status.buildSaved": "빌드를 로컬에 저장했습니다",
+    "loadout.import": "IMPORT",
+    "loadout.export": "EXPORT",
+    "loadout.close": "로드아웃 코드 창 닫기",
+    "loadout.apply": "불러오기",
+    "loadout.copy": "코드 복사",
+    "loadout.importTitle": "MWO 코드 불러오기",
+    "loadout.exportTitle": "MWO 코드 내보내기",
+    "loadout.importDescription": "MWO MechLab에서 복사한 로드아웃 코드를 붙여 넣으세요.",
+    "loadout.exportDescription": "현재 상태를 MWO MechLab에서 사용할 수 있는 코드로 변환했습니다.",
+    "loadout.importPlaceholder": "MWO 로드아웃 코드를 붙여 넣으세요",
+    "loadout.imported": "{mech} 로드아웃을 불러왔습니다.",
+    "loadout.copied": "코드를 클립보드에 복사했습니다.",
+    "loadout.copyFailed": "클립보드 복사에 실패했습니다. 코드를 직접 선택해 복사하세요.",
+    "loadout.invalidMech": "코드의 멕 ID {id}를 현재 데이터에서 찾을 수 없습니다.",
+    "loadout.invalidItem": "코드에 현재 데이터에 없는 장비 ID가 있습니다: {id}",
+    "loadout.invalidOmnipod": "{component}의 옵니포드 ID가 올바르지 않습니다: {id}",
+    "loadout.codecUnavailable": "MWO 코드 모듈을 불러오지 못했습니다.",
     "mechlab.showList": "멕 리스트",
     "simulation.open": "시뮬레이션",
     "simulation.title": "DPS 시뮬레이션",
@@ -68,6 +85,16 @@ const TEXT = {
     "simulation.damage": "누적 데미지",
     "simulation.heat": "발열",
     "simulation.overheated": "오버히트",
+    "simulation.scenario": "시나리오",
+    "simulation.scenarioSelect": "시나리오 선택",
+    "simulation.scenarioFree": "0. 자유 모드 / 시간제한 없음",
+    "simulation.scenarioStationary": "1. 고정 표적",
+    "simulation.scenarioBrawl44": "2. 4초 노출 / 4초 엄폐",
+    "simulation.scenarioBrawl153": "3. 1.5초 노출 / 3초 엄폐",
+    "simulation.noTimeLimit": "시간제한 없음",
+    "simulation.targetVisible": "적 노출",
+    "simulation.targetHidden": "적 엄폐 · 데미지 무효",
+    "simulation.scenarioComplete": "시나리오 완료",
     "simulation.groups": "무기 그룹 지정",
     "simulation.reset": "측정 초기화",
     "simulation.weapon": "무기",
@@ -299,6 +326,23 @@ const TEXT = {
     "status.fileProtocol": "Local data cannot be loaded from file://. Serve the public folder over http:// for local preview.",
     "status.loadPathFailed": "Could not load {path}",
     "status.buildSaved": "Build saved locally",
+    "loadout.import": "IMPORT",
+    "loadout.export": "EXPORT",
+    "loadout.close": "Close loadout code dialog",
+    "loadout.apply": "Import",
+    "loadout.copy": "Copy code",
+    "loadout.importTitle": "Import MWO code",
+    "loadout.exportTitle": "Export MWO code",
+    "loadout.importDescription": "Paste a loadout code copied from the MWO MechLab.",
+    "loadout.exportDescription": "The current build has been converted to an MWO-compatible code.",
+    "loadout.importPlaceholder": "Paste an MWO loadout code",
+    "loadout.imported": "Imported the {mech} loadout.",
+    "loadout.copied": "Copied the code to the clipboard.",
+    "loadout.copyFailed": "Clipboard access failed. Select and copy the code manually.",
+    "loadout.invalidMech": "Mech ID {id} from the code is not present in the current data.",
+    "loadout.invalidItem": "The code contains an equipment ID not present in the current data: {id}",
+    "loadout.invalidOmnipod": "Invalid omnipod ID for {component}: {id}",
+    "loadout.codecUnavailable": "The MWO code module could not be loaded.",
     "mechlab.showList": "Mech List",
     "simulation.open": "Simulation",
     "simulation.title": "DPS Simulation",
@@ -308,6 +352,16 @@ const TEXT = {
     "simulation.damage": "Total damage",
     "simulation.heat": "Heat",
     "simulation.overheated": "OVERHEATED",
+    "simulation.scenario": "Scenario",
+    "simulation.scenarioSelect": "Select scenario",
+    "simulation.scenarioFree": "0. Free mode / No time limit",
+    "simulation.scenarioStationary": "1. Stationary target",
+    "simulation.scenarioBrawl44": "2. 4s exposed / 4s covered",
+    "simulation.scenarioBrawl153": "3. 1.5s exposed / 3s covered",
+    "simulation.noTimeLimit": "NO TIME LIMIT",
+    "simulation.targetVisible": "TARGET EXPOSED",
+    "simulation.targetHidden": "TARGET COVERED · DAMAGE BLOCKED",
+    "simulation.scenarioComplete": "SCENARIO COMPLETE",
     "simulation.groups": "Weapon groups",
     "simulation.reset": "Reset run",
     "simulation.weapon": "Weapon",
@@ -556,6 +610,38 @@ const TORSO_REAR_COMPONENTS = {
   right_torso: "right_torso_rear",
 };
 
+const MWO_EXPORT_COMPONENT_ORDER = [
+  "centre_torso",
+  "right_torso",
+  "left_torso",
+  "left_arm",
+  "right_arm",
+  "left_leg",
+  "right_leg",
+  "head",
+];
+
+const MWO_UPGRADE_IDS = Object.freeze({
+  armor: Object.freeze({ 0: 2810, 1: 2811, 2: 2812, 3: 2814, 4: 2815, 5: 2816 }),
+  structure: Object.freeze({ 0: 3100, 1: 3101, 2: 3102, 3: 3103 }),
+  heatsinks: Object.freeze({ 0: 3003, 1: 3002, 2: 3005, 3: 3006 }),
+});
+
+const MWO_UPGRADE_BITS = Object.freeze({
+  armor: Object.freeze(Object.fromEntries(Object.entries(MWO_UPGRADE_IDS.armor).map(([bits, id]) => [id, Number(bits)]))),
+  structure: Object.freeze(Object.fromEntries(Object.entries(MWO_UPGRADE_IDS.structure).map(([bits, id]) => [id, Number(bits)]))),
+  heatsinks: Object.freeze(Object.fromEntries(Object.entries(MWO_UPGRADE_IDS.heatsinks).map(([bits, id]) => [id, Number(bits)]))),
+});
+
+const LOWER_ARM_ACTUATOR_ID = 1910;
+const HAND_ACTUATOR_ID = 1911;
+const MWO_ACTUATOR_BITS = Object.freeze({
+  rightHandRemoved: 1,
+  rightLowerArmRemoved: 2,
+  leftHandRemoved: 4,
+  leftLowerArmRemoved: 8,
+});
+
 const COMPONENT_NAMES = {
   head: t("component.head"),
   left_arm: t("component.leftArm"),
@@ -707,6 +793,13 @@ const STATS_CHASSIS_AGGREGATE_MODES = [
 
 const MAX_COMPARE_MECHS = 15;
 const COMPARE_RANK_EPSILON = 0.0001;
+const SIMULATION_TIMED_DURATION_MS = 15_000;
+const SIMULATION_SCENARIOS = Object.freeze({
+  free: Object.freeze({ durationMs: null, visibleMs: Number.POSITIVE_INFINITY, hiddenMs: 0 }),
+  stationary: Object.freeze({ durationMs: SIMULATION_TIMED_DURATION_MS, visibleMs: SIMULATION_TIMED_DURATION_MS, hiddenMs: 0 }),
+  brawl44: Object.freeze({ durationMs: SIMULATION_TIMED_DURATION_MS, visibleMs: 4_000, hiddenMs: 4_000 }),
+  brawl153: Object.freeze({ durationMs: SIMULATION_TIMED_DURATION_MS, visibleMs: 1_500, hiddenMs: 3_000 }),
+});
 const DEFAULT_COLLAPSED_COMPARE_CATEGORIES = [t("info.combinedDurability"), t("info.armorInfo"), t("info.structureInfo"), t("stats.chassisInfo")];
 const DIRECT_COOLDOWN_QUIRKS = new Set([
   "all_cooldown_multiplier",
@@ -797,10 +890,14 @@ const state = {
   activeEquipmentCategory: "weapons",
   omnipodDefinitionCache: new Map(),
   currentBuild: null,
+  loadoutCodeMode: "import",
   activeDrag: null,
   simulation: {
     open: false,
     weapons: [],
+    scenarioId: "free",
+    targetVisible: true,
+    finished: false,
     assignments: new Map(),
     heldGroups: new Set(),
     nextFireAt: new Map(),
@@ -1297,13 +1394,19 @@ function loadoutForMech(mech) {
   return state.loadouts[mech?.stock_loadout] || {};
 }
 
+function omnipodId(value) {
+  const numeric = Number(value);
+  return Number.isSafeInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
 function podById(id) {
-  return id ? state.omnipods[String(id)] || null : null;
+  const validId = omnipodId(id);
+  return validId ? state.omnipods[String(validId)] || null : null;
 }
 
 function hasFixedOmnipods(mech) {
   const loadout = loadoutForMech(mech);
-  return Object.values(loadout.components || {}).some((component) => component.omnipod);
+  return Object.values(loadout.components || {}).some((component) => omnipodId(component.omnipod));
 }
 
 function omnipodIcon(mech) {
@@ -1354,10 +1457,16 @@ function dominantOmnipodSet(mech, build) {
 function applyFixedOmnipods(mech, build) {
   const loadout = loadoutForMech(mech);
   normalizeRearArmor(build, mech, loadout);
+  build.actuatorState = Number.isFinite(build.actuatorState)
+    ? Math.max(0, build.actuatorState)
+    : (hasFixedOmnipods(mech)
+      ? MWO_ACTUATOR_BITS.leftLowerArmRemoved | MWO_ACTUATOR_BITS.rightLowerArmRemoved
+      : 0);
   build.components ||= {};
   for (const name of COMPONENT_ORDER) {
     build.components[name] ||= { armor: 0, items: [] };
-    const stockPodId = loadout.components?.[name]?.omnipod;
+    build.components[name].omnipod = omnipodId(build.components[name].omnipod);
+    const stockPodId = omnipodId(loadout.components?.[name]?.omnipod);
     if (stockPodId && !build.components[name].omnipod) build.components[name].omnipod = stockPodId;
   }
   if (fixedOmniEngine(mech)) {
@@ -1402,7 +1511,7 @@ function buildFromLoadout(mech) {
     const component = loadout.components?.[name] || {};
     components[name] = {
       armor: number(component.armor),
-      omnipod: component.omnipod || null,
+      omnipod: omnipodId(component.omnipod),
       items: (component.items || []).map((entry) => ({ ...entry })),
     };
   }
@@ -1416,8 +1525,122 @@ function buildFromLoadout(mech) {
     loadoutName: mech.stock_loadout,
     components,
     rearArmor,
+    actuatorState: hasFixedOmnipods(mech)
+      ? MWO_ACTUATOR_BITS.leftLowerArmRemoved | MWO_ACTUATOR_BITS.rightLowerArmRemoved
+      : 0,
     upgrades: JSON.parse(JSON.stringify(loadout.upgrades || {})),
   });
+}
+
+function mwoLoadoutEntryType(item) {
+  if (item?.item_type === "weapon") return "weapon";
+  if (item?.item_type === "ammo") return "ammo";
+  return "module";
+}
+
+function mwoUpgradeId(category, bits, mech) {
+  const id = MWO_UPGRADE_IDS[category]?.[bits];
+  if (id && itemById(id)) return id;
+  return number(loadoutForMech(mech).upgrades?.[category]?.ItemID);
+}
+
+function mwoUpgradeBits(category, itemId) {
+  const bits = MWO_UPGRADE_BITS[category]?.[Number(itemId)];
+  if (bits === undefined) {
+    throw new Error(`Unsupported ${category} upgrade ID: ${itemId}`);
+  }
+  return bits;
+}
+
+function validateMwoOmnipod(mech, componentName, podId) {
+  const pod = podById(podId);
+  if (
+    !pod
+    || String(pod.chassis || "").toLowerCase() !== String(mech.chassis || "").toLowerCase()
+    || String(pod.component || "").toLowerCase() !== componentName
+  ) {
+    throw new Error(t("loadout.invalidOmnipod", {
+      component: COMPONENT_NAMES[componentName] || componentName,
+      id: podId,
+    }));
+  }
+  return pod;
+}
+
+function buildFromMwoCode(decoded, mech) {
+  const components = {};
+  for (const componentName of COMPONENT_ORDER) {
+    const source = decoded.components?.[componentName] || {};
+    if (decoded.isOmni && componentName !== "centre_torso") {
+      validateMwoOmnipod(mech, componentName, source.omnipod);
+    }
+    const items = (source.itemIds || []).map((itemId) => {
+      const item = itemById(itemId);
+      if (!item) throw new Error(t("loadout.invalidItem", { id: itemId }));
+      return {
+        type: mwoLoadoutEntryType(item),
+        item_id: item.id,
+        weapon_group: null,
+      };
+    });
+    components[componentName] = {
+      armor: Math.max(0, number(source.armor)),
+      omnipod: decoded.isOmni && componentName !== "centre_torso"
+        ? number(source.omnipod)
+        : null,
+      items,
+    };
+  }
+
+  return applyFixedOmnipods(mech, {
+    mechId: mech.id,
+    loadoutName: mech.stock_loadout,
+    components,
+    rearArmor: {
+      centre_torso: Math.max(0, number(decoded.rearArmor?.centre_torso)),
+      left_torso: Math.max(0, number(decoded.rearArmor?.left_torso)),
+      right_torso: Math.max(0, number(decoded.rearArmor?.right_torso)),
+    },
+    actuatorState: decoded.isOmni ? Math.max(0, number(decoded.actuatorState)) : 0,
+    upgrades: {
+      armor: { ItemID: mwoUpgradeId("armor", decoded.upgrades.armorType, mech) },
+      structure: { ItemID: mwoUpgradeId("structure", decoded.upgrades.structureType, mech) },
+      heatsinks: { ItemID: mwoUpgradeId("heatsinks", decoded.upgrades.heatSinkType, mech) },
+      artemis: { Equipped: decoded.upgrades.artemis ? 1 : 0 },
+    },
+  });
+}
+
+function currentBuildAsMwoLoadout() {
+  const mech = state.selectedMech;
+  const build = state.currentBuild;
+  if (!mech || !build) throw new Error(t("info.selectMech"));
+  const isOmni = hasFixedOmnipods(mech);
+  const components = Object.fromEntries(MWO_EXPORT_COMPONENT_ORDER.map((componentName) => {
+    const component = build.components?.[componentName] || {};
+    return [componentName, {
+      armor: Math.max(0, number(component.armor)),
+      omnipod: component.omnipod || null,
+      itemIds: (component.items || []).map((entry) => Number(entry.item_id)),
+    }];
+  }));
+  return {
+    chassisId: mech.id,
+    isOmni,
+    actuatorState: isOmni ? Math.max(0, number(build.actuatorState)) : 0,
+    upgrades: {
+      armorType: mwoUpgradeBits("armor", build.upgrades?.armor?.ItemID),
+      structureType: mwoUpgradeBits("structure", build.upgrades?.structure?.ItemID),
+      heatSinkType: mwoUpgradeBits("heatsinks", build.upgrades?.heatsinks?.ItemID),
+      artemis: Boolean(build.upgrades?.artemis?.Equipped),
+    },
+    components,
+    rearArmor: {
+      centre_torso: Math.max(0, number(build.rearArmor?.centre_torso)),
+      left_torso: Math.max(0, number(build.rearArmor?.left_torso)),
+      right_torso: Math.max(0, number(build.rearArmor?.right_torso)),
+    },
+  };
 }
 
 function savedKey(mech) {
@@ -1540,6 +1763,33 @@ function mergeHardpointsWithLoadout(hardpoints, buildComponent) {
   return merged;
 }
 
+function actuatorIsRemoved(componentName, itemId, build = state.currentBuild) {
+  const actuatorState = Math.max(0, number(build?.actuatorState));
+  if (componentName === "left_arm") {
+    if (Number(itemId) === LOWER_ARM_ACTUATOR_ID) {
+      return Boolean(actuatorState & MWO_ACTUATOR_BITS.leftLowerArmRemoved);
+    }
+    if (Number(itemId) === HAND_ACTUATOR_ID) {
+      return Boolean(
+        actuatorState
+        & (MWO_ACTUATOR_BITS.leftLowerArmRemoved | MWO_ACTUATOR_BITS.leftHandRemoved),
+      );
+    }
+  }
+  if (componentName === "right_arm") {
+    if (Number(itemId) === LOWER_ARM_ACTUATOR_ID) {
+      return Boolean(actuatorState & MWO_ACTUATOR_BITS.rightLowerArmRemoved);
+    }
+    if (Number(itemId) === HAND_ACTUATOR_ID) {
+      return Boolean(
+        actuatorState
+        & (MWO_ACTUATOR_BITS.rightLowerArmRemoved | MWO_ACTUATOR_BITS.rightHandRemoved),
+      );
+    }
+  }
+  return false;
+}
+
 function effectiveComponentDefinition(mech = state.selectedMech, build = state.currentBuild, componentName) {
   const base = currentDefinition(mech).components?.[componentName] || {};
   const buildComponent = build?.components?.[componentName] || {};
@@ -1556,10 +1806,13 @@ function effectiveComponentDefinition(mech = state.selectedMech, build = state.c
   if (pod && ecmCapableOmnipodIds().has(String(pod.id))) {
     hardpoints = addEcmHardpoint(hardpoints);
   }
+  const internals = [...(base.internals || []), ...podDefinition.internals]
+    .filter((itemId, index, values) => values.indexOf(itemId) === index)
+    .filter((itemId) => !actuatorIsRemoved(componentName, itemId, build));
   return {
     ...base,
     hardpoints,
-    internals: base.internals || [],
+    internals,
     fixed: [...(base.fixed || []), ...podDefinition.fixed],
   };
 }
@@ -3829,6 +4082,7 @@ function renderMechSummary(calc = null) {
   $("mech-summary-max-slots").textContent = calc ? fmt(calc.totalSlotCapacity, 0) : "-";
   $("mech-summary-heat-sinks").textContent = calc ? fmt(calc.totalHeatSinkCount, 0) : "-";
   $("open-simulation").disabled = !mech || !state.currentBuild;
+  $("export-loadout-code").disabled = !mech || !state.currentBuild;
 }
 
 function simulationItemKeys(item) {
@@ -3976,6 +4230,73 @@ function collectSimulationWeapons() {
   return weapons;
 }
 
+function simulationScenarioDefinition() {
+  return SIMULATION_SCENARIOS[state.simulation.scenarioId] || SIMULATION_SCENARIOS.free;
+}
+
+function simulationDurationMs() {
+  return simulationScenarioDefinition().durationMs;
+}
+
+function simulationElapsedMs(now = performance.now()) {
+  if (state.simulation.startedAt === null) return 0;
+  const elapsedMs = Math.max(0, now - state.simulation.startedAt);
+  const durationMs = simulationDurationMs();
+  return durationMs === null ? elapsedMs : Math.min(durationMs, elapsedMs);
+}
+
+function simulationTargetVisibleAt(now = performance.now()) {
+  const simulation = state.simulation;
+  if (simulation.startedAt === null) return true;
+  const scenario = simulationScenarioDefinition();
+  if (scenario.hiddenMs <= 0) return true;
+  const cycleMs = scenario.visibleMs + scenario.hiddenMs;
+  return simulationElapsedMs(now) % cycleMs < scenario.visibleMs;
+}
+
+function renderSimulationScenario(now = performance.now()) {
+  const simulation = state.simulation;
+  const elapsedMs = simulationElapsedMs(now);
+  const durationMs = simulationDurationMs();
+  const stage = $("simulation-target-stage");
+  stage.classList.toggle("target-visible", simulation.targetVisible);
+  stage.classList.toggle("target-hidden", !simulation.targetVisible);
+  stage.classList.toggle("scenario-finished", simulation.finished);
+  const status = simulation.finished
+    ? t("simulation.scenarioComplete")
+    : t(simulation.targetVisible ? "simulation.targetVisible" : "simulation.targetHidden");
+  $("simulation-target-status").textContent = status;
+  $("simulation-scenario-time").textContent = durationMs === null
+    ? t("simulation.noTimeLimit")
+    : `${(Math.max(0, durationMs - elapsedMs) / 1000).toFixed(1)}s`;
+  stage.setAttribute("aria-label", status);
+  document.querySelectorAll('input[name="simulation-scenario"]').forEach((input) => {
+    const selected = input.value === simulation.scenarioId;
+    input.checked = selected;
+    input.closest(".simulation-scenario-option")?.classList.toggle("active", selected);
+  });
+}
+
+function updateSimulationScenario(now = performance.now()) {
+  const simulation = state.simulation;
+  const elapsedMs = simulationElapsedMs(now);
+  const durationMs = simulationDurationMs();
+  simulation.finished = durationMs !== null
+    && simulation.startedAt !== null
+    && elapsedMs >= durationMs;
+  simulation.targetVisible = simulationTargetVisibleAt(now);
+  renderSimulationScenario(now);
+}
+
+function finishSimulationRun() {
+  const simulation = state.simulation;
+  simulation.finished = true;
+  simulation.heldGroups.clear();
+  simulation.continuousFireAt.clear();
+  simulation.activeBurns.clear();
+  renderSimulationGroupStatus();
+}
+
 function resetSimulationRun() {
   const simulation = state.simulation;
   simulation.heldGroups.clear();
@@ -3985,17 +4306,20 @@ function resetSimulationRun() {
   simulation.totalDamage = 0;
   simulation.currentHeat = 0;
   simulation.overheated = false;
+  simulation.targetVisible = true;
+  simulation.finished = false;
   simulation.lastHeatUpdateAt = null;
   simulation.startedAt = null;
   if (simulation.frameId !== null) cancelAnimationFrame(simulation.frameId);
   simulation.frameId = null;
   renderSimulationMetrics();
+  renderSimulationScenario();
   renderSimulationGroupStatus();
 }
 
 function renderSimulationMetrics(now = performance.now()) {
   const simulation = state.simulation;
-  const elapsed = simulation.startedAt === null ? 0 : Math.max(0, (now - simulation.startedAt) / 1000);
+  const elapsed = simulationElapsedMs(now) / 1000;
   $("simulation-elapsed").textContent = `${elapsed.toFixed(2)}s`;
   $("simulation-damage").textContent = simulation.totalDamage.toFixed(2);
   $("simulation-dps").textContent = (elapsed > 0 ? simulation.totalDamage / elapsed : 0).toFixed(2);
@@ -4005,28 +4329,26 @@ function renderSimulationMetrics(now = performance.now()) {
 
 function renderSimulationHeat() {
   const simulation = state.simulation;
-  const ratio = Math.max(0, Math.min(1, simulation.currentHeat / simulation.maxHeat));
+  const ratio = simulation.maxHeat > 0 ? Math.max(0, simulation.currentHeat / simulation.maxHeat) : 0;
+  const fillRatio = Math.min(1, ratio);
   const percent = ratio * 100;
-  $("simulation-heat-value").textContent = `${simulation.currentHeat.toFixed(2)} / ${fmt(simulation.maxHeat, 1)}`;
+  $("simulation-heat-value").textContent = `${simulation.currentHeat.toFixed(1)} / ${fmt(simulation.maxHeat, 1)}`;
   $("simulation-heat-percent").textContent = simulation.overheated
-    ? `${t("simulation.overheated")} · ${percent.toFixed(1)}% · -${fmt(simulation.coolingRate, 2)}/s`
-    : `${percent.toFixed(1)}% · -${fmt(simulation.coolingRate, 2)}/s`;
-  $("simulation-heat-fill").style.transform = `scaleX(${ratio})`;
+    ? `${t("simulation.overheated")} · ${percent.toFixed(1)}% · -${fmt(simulation.coolingRate, 1)}/s`
+    : `${percent.toFixed(1)}% · -${fmt(simulation.coolingRate, 1)}/s`;
+  $("simulation-heat-fill").style.transform = `scaleX(${fillRatio})`;
   $("simulation-heat-gauge").classList.toggle("overheated", simulation.overheated);
   const bar = $("simulation-heat-fill").parentElement;
-  bar.setAttribute("aria-valuemax", String(simulation.maxHeat));
-  bar.setAttribute("aria-valuenow", String(Math.round(percent)));
+  bar.setAttribute("aria-valuemax", "100");
+  bar.setAttribute("aria-valuenow", String(Math.round(Math.min(100, percent))));
   bar.setAttribute(
     "aria-valuetext",
-    `${simulation.currentHeat.toFixed(2)} / ${fmt(simulation.maxHeat, 1)}, ${simulation.overheated ? `${t("simulation.overheated")}, ` : ""}${percent.toFixed(1)}%`,
+    `${simulation.currentHeat.toFixed(1)} / ${fmt(simulation.maxHeat, 1)}, ${simulation.overheated ? `${t("simulation.overheated")}, ` : ""}${percent.toFixed(1)}%`,
   );
 }
 
 function addSimulationHeat(weapon, shotCount = 1) {
-  state.simulation.currentHeat = Math.min(
-    state.simulation.maxHeat,
-    state.simulation.currentHeat + number(weapon.heat) * shotCount,
-  );
+  state.simulation.currentHeat += number(weapon.heat) * shotCount;
 }
 
 function coolSimulationHeat(now) {
@@ -4046,7 +4368,6 @@ function applySimulationOverheat() {
   if (simulation.overheated || simulation.currentHeat < simulation.maxHeat) return;
   simulation.overheated = true;
   simulation.heldGroups.clear();
-  simulation.activeBurns.clear();
   simulation.continuousFireAt.clear();
   renderSimulationHeat();
   renderSimulationGroupStatus();
@@ -4070,9 +4391,38 @@ function renderSimulationCooldowns(now = performance.now()) {
   });
 }
 
+function normalizeSimulationGroups(value, fallbackGroup = null) {
+  const values = value instanceof Set
+    ? Array.from(value)
+    : Array.isArray(value) ? value : value === null || value === undefined ? [] : [value];
+  const groups = new Set(
+    values
+      .map((group) => Number(group))
+      .filter((group) => Number.isInteger(group) && group >= 1 && group <= 4),
+  );
+  if (!groups.size && fallbackGroup >= 1 && fallbackGroup <= 4) groups.add(fallbackGroup);
+  return groups;
+}
+
+function simulationGroupsForWeapon(weapon) {
+  if (!state.simulation.assignments.has(weapon.key)) return new Set([1]);
+  return normalizeSimulationGroups(state.simulation.assignments.get(weapon.key));
+}
+
+function simulationWeaponInGroup(weapon, group) {
+  return simulationGroupsForWeapon(weapon).has(group);
+}
+
+function simulationWeaponIsHeld(weapon) {
+  for (const group of simulationGroupsForWeapon(weapon)) {
+    if (state.simulation.heldGroups.has(group)) return true;
+  }
+  return false;
+}
+
 function renderSimulationGroupStatus() {
   $("simulation-group-status").innerHTML = [1, 2, 3, 4].map((group) => {
-    const count = state.simulation.weapons.filter((weapon) => state.simulation.assignments.get(weapon.key) === group).length;
+    const count = state.simulation.weapons.filter((weapon) => simulationWeaponInGroup(weapon, group)).length;
     const active = state.simulation.heldGroups.has(group);
     return `<div class="simulation-group-key ${active ? "active" : ""}"><strong>${group}</strong><span>${count}</span></div>`;
   }).join("");
@@ -4085,10 +4435,10 @@ function renderSimulationWeaponList() {
     return;
   }
   list.innerHTML = state.simulation.weapons.map((weapon) => {
-    const selectedGroup = state.simulation.assignments.get(weapon.key) || 1;
+    const selectedGroups = simulationGroupsForWeapon(weapon);
     const groupButtons = [1, 2, 3, 4].map((group) => `
-      <label class="simulation-group-option ${selectedGroup === group ? "active" : ""}">
-        <input type="radio" name="simulation-group-${weapon.key}" value="${group}" data-simulation-weapon="${weapon.key}" ${selectedGroup === group ? "checked" : ""}>
+      <label class="simulation-group-option ${selectedGroups.has(group) ? "active" : ""}">
+        <input type="checkbox" name="simulation-group-${weapon.key}" value="${group}" data-simulation-weapon="${weapon.key}" ${selectedGroups.has(group) ? "checked" : ""}>
         <span>${group}</span>
       </label>
     `).join("");
@@ -4116,14 +4466,18 @@ function openSimulation() {
   const previousAssignments = new Map(simulation.assignments);
   simulation.assignments.clear();
   simulation.weapons.forEach((weapon) => {
+    const savedGroups = Array.isArray(weapon.entry?.weapon_groups)
+      ? normalizeSimulationGroups(weapon.entry.weapon_groups)
+      : null;
     const savedGroup = Number(weapon.entry?.weapon_group);
-    const previousGroup = Number(previousAssignments.get(weapon.key));
-    simulation.assignments.set(
-      weapon.key,
-      savedGroup >= 1 && savedGroup <= 4
-        ? savedGroup
-        : previousGroup >= 1 && previousGroup <= 4 ? previousGroup : 1,
-    );
+    const previousGroups = previousAssignments.has(weapon.key)
+      ? normalizeSimulationGroups(previousAssignments.get(weapon.key))
+      : null;
+    const groups = savedGroups
+      ?? (savedGroup >= 1 && savedGroup <= 4
+        ? new Set([savedGroup])
+        : previousGroups ?? new Set([1]));
+    simulation.assignments.set(weapon.key, groups);
   });
   const heatSystem = simulationHeatSystem();
   simulation.maxHeat = heatSystem.maxHeat;
@@ -4151,10 +4505,10 @@ function closeSimulation() {
   $("open-simulation").focus();
 }
 
-function startSimulationBurn(weapon, startedAt, now = startedAt) {
+function startSimulationBurn(weapon, startedAt, now = startedAt, damageAllowed = state.simulation.targetVisible) {
   const durationMs = weapon.duration * 1000;
   if (durationMs <= 0) {
-    state.simulation.totalDamage += weapon.damage;
+    if (damageAllowed) state.simulation.totalDamage += weapon.damage;
     addSimulationHeat(weapon);
     return;
   }
@@ -4163,11 +4517,8 @@ function startSimulationBurn(weapon, startedAt, now = startedAt) {
   const appliedDamage = weapon.damage * progress;
   const totalHeat = number(weapon.heat);
   const appliedHeat = totalHeat * progress;
-  state.simulation.totalDamage += appliedDamage;
-  state.simulation.currentHeat = Math.min(
-    state.simulation.maxHeat,
-    state.simulation.currentHeat + appliedHeat,
-  );
+  if (damageAllowed) state.simulation.totalDamage += appliedDamage;
+  state.simulation.currentHeat += appliedHeat;
   if (progress < 1) {
     state.simulation.activeBurns.set(weapon.key, {
       startedAt,
@@ -4180,7 +4531,7 @@ function startSimulationBurn(weapon, startedAt, now = startedAt) {
   }
 }
 
-function updateSimulationBurnDamage(now) {
+function updateSimulationBurnDamage(now, damageAllowed = state.simulation.targetVisible) {
   for (const [weaponKey, burn] of state.simulation.activeBurns) {
     const duration = burn.endsAt - burn.startedAt;
     const progress = duration > 0
@@ -4188,11 +4539,10 @@ function updateSimulationBurnDamage(now) {
       : 1;
     const targetDamage = burn.totalDamage * progress;
     const targetHeat = burn.totalHeat * progress;
-    state.simulation.totalDamage += Math.max(0, targetDamage - burn.appliedDamage);
-    state.simulation.currentHeat = Math.min(
-      state.simulation.maxHeat,
-      state.simulation.currentHeat + Math.max(0, targetHeat - burn.appliedHeat),
-    );
+    if (damageAllowed) {
+      state.simulation.totalDamage += Math.max(0, targetDamage - burn.appliedDamage);
+    }
+    state.simulation.currentHeat += Math.max(0, targetHeat - burn.appliedHeat);
     burn.appliedDamage = targetDamage;
     burn.appliedHeat = targetHeat;
     if (progress >= 1) state.simulation.activeBurns.delete(weaponKey);
@@ -4203,91 +4553,138 @@ function updateSimulationContinuousDamage(now) {
   const simulation = state.simulation;
   for (const [weaponKey, lastUpdatedAt] of simulation.continuousFireAt) {
     const weapon = simulation.weapons.find((entry) => entry.key === weaponKey);
-    const group = weapon ? simulation.assignments.get(weapon.key) || 1 : 0;
-    if (!weapon || !simulation.heldGroups.has(group) || simulation.overheated) {
+    if (!weapon || !simulationWeaponIsHeld(weapon) || simulation.finished || simulation.overheated) {
       simulation.continuousFireAt.delete(weaponKey);
       continue;
     }
     const elapsed = Math.max(0, (now - lastUpdatedAt) / 1000);
-    simulation.totalDamage += (weapon.damage / weapon.cycle) * elapsed;
-    simulation.currentHeat = Math.min(
-      simulation.maxHeat,
-      simulation.currentHeat + (weapon.heat / weapon.cycle) * elapsed,
-    );
+    if (simulation.targetVisible) {
+      simulation.totalDamage += (weapon.damage / weapon.cycle) * elapsed;
+    }
+    simulation.currentHeat += (weapon.heat / weapon.cycle) * elapsed;
     simulation.continuousFireAt.set(weaponKey, now);
   }
 }
 
+function syncSimulationContinuousFire(now) {
+  const simulation = state.simulation;
+  simulation.weapons
+    .filter((weapon) => weapon.continuous)
+    .forEach((weapon) => {
+      const shouldFire = !simulation.finished
+        && !simulation.overheated
+        && simulationWeaponIsHeld(weapon);
+      if (shouldFire) {
+        if (!simulation.continuousFireAt.has(weapon.key)) {
+          simulation.continuousFireAt.set(weapon.key, now);
+        }
+      } else {
+        simulation.continuousFireAt.delete(weapon.key);
+      }
+    });
+}
+
 function simulationTick(now) {
   const simulation = state.simulation;
-  if (!simulation.open || simulation.startedAt === null) {
+  if (!simulation.open || simulation.startedAt === null || simulation.finished) {
     simulation.frameId = null;
     return;
   }
-  coolSimulationHeat(now);
-  updateSimulationBurnDamage(now);
-  updateSimulationContinuousDamage(now);
+  const durationMs = simulationDurationMs();
+  const endsAt = durationMs === null
+    ? Number.POSITIVE_INFINITY
+    : simulation.startedAt + durationMs;
+  const tickNow = Math.min(now, endsAt);
+  const targetWasVisible = simulation.targetVisible;
+  coolSimulationHeat(tickNow);
+  updateSimulationBurnDamage(tickNow, targetWasVisible);
+  updateSimulationContinuousDamage(tickNow);
   applySimulationOverheat();
-  for (const weapon of simulation.weapons) {
-    if (weapon.continuous) continue;
-    const group = simulation.assignments.get(weapon.key) || 1;
-    if (!simulation.heldGroups.has(group)) continue;
-    const nextFire = simulation.nextFireAt.get(weapon.key) ?? now;
-    if (nextFire > now) continue;
-    const shotCount = Math.floor((now - nextFire) / (weapon.cycle * 1000)) + 1;
-    if (weapon.duration > 0) {
-      simulation.totalDamage += weapon.damage * Math.max(0, shotCount - 1);
-      addSimulationHeat(weapon, Math.max(0, shotCount - 1));
-      const latestFireAt = nextFire + Math.max(0, shotCount - 1) * weapon.cycle * 1000;
-      startSimulationBurn(weapon, latestFireAt, now);
-    } else {
-      simulation.totalDamage += weapon.damage * shotCount;
-      addSimulationHeat(weapon, shotCount);
+  updateSimulationScenario(tickNow);
+  syncSimulationContinuousFire(tickNow);
+  if (!simulation.finished && !simulation.overheated) {
+    for (const weapon of simulation.weapons) {
+      if (weapon.continuous) continue;
+      if (!simulationWeaponIsHeld(weapon)) continue;
+      const nextFire = simulation.nextFireAt.get(weapon.key) ?? tickNow;
+      if (nextFire > tickNow) continue;
+      const shotCount = Math.floor((tickNow - nextFire) / (weapon.cycle * 1000)) + 1;
+      if (weapon.duration > 0) {
+        if (simulation.targetVisible) {
+          simulation.totalDamage += weapon.damage * Math.max(0, shotCount - 1);
+        }
+        addSimulationHeat(weapon, Math.max(0, shotCount - 1));
+        const latestFireAt = nextFire + Math.max(0, shotCount - 1) * weapon.cycle * 1000;
+        startSimulationBurn(weapon, latestFireAt, tickNow, simulation.targetVisible);
+      } else {
+        if (simulation.targetVisible) simulation.totalDamage += weapon.damage * shotCount;
+        addSimulationHeat(weapon, shotCount);
+      }
+      simulation.nextFireAt.set(weapon.key, nextFire + shotCount * weapon.cycle * 1000);
     }
-    simulation.nextFireAt.set(weapon.key, nextFire + shotCount * weapon.cycle * 1000);
   }
   applySimulationOverheat();
-  renderSimulationMetrics(now);
-  simulation.frameId = requestAnimationFrame(simulationTick);
+  if (tickNow >= endsAt) finishSimulationRun();
+  renderSimulationMetrics(tickNow);
+  renderSimulationScenario(tickNow);
+  if (simulation.finished) {
+    simulation.frameId = null;
+  } else {
+    simulation.frameId = requestAnimationFrame(simulationTick);
+  }
 }
 
 function setSimulationGroupHeld(group, held) {
   const simulation = state.simulation;
-  if (!simulation.open || (held && simulation.overheated)) return;
+  if (!simulation.open) return;
+  if (simulation.finished) {
+    simulation.heldGroups.delete(group);
+    simulation.continuousFireAt.clear();
+    renderSimulationGroupStatus();
+    return;
+  }
+  if (held && simulation.overheated) return;
   const now = performance.now();
+  const durationMs = simulationDurationMs();
+  if (
+    durationMs !== null
+    && simulation.startedAt !== null
+    && now >= simulation.startedAt + durationMs
+  ) {
+    simulationTick(now);
+    return;
+  }
   if (held) {
     if (simulation.heldGroups.has(group)) return;
     simulation.heldGroups.add(group);
     const groupWeapons = simulation.weapons.filter(
-      (weapon) => (simulation.assignments.get(weapon.key) || 1) === group,
+      (weapon) => simulationWeaponInGroup(weapon, group),
     );
-    if (groupWeapons.length && simulation.startedAt === null) simulation.startedAt = now;
+    if (groupWeapons.length && simulation.startedAt === null) {
+      simulation.startedAt = now;
+      updateSimulationScenario(now);
+    }
     coolSimulationHeat(now);
     groupWeapons.forEach((weapon) => {
-      if (weapon.continuous) {
-        simulation.continuousFireAt.set(weapon.key, now);
-        return;
-      }
+      if (weapon.continuous) return;
       const nextFire = simulation.nextFireAt.get(weapon.key) || 0;
       if (nextFire <= now) {
-        startSimulationBurn(weapon, now, now);
+        startSimulationBurn(weapon, now, now, simulation.targetVisible);
         simulation.nextFireAt.set(weapon.key, now + weapon.cycle * 1000);
       }
     });
+    syncSimulationContinuousFire(now);
     applySimulationOverheat();
     renderSimulationMetrics(now);
+    renderSimulationScenario(now);
     if (simulation.startedAt !== null && simulation.frameId === null) {
       simulation.frameId = requestAnimationFrame(simulationTick);
     }
   } else {
     coolSimulationHeat(now);
     updateSimulationContinuousDamage(now);
-    simulation.weapons.forEach((weapon) => {
-      if (weapon.continuous && (simulation.assignments.get(weapon.key) || 1) === group) {
-        simulation.continuousFireAt.delete(weapon.key);
-      }
-    });
     simulation.heldGroups.delete(group);
+    syncSimulationContinuousFire(now);
     applySimulationOverheat();
     renderSimulationMetrics(now);
   }
@@ -4964,6 +5361,104 @@ function selectMech(id) {
   if (state.activeMainTab === "mechlab") document.querySelector(".tab-content").scrollTop = 0;
 }
 
+function setLoadoutCodeStatus(message = "", tone = "") {
+  const status = $("loadout-code-status");
+  status.textContent = message;
+  status.classList.toggle("error", tone === "error");
+  status.classList.toggle("success", tone === "success");
+}
+
+function openLoadoutCodeDialog(mode) {
+  if (!globalThis.MWOCodec) {
+    $("data-status").textContent = t("loadout.codecUnavailable");
+    return;
+  }
+  state.loadoutCodeMode = mode;
+  const importing = mode === "import";
+  const textarea = $("loadout-code-text");
+  $("loadout-code-title").textContent = t(importing ? "loadout.importTitle" : "loadout.exportTitle");
+  $("loadout-code-description").textContent = t(
+    importing ? "loadout.importDescription" : "loadout.exportDescription",
+  );
+  $("apply-loadout-code").hidden = !importing;
+  $("copy-loadout-code").hidden = importing;
+  textarea.readOnly = !importing;
+  textarea.placeholder = importing ? t("loadout.importPlaceholder") : "";
+  setLoadoutCodeStatus();
+
+  if (importing) {
+    textarea.value = "";
+  } else {
+    try {
+      textarea.value = MWOCodec.encode(currentBuildAsMwoLoadout());
+    } catch (error) {
+      textarea.value = "";
+      setLoadoutCodeStatus(error.message, "error");
+    }
+  }
+
+  $("loadout-code-overlay").hidden = false;
+  document.body.classList.add("loadout-code-open");
+  requestAnimationFrame(() => {
+    textarea.focus();
+    if (!importing) textarea.select();
+  });
+}
+
+function closeLoadoutCodeDialog() {
+  if ($("loadout-code-overlay").hidden) return;
+  $("loadout-code-overlay").hidden = true;
+  document.body.classList.remove("loadout-code-open");
+  const focusTarget = state.loadoutCodeMode === "export"
+    ? $("export-loadout-code")
+    : $("import-loadout-code");
+  focusTarget?.focus();
+}
+
+function applyImportedMwoCode() {
+  try {
+    if (!globalThis.MWOCodec) throw new Error(t("loadout.codecUnavailable"));
+    const decoded = MWOCodec.decode($("loadout-code-text").value);
+    const mech = mechById(decoded.chassisId);
+    if (!mech) throw new Error(t("loadout.invalidMech", { id: decoded.chassisId }));
+    if (decoded.isOmni !== hasFixedOmnipods(mech)) {
+      throw new Error(t("loadout.invalidMech", { id: decoded.chassisId }));
+    }
+    const build = buildFromMwoCode(decoded, mech);
+    state.selectedMech = mech;
+    state.selectedChassis = mech.chassis || "";
+    state.selectedItemId = null;
+    if (state.selectedChassis) state.expandedChassis.add(state.selectedChassis);
+    state.currentBuild = build;
+    state.mechlabBrowseMode = false;
+    closeLoadoutCodeDialog();
+    renderAll();
+    $("data-status").textContent = t("loadout.imported", { mech: mech.display_name });
+    document.querySelector(".tab-content").scrollTop = 0;
+  } catch (error) {
+    setLoadoutCodeStatus(error.message, "error");
+  }
+}
+
+async function copyExportedMwoCode() {
+  const textarea = $("loadout-code-text");
+  const code = textarea.value.trim();
+  if (!code) return;
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+    await navigator.clipboard.writeText(code);
+    setLoadoutCodeStatus(t("loadout.copied"), "success");
+  } catch {
+    textarea.focus();
+    textarea.select();
+    const copied = typeof document.execCommand === "function" && document.execCommand("copy");
+    setLoadoutCodeStatus(
+      t(copied ? "loadout.copied" : "loadout.copyFailed"),
+      copied ? "success" : "error",
+    );
+  }
+}
+
 function showMechlabList() {
   state.mechlabBrowseMode = true;
   renderMechList();
@@ -5227,9 +5722,23 @@ function removeDraggedItem() {
 }
 
 function bindEvents() {
+  $("import-loadout-code").addEventListener("click", () => openLoadoutCodeDialog("import"));
+  $("export-loadout-code").addEventListener("click", () => openLoadoutCodeDialog("export"));
+  $("close-loadout-code").addEventListener("click", closeLoadoutCodeDialog);
+  $("apply-loadout-code").addEventListener("click", applyImportedMwoCode);
+  $("copy-loadout-code").addEventListener("click", copyExportedMwoCode);
+  $("loadout-code-overlay").addEventListener("mousedown", (event) => {
+    if (event.target === $("loadout-code-overlay")) closeLoadoutCodeDialog();
+  });
   $("open-simulation").addEventListener("click", openSimulation);
   $("close-simulation").addEventListener("click", closeSimulation);
   $("reset-simulation").addEventListener("click", resetSimulationRun);
+  $("simulation-scenario-options").addEventListener("change", (event) => {
+    const input = event.target.closest('input[name="simulation-scenario"]');
+    if (!input || !SIMULATION_SCENARIOS[input.value]) return;
+    state.simulation.scenarioId = input.value;
+    resetSimulationRun();
+  });
   $("simulation-overlay").addEventListener("mousedown", (event) => {
     if (event.target === $("simulation-overlay")) closeSimulation();
   });
@@ -5239,13 +5748,34 @@ function bindEvents() {
     const group = Number(input.value);
     const weapon = state.simulation.weapons.find((entry) => entry.key === input.dataset.simulationWeapon);
     if (!weapon || group < 1 || group > 4) return;
-    state.simulation.assignments.set(weapon.key, group);
-    if (weapon.entry) weapon.entry.weapon_group = group;
+    const groups = new Set(simulationGroupsForWeapon(weapon));
+    if (input.checked) groups.add(group);
+    else groups.delete(group);
+    state.simulation.assignments.set(weapon.key, groups);
+    if (weapon.entry) {
+      const savedGroups = Array.from(groups).sort((left, right) => left - right);
+      weapon.entry.weapon_groups = savedGroups;
+      weapon.entry.weapon_group = savedGroups[0] ?? null;
+    }
     resetSimulationRun();
     renderSimulationWeaponList();
     renderSimulationGroupStatus();
   });
   document.addEventListener("keydown", (event) => {
+    if (!$("loadout-code-overlay").hidden) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeLoadoutCodeDialog();
+      } else if (
+        state.loadoutCodeMode === "import"
+        && event.key === "Enter"
+        && (event.ctrlKey || event.metaKey)
+      ) {
+        event.preventDefault();
+        applyImportedMwoCode();
+      }
+      return;
+    }
     if (!state.simulation.open) return;
     if (event.key === "Escape") {
       event.preventDefault();
@@ -5267,6 +5797,15 @@ function bindEvents() {
   window.addEventListener("blur", () => {
     if (!state.simulation.open) return;
     const now = performance.now();
+    const durationMs = simulationDurationMs();
+    if (
+      durationMs !== null
+      && state.simulation.startedAt !== null
+      && now >= state.simulation.startedAt + durationMs
+    ) {
+      simulationTick(now);
+      return;
+    }
     coolSimulationHeat(now);
     updateSimulationContinuousDamage(now);
     state.simulation.heldGroups.clear();

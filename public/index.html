@@ -98,6 +98,10 @@
                     </div>
                     <div class="mech-summary-actions">
                       <button id="open-simulation" class="simulation-open-button" type="button" data-i18n="simulation.open" disabled>시뮬레이션</button>
+                      <div class="loadout-code-actions">
+                        <button id="import-loadout-code" type="button" data-i18n="loadout.import">IMPORT</button>
+                        <button id="export-loadout-code" type="button" data-i18n="loadout.export" disabled>EXPORT</button>
+                      </div>
                     </div>
                   </aside>
 
@@ -288,6 +292,24 @@
       <div id="compare-overlay-cells" class="compare-header-overlay-cells"></div>
     </div>
 
+    <div id="loadout-code-overlay" class="loadout-code-overlay" hidden>
+      <section class="loadout-code-dialog" role="dialog" aria-modal="true" aria-labelledby="loadout-code-title">
+        <header>
+          <div>
+            <h2 id="loadout-code-title">MWO LOADOUT CODE</h2>
+            <p id="loadout-code-description"></p>
+          </div>
+          <button id="close-loadout-code" class="loadout-code-close" type="button" aria-label="닫기" data-i18n-aria-label="loadout.close">×</button>
+        </header>
+        <textarea id="loadout-code-text" rows="5" spellcheck="false" autocomplete="off"></textarea>
+        <p id="loadout-code-status" class="loadout-code-status" aria-live="polite"></p>
+        <div class="loadout-code-dialog-actions">
+          <button id="apply-loadout-code" type="button" data-i18n="loadout.apply">불러오기</button>
+          <button id="copy-loadout-code" type="button" data-i18n="loadout.copy">코드 복사</button>
+        </div>
+      </section>
+    </div>
+
     <div id="simulation-overlay" class="simulation-overlay" hidden>
       <section class="simulation-dialog" role="dialog" aria-modal="true" aria-labelledby="simulation-title">
         <header class="simulation-header">
@@ -312,6 +334,47 @@
             </div>
           </div>
         </div>
+        <section class="simulation-scenario-panel" aria-labelledby="simulation-scenario-title">
+          <div class="simulation-scenario-toolbar">
+            <strong id="simulation-scenario-title" data-i18n="simulation.scenario">시나리오</strong>
+            <div id="simulation-scenario-options" class="simulation-scenario-options" role="radiogroup" aria-label="시나리오 선택" data-i18n-aria-label="simulation.scenarioSelect">
+              <label class="simulation-scenario-option active">
+                <input type="radio" name="simulation-scenario" value="free" checked>
+                <span data-i18n="simulation.scenarioFree">0. 자유 모드 / 시간제한 없음</span>
+              </label>
+              <label class="simulation-scenario-option">
+                <input type="radio" name="simulation-scenario" value="stationary">
+                <span data-i18n="simulation.scenarioStationary">1. 고정 표적</span>
+              </label>
+              <label class="simulation-scenario-option">
+                <input type="radio" name="simulation-scenario" value="brawl44">
+                <span data-i18n="simulation.scenarioBrawl44">2. 4초 노출 / 4초 엄폐</span>
+              </label>
+              <label class="simulation-scenario-option">
+                <input type="radio" name="simulation-scenario" value="brawl153">
+                <span data-i18n="simulation.scenarioBrawl153">3. 1.5초 노출 / 3초 엄폐</span>
+              </label>
+            </div>
+          </div>
+          <div id="simulation-target-stage" class="simulation-target-stage target-visible" aria-label="적 노출" data-i18n-aria-label="simulation.targetVisible">
+            <div class="simulation-enemy" aria-hidden="true">
+              <div class="simulation-enemy-figure">
+                <i class="simulation-enemy-head"></i>
+                <i class="simulation-enemy-body"></i>
+                <i class="simulation-enemy-arm left"></i>
+                <i class="simulation-enemy-arm right"></i>
+                <i class="simulation-enemy-leg left"></i>
+                <i class="simulation-enemy-leg right"></i>
+              </div>
+              <small>ENEMY</small>
+            </div>
+            <div class="simulation-wall" aria-hidden="true"></div>
+            <div class="simulation-target-readout">
+              <strong id="simulation-target-status" data-i18n="simulation.targetVisible">적 노출</strong>
+              <span id="simulation-scenario-time" data-i18n="simulation.noTimeLimit">시간제한 없음</span>
+            </div>
+          </div>
+        </section>
         <div id="simulation-group-status" class="simulation-group-status" aria-label="무기 그룹 상태" data-i18n-aria-label="simulation.groupStatus"></div>
         <div class="simulation-toolbar">
           <strong data-i18n="simulation.groups">무기 그룹 지정</strong>
@@ -327,6 +390,7 @@
       </section>
     </div>
 
+    <script src="mwo-codec.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
