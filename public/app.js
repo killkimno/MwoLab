@@ -1293,6 +1293,11 @@ function isEcm(item) {
   return item?.ctype === "CGECMStats";
 }
 
+function componentHasEcm(component) {
+  return [...(component?.items || []), ...(component?.fixed || [])]
+    .some((entry) => isEcm(itemById(entry?.item_id ?? entry)));
+}
+
 function equipmentHardpointType(item) {
   if (isEcm(item)) return "ecm";
   if (item?.item_type !== "weapon") return "";
@@ -1890,7 +1895,7 @@ function omnipodDefinition(pod) {
     ...hardpoint,
     hardpoint_type: hardpointType(hardpoint),
   }));
-  if ((sourceComponent?.items || []).some((entry) => isEcm(itemById(entry.item_id)))) {
+  if (componentHasEcm(sourceComponent)) {
     hardpoints = addEcmHardpoint(hardpoints);
   }
   const definition = {
@@ -1908,7 +1913,7 @@ function ecmCapableOmnipodIds() {
   Object.values(state.loadouts || {}).forEach((loadout) => {
     Object.values(loadout.components || {}).forEach((component) => {
       if (!component.omnipod) return;
-      const hasEcm = (component.items || []).some((entry) => isEcm(itemById(entry.item_id)));
+      const hasEcm = componentHasEcm(component);
       if (hasEcm) ids.add(String(component.omnipod));
     });
   });
@@ -1970,6 +1975,9 @@ function effectiveComponentDefinition(mech = state.selectedMech, build = state.c
       hardpoint_type: hardpointType(hardpoint),
     }));
   if (pod && ecmCapableOmnipodIds().has(String(pod.id))) {
+    hardpoints = addEcmHardpoint(hardpoints);
+  }
+  if (!pod && componentHasEcm(loadoutForMech(mech).components?.[componentName])) {
     hardpoints = addEcmHardpoint(hardpoints);
   }
   const internals = [...(base.internals || []), ...podDefinition.internals]
@@ -5453,12 +5461,12 @@ function renderMechCard(mech, activeChassis) {
         <img src="${escapeHtml(iconSrc)}" alt="" loading="lazy" decoding="async">
       </span>
       <span class="mech-card-title">
-        <strong>${omnipodIcon(mech)}<span>${mech.display_name || variantCode(mech)}</span></strong>
+        <strong>${omnipodIcon(mech)}<span>${variantCode(mech)}</span></strong>
       </span>
       <span class="mech-card-stats">
         <span><span>${t("info.durability")}</span><strong class="${durabilityBoosted ? "boosted" : ""}">${formatInfoNumber(data.combinedTotal, 0)}</strong></span>
-        <span><span>${t("info.acceleration")}/${t("info.deceleration")}</span><strong><span class="${accelerationBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.acceleration, 1)}</span> / <span class="${decelerationBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.deceleration, 1)}</span></strong></span>
-        <span><span>${t("info.turnSpeed")}</span><strong class="${turnBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.turnSpeed, 2)}</strong></span>
+        <span><span>${t("info.acceleration")}/${t("info.deceleration")}</span><strong><span class="${accelerationBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.acceleration, 0)}</span> / <span class="${decelerationBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.deceleration, 0)}</span></strong></span>
+        <span><span>${t("info.turnSpeed")}</span><strong class="${turnBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.turnSpeed, 0)}</strong></span>
       </span>
       <span class="badge-line">${stockHardpointBadges(mech)}</span>
     </button>

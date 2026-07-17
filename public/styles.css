@@ -581,7 +581,7 @@ h3 {
   position: relative;
   min-width: 0;
   width: 100%;
-  aspect-ratio: 100 / 81;
+  aspect-ratio: 100 / 72;
   border: 1px solid #263840;
   border-radius: 4px;
   background: #0d1214;
@@ -600,7 +600,7 @@ h3 {
   width: 90%;
   height: auto;
   max-width: 100%;
-  clip-path: inset(10% 0 0 0);
+  clip-path: inset(10% 0 10% 0);
   transform: translate(-50%, -10%);
 }
 
@@ -658,12 +658,19 @@ h3 {
 }
 
 .mech-card-stats strong {
-  overflow: hidden;
+  overflow: visible;
   color: var(--text);
   font-size: 0.9rem;
   line-height: 1.1;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   white-space: nowrap;
+}
+
+.mech-card-stats strong > span {
+  overflow: visible;
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .mech-card-stats strong .boosted,
@@ -765,7 +772,7 @@ h3 {
 
 .hardpoint-chip {
   display: inline-grid;
-  grid-template-columns: minmax(1.35rem, auto) auto;
+  grid-template-columns: 2.25rem auto;
   align-items: center;
   min-height: 1.35rem;
   border: 1px solid #34454c;
@@ -782,7 +789,7 @@ h3 {
 .hardpoint-icon {
   display: inline-grid;
   place-items: center;
-  min-width: 1.35rem;
+  width: 2.25rem;
   height: 1.35rem;
   background: #263139;
   color: currentColor;
@@ -806,9 +813,12 @@ h3 {
   color: var(--purple);
 }
 
-.hardpoint-chip.ams,
-.hardpoint-chip.ecm {
+.hardpoint-chip.ams {
   color: var(--green);
+}
+
+.hardpoint-chip.ecm {
+  color: #ff9b42;
 }
 
 .workspace {
@@ -3977,10 +3987,11 @@ body.pointer-drag-active * {
 }
 .slot-item.ams .slot-item-mark { background: #17723a; color: #9affbd; }
 .slot-item.ecm {
-  border-color: #39c9b8;
-  background: repeating-linear-gradient(to bottom, #0e5048 0, #0e5048 1.65rem, #17685e 1.65rem, #17685e calc(1.65rem + 1px));
+  border-color: #ff9b42;
+  background: repeating-linear-gradient(to bottom, #65300d 0, #65300d 1.65rem, #824313 1.65rem, #824313 calc(1.65rem + 1px));
+  box-shadow: inset 3px 0 #ffad61;
 }
-.slot-item.ecm .slot-item-mark { background: #0c7468; color: #9cfff3; }
+.slot-item.ecm .slot-item-mark { background: #91470f; color: #ffe0bd; }
 
 .slot-item.energy.ammo {
   border-color: #7d761f;
@@ -4006,8 +4017,7 @@ body.pointer-drag-active * {
 
 .slot-item.module,
 .slot-item.masc,
-.slot-item.jumpjet,
-.slot-item.ecm {
+.slot-item.jumpjet {
   border-color: #69baf0;
   background: repeating-linear-gradient(to bottom, #285c7c 0, #285c7c 1.65rem, #34789f 1.65rem, #34789f calc(1.65rem + 1px));
   box-shadow: inset 3px 0 #84c9f7;
@@ -4015,8 +4025,7 @@ body.pointer-drag-active * {
 
 .slot-item.module .slot-item-mark,
 .slot-item.masc .slot-item-mark,
-.slot-item.jumpjet .slot-item-mark,
-.slot-item.ecm .slot-item-mark {
+.slot-item.jumpjet .slot-item-mark {
   background: #176b9e;
   color: #b9e9ff;
 }
@@ -4481,7 +4490,7 @@ body.pointer-drag-active * {
 .equipment-tooltip-card.tooltip-missile { --tooltip-accent: #35da8b; }
 .equipment-tooltip-card.tooltip-ballistic { --tooltip-accent: #cb78f5; }
 .equipment-tooltip-card.tooltip-ams { --tooltip-accent: #45da86; }
-.equipment-tooltip-card.tooltip-ecm,
+.equipment-tooltip-card.tooltip-ecm { --tooltip-accent: #ff9b42; }
 .equipment-tooltip-card.tooltip-equipment { --tooltip-accent: #45baff; }
 .equipment-tooltip-card.tooltip-ammo { --tooltip-accent: #ff842d; }
 .equipment-tooltip-card.tooltip-heatsink { --tooltip-accent: #45aaff; }
@@ -4637,7 +4646,7 @@ body.pointer-drag-active * {
 .omnipod-hardpoint.missile { color: #62dc98; }
 .omnipod-hardpoint.ballistic { color: #c8a1dd; }
 .omnipod-hardpoint.ams { color: var(--green); }
-.omnipod-hardpoint.ecm { color: #6ed3c2; }
+.omnipod-hardpoint.ecm { color: #ff9b42; }
 
 .item-row-name {
   display: grid;
@@ -4670,7 +4679,7 @@ body.pointer-drag-active * {
 .item-row.missile .item-type-mark { background: #0c5c38; color: #92f5ba; }
 .item-row.ballistic .item-type-mark { background: #402b50; color: #c8a1dd; }
 .item-row.ams .item-type-mark { background: #214a31; color: var(--green); }
-.item-row.ecm .item-type-mark { background: #176b9e; color: #b9e9ff; }
+.item-row.ecm .item-type-mark { background: #91470f; color: #ffe0bd; }
 .item-row.module .item-type-mark,
 .item-row.masc .item-type-mark,
 .item-row.jumpjet .item-type-mark { background: #176b9e; color: #b9e9ff; }
