@@ -89,8 +89,20 @@ const TEXT = {
     "simulation.scenarioSelect": "시나리오 선택",
     "simulation.scenarioFree": "0. 자유 모드 / 시간제한 없음",
     "simulation.scenarioStationary": "1. 고정 표적",
-    "simulation.scenarioBrawl44": "2. 4초 노출 / 4초 엄폐",
-    "simulation.scenarioBrawl153": "3. 1.5초 노출 / 3초 엄폐",
+    "simulation.scenarioBrawl44": "2. 4초 노출 / 2초 엄폐",
+    "simulation.scenarioBrawl153": "3. 2초 노출 / 3초 엄폐",
+    "simulation.movementState": "이동 상태",
+    "simulation.stationary": "정지",
+    "simulation.moving": "이동중",
+    "simulation.movementHelp": "100% 속력으로 이동할 때 초당 0.3의 발열이 추가됩니다.",
+    "simulation.mapTemperature": "맵 온도",
+    "simulation.temperatureLow": "낮음",
+    "simulation.temperatureNormal": "보통",
+    "simulation.temperatureHigh": "높음",
+    "simulation.temperatureVeryHigh": "매우 높음",
+    "simulation.temperatureHelp": "맵 온도에 따라 초당 냉각량이 낮음 +0.15, 보통 0, 높음 -0.15, 매우 높음 -0.3만큼 보정됩니다.",
+    "simulation.targetDistance": "적과의 거리",
+    "simulation.distanceHelp": "최소 사거리 미만은 피해가 없고, 최소~적정 사거리는 100%, 적정~최대 사거리는 무기별 규칙에 따라 감소합니다.",
     "simulation.noTimeLimit": "시간제한 없음",
     "simulation.targetVisible": "적 노출",
     "simulation.targetHidden": "적 엄폐 · 데미지 무효",
@@ -369,8 +381,20 @@ const TEXT = {
     "simulation.scenarioSelect": "Select scenario",
     "simulation.scenarioFree": "0. Free mode / No time limit",
     "simulation.scenarioStationary": "1. Stationary target",
-    "simulation.scenarioBrawl44": "2. 4s exposed / 4s covered",
-    "simulation.scenarioBrawl153": "3. 1.5s exposed / 3s covered",
+    "simulation.scenarioBrawl44": "2. 4s exposed / 2s covered",
+    "simulation.scenarioBrawl153": "3. 2s exposed / 3s covered",
+    "simulation.movementState": "Movement",
+    "simulation.stationary": "Stationary",
+    "simulation.moving": "Moving",
+    "simulation.movementHelp": "Moving at 100% speed adds 0.3 heat per second.",
+    "simulation.mapTemperature": "Map temperature",
+    "simulation.temperatureLow": "Low",
+    "simulation.temperatureNormal": "Normal",
+    "simulation.temperatureHigh": "High",
+    "simulation.temperatureVeryHigh": "Very high",
+    "simulation.temperatureHelp": "Map temperature modifies cooling per second: Low +0.15, Normal 0, High -0.15, Very high -0.3.",
+    "simulation.targetDistance": "Target distance",
+    "simulation.distanceHelp": "Damage is zero below minimum range, 100% from minimum through optimal range, then falls by each weapon's rule through maximum range.",
     "simulation.noTimeLimit": "NO TIME LIMIT",
     "simulation.targetVisible": "TARGET EXPOSED",
     "simulation.targetHidden": "TARGET COVERED · DAMAGE BLOCKED",
@@ -819,14 +843,21 @@ const STATS_CHASSIS_AGGREGATE_MODES = [
 
 const MAX_COMPARE_MECHS = 15;
 const COMPARE_RANK_EPSILON = 0.0001;
-const SIMULATION_TIMED_DURATION_MS = 15_000;
+const SIMULATION_TIMED_DURATION_MS = 20_000;
 const SIMULATION_GROUP_FIRE_INDICATOR_MS = 250;
 const SIMULATION_CONTINUOUS_HIT_EFFECT_INTERVAL_MS = 120;
+const SIMULATION_MOVEMENT_HEAT_PER_SECOND = 0.3;
+const SIMULATION_MAP_COOLING_MODIFIERS = Object.freeze({
+  low: 0.15,
+  normal: 0,
+  high: -0.15,
+  veryHigh: -0.3,
+});
 const SIMULATION_SCENARIOS = Object.freeze({
   free: Object.freeze({ durationMs: null, visibleMs: Number.POSITIVE_INFINITY, hiddenMs: 0 }),
   stationary: Object.freeze({ durationMs: SIMULATION_TIMED_DURATION_MS, visibleMs: SIMULATION_TIMED_DURATION_MS, hiddenMs: 0 }),
-  brawl44: Object.freeze({ durationMs: SIMULATION_TIMED_DURATION_MS, visibleMs: 4_000, hiddenMs: 4_000 }),
-  brawl153: Object.freeze({ durationMs: SIMULATION_TIMED_DURATION_MS, visibleMs: 1_500, hiddenMs: 3_000 }),
+  brawl44: Object.freeze({ durationMs: SIMULATION_TIMED_DURATION_MS, visibleMs: 4_000, hiddenMs: 2_000 }),
+  brawl153: Object.freeze({ durationMs: SIMULATION_TIMED_DURATION_MS, visibleMs: 2_000, hiddenMs: 3_000 }),
 });
 const DEFAULT_COLLAPSED_COMPARE_CATEGORIES = [t("info.combinedDurability"), t("info.armorInfo"), t("info.structureInfo"), t("stats.chassisInfo")];
 const DIRECT_COOLDOWN_QUIRKS = new Set([
@@ -927,6 +958,9 @@ const state = {
     open: false,
     weapons: [],
     scenarioId: "free",
+    movementState: "stationary",
+    mapTemperature: "normal",
+    targetDistance: 150,
     targetVisible: true,
     finished: false,
     assignments: new Map(),
@@ -4316,6 +4350,60 @@ function simulationWeaponHeat(item, quirks) {
   return Math.max(0, itemHeat(item) * Math.max(0, 1 - heatReduction));
 }
 
+function simulationWeaponRangeBonus(item, quirks) {
+  const type = equipmentHardpointType(item);
+  return quirkIncrease(quirks, "all_range_multiplier")
+    + quirkIncrease(quirks, `${type}_range_multiplier`)
+    + simulationSpecificQuirkTotal(quirks, item, "_range_multiplier", "increase");
+}
+
+function simulationWeaponRangeProfile(item, rangeBonus = 0) {
+  const multiplier = Math.max(0, 1 + number(rangeBonus));
+  const ranges = (item?.ranges || [])
+    .map((range) => ({
+      start: number(range.start) * multiplier,
+      modifier: Math.max(0, number(range.damageModifier)),
+      interpolation: String(range.interpolationToNextRange || "linear").toLowerCase(),
+      exponent: Math.max(0.0001, number(range.exponent, 1)),
+    }))
+    .sort((left, right) => left.start - right.start);
+  if (!ranges.length) return null;
+  const maxModifier = Math.max(...ranges.map((range) => range.modifier));
+  const fullDamageRanges = ranges.filter((range) => Math.abs(range.modifier - maxModifier) < 0.0001);
+  return {
+    ranges,
+    minimumRange: fullDamageRanges[0]?.start ?? ranges[0].start,
+    optimalRange: fullDamageRanges.at(-1)?.start ?? ranges[0].start,
+    maximumRange: ranges.at(-1).start,
+  };
+}
+
+function simulationWeaponDamageMultiplier(weapon, distance = state.simulation.targetDistance) {
+  const profile = weapon.rangeProfile;
+  if (!profile) return 1;
+  const targetDistance = Math.max(0, number(Number(distance), 150));
+  if (targetDistance < profile.minimumRange || targetDistance > profile.maximumRange) return 0;
+  if (targetDistance <= profile.optimalRange) return 1;
+
+  const ranges = profile.ranges;
+  const index = ranges.findIndex((range) => range.start > targetDistance);
+  if (index <= 0) return Math.max(0, Math.min(1, ranges.at(-1).modifier));
+  const previous = ranges[index - 1];
+  const next = ranges[index];
+  if (previous.interpolation === "step" || next.start <= previous.start) {
+    return Math.max(0, Math.min(1, previous.modifier));
+  }
+  const progress = Math.max(0, Math.min(1, (targetDistance - previous.start) / (next.start - previous.start)));
+  const interpolatedProgress = previous.interpolation === "exponential"
+    ? progress ** previous.exponent
+    : progress;
+  return Math.max(0, Math.min(1, previous.modifier + (next.modifier - previous.modifier) * interpolatedProgress));
+}
+
+function simulationWeaponDamage(weapon, shotCount = 1) {
+  return number(weapon.damage) * Math.max(0, number(shotCount, 1)) * simulationWeaponDamageMultiplier(weapon);
+}
+
 function isSimulationMachineGun(item) {
   return simulationItemKeys(item).has("machinegun")
     || normalizeLookupKey(item?.name).includes("machinegun");
@@ -4385,6 +4473,7 @@ function collectSimulationWeapons() {
         damage: number(item.stats?.damage) * number(item.stats?.numFiring, 1),
         heat: simulationWeaponHeat(item, quirks),
         continuous: isSimulationMachineGun(item),
+        rangeProfile: simulationWeaponRangeProfile(item, simulationWeaponRangeBonus(item, quirks)),
         ...timing,
         entry: null,
       });
@@ -4401,6 +4490,7 @@ function collectSimulationWeapons() {
         damage: number(item.stats?.damage) * number(item.stats?.numFiring, 1),
         heat: simulationWeaponHeat(item, quirks),
         continuous: isSimulationMachineGun(item),
+        rangeProfile: simulationWeaponRangeProfile(item, simulationWeaponRangeBonus(item, quirks)),
         ...timing,
         entry,
       });
@@ -4444,7 +4534,6 @@ function renderSimulationScenario(now = performance.now()) {
   const status = simulation.finished
     ? t("simulation.scenarioComplete")
     : t(simulation.targetVisible ? "simulation.targetVisible" : "simulation.targetHidden");
-  $("simulation-target-status").textContent = status;
   $("simulation-scenario-time").textContent = durationMs === null
     ? t("simulation.noTimeLimit")
     : `${(Math.max(0, durationMs - elapsedMs) / 1000).toFixed(1)}s`;
@@ -4521,10 +4610,14 @@ function renderSimulationHeat() {
   const ratio = simulation.maxHeat > 0 ? Math.max(0, simulation.currentHeat / simulation.maxHeat) : 0;
   const fillRatio = Math.min(1, ratio);
   const percent = ratio * 100;
+  const netCoolingRate = simulationNetCoolingRate();
+  const heatRateText = netCoolingRate >= 0
+    ? `-${fmt(netCoolingRate, 2)}/s`
+    : `+${fmt(-netCoolingRate, 2)}/s`;
   $("simulation-heat-value").textContent = `${simulation.currentHeat.toFixed(1)} / ${fmt(simulation.maxHeat, 1)}`;
   $("simulation-heat-percent").textContent = simulation.overheated
-    ? `${t("simulation.overheated")} · ${percent.toFixed(1)}% · -${fmt(simulation.coolingRate, 1)}/s`
-    : `${percent.toFixed(1)}% · -${fmt(simulation.coolingRate, 1)}/s`;
+    ? `${t("simulation.overheated")} · ${percent.toFixed(1)}% · ${heatRateText}`
+    : `${percent.toFixed(1)}% · ${heatRateText}`;
   $("simulation-heat-fill").style.transform = `scaleX(${fillRatio})`;
   $("simulation-heat-gauge").classList.toggle("overheated", simulation.overheated);
   const bar = $("simulation-heat-fill").parentElement;
@@ -4540,6 +4633,16 @@ function addSimulationHeat(weapon, shotCount = 1) {
   state.simulation.currentHeat += number(weapon.heat) * shotCount;
 }
 
+function simulationNetCoolingRate() {
+  const simulation = state.simulation;
+  const temperatureModifier = SIMULATION_MAP_COOLING_MODIFIERS[simulation.mapTemperature]
+    ?? SIMULATION_MAP_COOLING_MODIFIERS.normal;
+  const movementHeat = simulation.movementState === "moving"
+    ? SIMULATION_MOVEMENT_HEAT_PER_SECOND
+    : 0;
+  return simulation.coolingRate + temperatureModifier - movementHeat;
+}
+
 function coolSimulationHeat(now) {
   const simulation = state.simulation;
   if (simulation.lastHeatUpdateAt === null) {
@@ -4547,7 +4650,7 @@ function coolSimulationHeat(now) {
     return;
   }
   const elapsed = Math.max(0, (now - simulation.lastHeatUpdateAt) / 1000);
-  simulation.currentHeat = Math.max(0, simulation.currentHeat - simulation.coolingRate * elapsed);
+  simulation.currentHeat = Math.max(0, simulation.currentHeat - simulationNetCoolingRate() * elapsed);
   if (simulation.overheated && simulation.currentHeat < simulation.maxHeat) simulation.overheated = false;
   simulation.lastHeatUpdateAt = now;
 }
@@ -4769,6 +4872,9 @@ function openSimulation() {
   simulation.coolingRate = heatSystem.coolingRate;
   simulation.heatSinkCount = heatSystem.heatSinkCount;
   simulation.open = true;
+  $("simulation-movement-state").value = simulation.movementState;
+  $("simulation-map-temperature").value = simulation.mapTemperature;
+  $("simulation-target-distance").value = String(simulation.targetDistance);
   resetSimulationRun();
   renderSimulationWeaponList();
   renderSimulationGroupStatus();
@@ -4841,24 +4947,25 @@ function showSimulationHitEffect(weapon, damage = 0) {
 
 function startSimulationBurn(weapon, startedAt, now = startedAt, damageAllowed = state.simulation.targetVisible) {
   const durationMs = weapon.duration * 1000;
+  const totalDamage = simulationWeaponDamage(weapon);
   markSimulationWeaponFiring(weapon, startedAt, durationMs);
   if (durationMs <= 0) {
-    if (damageAllowed) {
-      state.simulation.totalDamage += weapon.damage;
-      showSimulationHitEffect(weapon, weapon.damage);
+    if (damageAllowed && totalDamage > 0) {
+      state.simulation.totalDamage += totalDamage;
+      showSimulationHitEffect(weapon, totalDamage);
     }
     addSimulationHeat(weapon);
     return;
   }
   const endsAt = startedAt + durationMs;
   const progress = Math.max(0, Math.min(1, (now - startedAt) / durationMs));
-  const appliedDamage = weapon.damage * progress;
+  const appliedDamage = totalDamage * progress;
   const totalHeat = number(weapon.heat);
   const appliedHeat = totalHeat * progress;
   const impactShown = damageAllowed && appliedDamage > 0;
   if (damageAllowed) {
     state.simulation.totalDamage += appliedDamage;
-    if (impactShown) showSimulationHitEffect(weapon, weapon.damage);
+    if (impactShown) showSimulationHitEffect(weapon, totalDamage);
   }
   state.simulation.currentHeat += appliedHeat;
   if (progress < 1) {
@@ -4867,7 +4974,7 @@ function startSimulationBurn(weapon, startedAt, now = startedAt, damageAllowed =
       endsAt,
       appliedDamage,
       appliedHeat,
-      totalDamage: weapon.damage,
+      totalDamage,
       totalHeat,
       impactShown,
     });
@@ -4887,7 +4994,7 @@ function updateSimulationBurnDamage(now, damageAllowed = state.simulation.target
       state.simulation.totalDamage += appliedDamage;
       if (appliedDamage > 0 && !burn.impactShown) {
         const weapon = state.simulation.weapons.find((entry) => entry.key === weaponKey);
-        if (weapon) showSimulationHitEffect(weapon, weapon.damage);
+        if (weapon) showSimulationHitEffect(weapon, burn.totalDamage);
         burn.impactShown = true;
       }
     }
@@ -4909,7 +5016,7 @@ function updateSimulationContinuousDamage(now) {
     }
     const elapsed = Math.max(0, (now - lastUpdatedAt) / 1000);
     if (simulation.targetVisible) {
-      const dealtDamage = (weapon.damage / weapon.cycle) * elapsed;
+      const dealtDamage = (simulationWeaponDamage(weapon) / weapon.cycle) * elapsed;
       simulation.totalDamage += dealtDamage;
       simulation.pendingHitEffectDamage.set(
         weapon.key,
@@ -4974,15 +5081,18 @@ function simulationTick(now) {
       const shotCount = Math.floor((tickNow - nextFire) / (weapon.cycle * 1000)) + 1;
       if (weapon.duration > 0) {
         if (simulation.targetVisible) {
-          simulation.totalDamage += weapon.damage * Math.max(0, shotCount - 1);
+          const completedDamage = simulationWeaponDamage(weapon, Math.max(0, shotCount - 1));
+          simulation.totalDamage += completedDamage;
+          if (completedDamage > 0) showSimulationHitEffect(weapon, completedDamage);
         }
         addSimulationHeat(weapon, Math.max(0, shotCount - 1));
         const latestFireAt = nextFire + Math.max(0, shotCount - 1) * weapon.cycle * 1000;
         startSimulationBurn(weapon, latestFireAt, tickNow, simulation.targetVisible);
       } else {
         if (simulation.targetVisible) {
-          simulation.totalDamage += weapon.damage * shotCount;
-          showSimulationHitEffect(weapon, weapon.damage * shotCount);
+          const dealtDamage = simulationWeaponDamage(weapon, shotCount);
+          simulation.totalDamage += dealtDamage;
+          if (dealtDamage > 0) showSimulationHitEffect(weapon, dealtDamage);
         }
         addSimulationHeat(weapon, shotCount);
         const latestFireAt = nextFire + Math.max(0, shotCount - 1) * weapon.cycle * 1000;
@@ -6207,9 +6317,7 @@ function equipmentTooltipGroups(item) {
     const type = equipmentHardpointType(item);
     const timing = simulationWeaponTiming(item, quirks);
     const heat = simulationWeaponHeat(item, quirks);
-    const rangeBonus = quirkIncrease(quirks, "all_range_multiplier")
-      + quirkIncrease(quirks, `${type}_range_multiplier`)
-      + simulationSpecificQuirkTotal(quirks, item, "_range_multiplier", "increase");
+    const rangeBonus = simulationWeaponRangeBonus(item, quirks);
     const velocityBonus = quirkIncrease(quirks, "all_velocity_multiplier")
       + quirkIncrease(quirks, `${type}_velocity_multiplier`)
       + simulationSpecificQuirkTotal(quirks, item, "_velocity_multiplier", "increase");
@@ -6734,6 +6842,32 @@ function bindEvents() {
     state.simulation.scenarioId = input.value;
     resetSimulationRun();
   });
+  $("simulation-movement-state").addEventListener("change", (event) => {
+    const now = performance.now();
+    coolSimulationHeat(now);
+    state.simulation.movementState = event.target.value === "moving" ? "moving" : "stationary";
+    applySimulationOverheat();
+    renderSimulationMetrics(now);
+  });
+  $("simulation-map-temperature").addEventListener("change", (event) => {
+    const temperature = Object.hasOwn(SIMULATION_MAP_COOLING_MODIFIERS, event.target.value)
+      ? event.target.value
+      : "normal";
+    const now = performance.now();
+    coolSimulationHeat(now);
+    state.simulation.mapTemperature = temperature;
+    applySimulationOverheat();
+    renderSimulationMetrics(now);
+  });
+  $("simulation-target-distance").addEventListener("input", (event) => {
+    const distance = Number(event.target.value);
+    if (Number.isFinite(distance) && distance >= 0) state.simulation.targetDistance = distance;
+  });
+  $("simulation-target-distance").addEventListener("change", (event) => {
+    const distance = Number(event.target.value);
+    state.simulation.targetDistance = Number.isFinite(distance) && distance >= 0 ? distance : 150;
+    event.target.value = String(state.simulation.targetDistance);
+  });
   $("simulation-group-status").addEventListener("pointerdown", (event) => {
     const button = event.target.closest("[data-simulation-fire-group]");
     if (!button || (event.pointerType === "mouse" && event.button !== 0)) return;
@@ -6802,6 +6936,7 @@ function bindEvents() {
       closeSimulation();
       return;
     }
+    if (event.target.matches("input, select, textarea")) return;
     const group = Number(event.key);
     if (group < 1 || group > 4) return;
     event.preventDefault();
@@ -6809,6 +6944,7 @@ function bindEvents() {
   });
   document.addEventListener("keyup", (event) => {
     if (!state.simulation.open) return;
+    if (event.target.matches("input, select, textarea")) return;
     const group = Number(event.key);
     if (group < 1 || group > 4) return;
     event.preventDefault();

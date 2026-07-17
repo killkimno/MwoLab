@@ -2865,35 +2865,107 @@ body.simulation-open {
   right: 0.55rem;
   left: 0.55rem;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 0.45rem;
   pointer-events: none;
 }
 
-.simulation-target-readout strong,
-.simulation-target-readout span {
+.simulation-target-readout > span {
   padding: 0.18rem 0.38rem;
   border-radius: 3px;
   background: #071013cc;
+  color: var(--blue);
   font-size: 0.65rem;
   font-weight: 900;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.simulation-target-readout strong {
-  color: var(--green);
+.simulation-environment-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  pointer-events: auto;
 }
 
-.target-hidden .simulation-target-readout strong {
-  color: #c6d0d4;
+.simulation-environment-options > label {
+  display: grid;
+  grid-template-columns: auto minmax(4rem, auto);
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 1.55rem;
+  padding: 0.16rem 0.3rem;
+  border: 1px solid #304850;
+  border-radius: 3px;
+  background: #071013e8;
+  color: #a9c3cc;
+  font-size: 0.62rem;
+  font-weight: 800;
 }
 
-.scenario-finished .simulation-target-readout strong {
-  color: var(--yellow);
+.simulation-environment-options select,
+.simulation-environment-options input {
+  min-width: 0;
+  height: 1.35rem;
+  border: 1px solid #41616d;
+  border-radius: 2px;
+  background: #13242a;
+  color: #e8f3f6;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
 }
 
-.simulation-target-readout span {
+.simulation-environment-options select {
+  padding: 0 1.25rem 0 0.25rem;
+}
+
+.simulation-environment-options input {
+  width: 3.5rem;
+  padding: 0 0.25rem;
+  text-align: right;
+}
+
+.simulation-environment-options select:focus-visible,
+.simulation-environment-options input:focus-visible {
+  border-color: var(--blue);
+  outline: 1px solid var(--blue);
+}
+
+.simulation-distance-input {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
   color: var(--blue);
+}
+
+.simulation-distance-input small {
+  font-size: 0.6rem;
+}
+
+.simulation-environment-help {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.35rem;
+  padding-top: 0.35rem;
+}
+
+.simulation-environment-help p {
+  display: grid;
+  gap: 0.12rem;
+  margin: 0;
+  padding: 0.28rem 0.38rem;
+  border: 1px solid #263b43;
+  border-radius: 3px;
+  background: #0b1519;
+  color: #819aa3;
+  font-size: 0.58rem;
+  line-height: 1.35;
+}
+
+.simulation-environment-help strong {
+  color: #bed1d7;
+  font-size: 0.62rem;
 }
 
 .simulation-group-status {
@@ -4550,6 +4622,10 @@ body.simulation-open {
 
   .simulation-target-stage {
     min-height: 12.8rem;
+  }
+
+  .simulation-environment-help {
+    grid-template-columns: 1fr;
   }
 
   .simulation-list-header,
