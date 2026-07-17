@@ -4737,7 +4737,7 @@ function renderSimulationEnemyHud(now = performance.now()) {
       }
     }
     row.classList.toggle("ready", Boolean(selectedWeapon) && progress >= 1);
-    row.classList.toggle("empty", !selectedWeapon);
+    row.classList.toggle("unassigned", !selectedWeapon);
     const fill = row.querySelector("b i");
     if (fill) fill.style.transform = `scaleX(${progress})`;
   });

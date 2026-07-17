@@ -2660,7 +2660,7 @@ body.simulation-open {
   box-shadow: 0 0 0.4rem #f2cf4f99;
 }
 
-.simulation-enemy-group-cooldowns .empty {
+.simulation-enemy-group-cooldowns .unassigned {
   opacity: 0.35;
 }
 
