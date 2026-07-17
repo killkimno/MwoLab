@@ -4045,21 +4045,43 @@ body.simulation-open {
 }
 
 .equipment-tooltip-stats strong {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.35rem;
   color: #fff;
   font-size: 1.045rem;
   font-weight: 500;
   text-align: right;
+  white-space: nowrap;
 }
 
 .equipment-tooltip-final {
   color: #fff;
 }
 
-.equipment-tooltip-quirk {
-  margin-left: 0.35rem;
-  color: #24e66f;
+.equipment-tooltip-stats strong .equipment-tooltip-final.quirk-applied {
+  color: var(--green);
+  font-weight: 800;
+}
+
+.equipment-tooltip-stats strong .equipment-tooltip-quirk-detail {
+  margin: 0;
+  color: #fff;
   font-size: 0.84em;
+  font-weight: 500;
   white-space: nowrap;
+}
+
+.equipment-tooltip-stats strong .equipment-tooltip-base,
+.equipment-tooltip-stats strong .equipment-tooltip-operator {
+  color: #fff;
+  font-weight: 500;
+}
+
+.equipment-tooltip-stats strong .equipment-tooltip-quirk-value {
+  color: var(--yellow);
+  font-weight: 800;
 }
 
 .equipment-tooltip-card p {

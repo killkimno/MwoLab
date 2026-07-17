@@ -6023,13 +6023,15 @@ function tooltipQuirkValue(base, final, digits = 2, unit = "") {
   if (Math.abs(delta) < 0.0001) return tooltipNumber(baseNumber, digits, unit);
   return {
     final: tooltipNumber(finalNumber, digits, unit),
-    detail: `(${tooltipNumber(baseNumber, digits, unit)} ${signedInfoNumber(delta, digits)}${unit})`,
+    base: formatInfoNumber(baseNumber, digits),
+    operator: delta >= 0 ? "+" : "-",
+    quirk: formatInfoNumber(Math.abs(delta), digits),
   };
 }
 
 function tooltipValueHtml(value) {
   if (!value || typeof value !== "object") return escapeHtml(value);
-  return `<span class="equipment-tooltip-final">${escapeHtml(value.final)}</span><span class="equipment-tooltip-quirk">${escapeHtml(value.detail)}</span>`;
+  return `<span class="equipment-tooltip-final quirk-applied">${escapeHtml(value.final)}</span><span class="equipment-tooltip-quirk-detail">(<span class="equipment-tooltip-base">${escapeHtml(value.base)}</span> <span class="equipment-tooltip-operator">${escapeHtml(value.operator)}</span> <span class="equipment-tooltip-quirk-value">${escapeHtml(value.quirk)}</span>)</span>`;
 }
 
 function weaponTooltipRanges(item) {
