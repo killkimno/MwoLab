@@ -935,6 +935,7 @@ const state = {
     nextFireAt: new Map(),
     groupFiringUntil: new Map(),
     lastHitEffectAt: new Map(),
+    pendingHitEffectDamage: new Map(),
     activeBurns: new Map(),
     continuousFireAt: new Map(),
     totalDamage: 0,
@@ -1249,7 +1250,7 @@ function ammoHardpointType(item) {
 }
 
 function hardpointSlots(hardpoint) {
-  return Math.max(1, number(hardpoint?.Slots, 1));
+  return Math.max(1, number(hardpoint?.weapon_slots, 1));
 }
 
 function hardpointType(hardpoint) {
@@ -1801,21 +1802,6 @@ function currentDefinition(mech = state.selectedMech) {
   return mech?.definition || {};
 }
 
-function hardpointsFromLoadoutItems(buildComponent) {
-  return (buildComponent?.items || []).flatMap((entry, index) => {
-    const item = itemById(entry.item_id);
-    const type = equipmentHardpointType(item);
-    if (!type) return [];
-    return [{
-      ID: `inferred-${index}`,
-      hardpoint_type: type,
-      Type: type,
-      Slots: 1,
-      inferred: true,
-    }];
-  });
-}
-
 function omnipodDefinition(pod) {
   if (!pod?.id) return { hardpoints: [], internals: [], fixed: [] };
   const cacheKey = String(pod.id);
@@ -1834,8 +1820,6 @@ function omnipodDefinition(pod) {
     ...hardpoint,
     hardpoint_type: hardpointType(hardpoint),
   }));
-  if (!hardpoints.length) hardpoints = hardpointsFromLoadoutItems(sourceComponent);
-  else hardpoints = mergeHardpointsWithLoadout(hardpoints, sourceComponent);
   if ((sourceComponent?.items || []).some((entry) => isEcm(itemById(entry.item_id)))) {
     hardpoints = addEcmHardpoint(hardpoints);
   }
@@ -1873,34 +1857,6 @@ function addEcmHardpoint(hardpoints) {
   }];
 }
 
-function mergeHardpointsWithLoadout(hardpoints, buildComponent) {
-  const merged = (hardpoints || []).map((hardpoint) => ({
-    ...hardpoint,
-    hardpoint_type: hardpointType(hardpoint),
-  }));
-  const inferredCounts = hardpointCountsFromHardpoints(hardpointsFromLoadoutItems(buildComponent));
-
-  for (const [type, inferredCount] of Object.entries(inferredCounts)) {
-    const matching = merged.filter((hardpoint) => hardpointType(hardpoint) === type);
-    if (!matching.length) {
-      merged.push({
-        ID: `inferred-${type}`,
-        hardpoint_type: type,
-        Type: type,
-        Slots: inferredCount,
-        inferred: true,
-      });
-      continue;
-    }
-
-    const definedCount = matching.reduce((sum, hardpoint) => sum + hardpointSlots(hardpoint), 0);
-    if (definedCount < inferredCount) {
-      matching[0].Slots = hardpointSlots(matching[0]) + inferredCount - definedCount;
-    }
-  }
-  return merged;
-}
-
 function actuatorIsRemoved(componentName, itemId, build = state.currentBuild) {
   const actuatorState = Math.max(0, number(build?.actuatorState));
   if (componentName === "left_arm") {
@@ -1932,7 +1888,6 @@ function effectiveComponentDefinition(mech = state.selectedMech, build = state.c
   const base = currentDefinition(mech).components?.[componentName] || {};
   const buildComponent = build?.components?.[componentName] || {};
   const pod = podById(buildComponent.omnipod);
-  const stockComponent = loadoutForMech(mech).components?.[componentName] || {};
   const podDefinition = pod ? omnipodDefinition(pod) : { hardpoints: [], internals: [], fixed: [] };
   const podHardpoints = podDefinition.hardpoints;
   let hardpoints = podHardpoints.length
@@ -1940,7 +1895,10 @@ function effectiveComponentDefinition(mech = state.selectedMech, build = state.c
       ...hardpoint,
       hardpoint_type: hardpointType(hardpoint),
     }))
-    : mergeHardpointsWithLoadout(base.hardpoints || [], stockComponent);
+    : (base.hardpoints || []).map((hardpoint) => ({
+      ...hardpoint,
+      hardpoint_type: hardpointType(hardpoint),
+    }));
   if (pod && ecmCapableOmnipodIds().has(String(pod.id))) {
     hardpoints = addEcmHardpoint(hardpoints);
   }
@@ -4517,6 +4475,7 @@ function finishSimulationRun() {
   simulation.continuousFireAt.clear();
   simulation.groupFiringUntil.clear();
   simulation.lastHitEffectAt.clear();
+  simulation.pendingHitEffectDamage.clear();
   simulation.activeBurns.clear();
   renderSimulationGroupStatus();
 }
@@ -4528,6 +4487,7 @@ function resetSimulationRun() {
   simulation.nextFireAt.clear();
   simulation.groupFiringUntil.clear();
   simulation.lastHitEffectAt.clear();
+  simulation.pendingHitEffectDamage.clear();
   simulation.activeBurns.clear();
   simulation.continuousFireAt.clear();
   simulation.totalDamage = 0;
@@ -4539,7 +4499,7 @@ function resetSimulationRun() {
   simulation.startedAt = null;
   if (simulation.frameId !== null) cancelAnimationFrame(simulation.frameId);
   simulation.frameId = null;
-  document.querySelectorAll(".simulation-hit-effect").forEach((effect) => effect.remove());
+  document.querySelectorAll(".simulation-hit-effect, .simulation-damage-event").forEach((effect) => effect.remove());
   renderSimulationMetrics();
   renderSimulationScenario();
   renderSimulationGroupStatus();
@@ -4553,6 +4513,7 @@ function renderSimulationMetrics(now = performance.now()) {
   $("simulation-dps").textContent = (elapsed > 0 ? simulation.totalDamage / elapsed : 0).toFixed(2);
   renderSimulationCooldowns(now);
   renderSimulationHeat();
+  renderSimulationEnemyHud(now);
 }
 
 function renderSimulationHeat() {
@@ -4617,6 +4578,51 @@ function renderSimulationCooldowns(now = performance.now()) {
     bar.style.transform = `scaleX(${progress})`;
     bar.parentElement.classList.toggle("ready", progress >= 1);
     bar.parentElement.setAttribute("aria-valuenow", String(Math.round(progress * 100)));
+  });
+}
+
+function renderSimulationEnemyHud(now = performance.now()) {
+  const simulation = state.simulation;
+  const totalDamage = $("simulation-enemy-total-damage");
+  if (totalDamage) totalDamage.textContent = simulation.totalDamage.toFixed(2);
+
+  const heatRatio = simulation.maxHeat > 0
+    ? Math.max(0, Math.min(1, simulation.currentHeat / simulation.maxHeat))
+    : 0;
+  const heatFill = $("simulation-enemy-heat-fill");
+  if (heatFill) heatFill.style.transform = `scaleY(${heatRatio})`;
+  $("simulation-enemy-heat")?.classList.toggle("overheated", simulation.overheated);
+
+  document.querySelectorAll("[data-simulation-enemy-group]").forEach((row) => {
+    const group = Number(row.dataset.simulationEnemyGroup);
+    const weapons = simulation.weapons.filter((weapon) => simulationWeaponInGroup(weapon, group));
+    let selectedWeapon = null;
+    let shortestRemaining = Number.POSITIVE_INFINITY;
+    weapons.forEach((weapon) => {
+      const remaining = weapon.continuous
+        ? 0
+        : Math.max(0, (simulation.nextFireAt.get(weapon.key) || 0) - now);
+      if (remaining < shortestRemaining) {
+        shortestRemaining = remaining;
+        selectedWeapon = weapon;
+      }
+    });
+    let progress = 0;
+    if (selectedWeapon) {
+      if (selectedWeapon.continuous || shortestRemaining <= 0) {
+        progress = 1;
+      } else {
+        const cooldownStart = (simulation.nextFireAt.get(selectedWeapon.key) || 0)
+          - selectedWeapon.cooldown * 1000;
+        progress = selectedWeapon.cooldown > 0 && now >= cooldownStart
+          ? Math.max(0, Math.min(1, 1 - shortestRemaining / (selectedWeapon.cooldown * 1000)))
+          : 0;
+      }
+    }
+    row.classList.toggle("ready", Boolean(selectedWeapon) && progress >= 1);
+    row.classList.toggle("empty", !selectedWeapon);
+    const fill = row.querySelector("b i");
+    if (fill) fill.style.transform = `scaleX(${progress})`;
   });
 }
 
@@ -4779,6 +4785,7 @@ function closeSimulation() {
   simulation.pointerGroups.clear();
   simulation.continuousFireAt.clear();
   simulation.lastHitEffectAt.clear();
+  simulation.pendingHitEffectDamage.clear();
   if (simulation.frameId !== null) cancelAnimationFrame(simulation.frameId);
   simulation.frameId = null;
   $("simulation-overlay").hidden = true;
@@ -4786,9 +4793,23 @@ function closeSimulation() {
   $("open-simulation").focus();
 }
 
-function showSimulationHitEffect(weapon) {
+function showSimulationDamageEvent(damage) {
+  if (!(damage > 0)) return;
+  const container = $("simulation-enemy-damage-events");
+  if (!container) return;
+  const event = document.createElement("span");
+  event.className = "simulation-damage-event";
+  event.textContent = `+${damage.toFixed(2)}`;
+  event.style.setProperty("--damage-offset", `${(Math.random() - 0.5) * 2.4}rem`);
+  container.append(event);
+  event.addEventListener("animationend", () => event.remove(), { once: true });
+  window.setTimeout(() => event.remove(), 900);
+}
+
+function showSimulationHitEffect(weapon, damage = 0) {
   const figure = document.querySelector(".simulation-enemy-figure");
   if (!figure) return;
+  showSimulationDamageEvent(damage);
   const weaponType = equipmentHardpointType(weapon.item);
   const category = ["energy", "ballistic", "missile"].includes(weaponType)
     ? weaponType
@@ -4824,7 +4845,7 @@ function startSimulationBurn(weapon, startedAt, now = startedAt, damageAllowed =
   if (durationMs <= 0) {
     if (damageAllowed) {
       state.simulation.totalDamage += weapon.damage;
-      showSimulationHitEffect(weapon);
+      showSimulationHitEffect(weapon, weapon.damage);
     }
     addSimulationHeat(weapon);
     return;
@@ -4837,7 +4858,7 @@ function startSimulationBurn(weapon, startedAt, now = startedAt, damageAllowed =
   const impactShown = damageAllowed && appliedDamage > 0;
   if (damageAllowed) {
     state.simulation.totalDamage += appliedDamage;
-    if (impactShown) showSimulationHitEffect(weapon);
+    if (impactShown) showSimulationHitEffect(weapon, weapon.damage);
   }
   state.simulation.currentHeat += appliedHeat;
   if (progress < 1) {
@@ -4866,7 +4887,7 @@ function updateSimulationBurnDamage(now, damageAllowed = state.simulation.target
       state.simulation.totalDamage += appliedDamage;
       if (appliedDamage > 0 && !burn.impactShown) {
         const weapon = state.simulation.weapons.find((entry) => entry.key === weaponKey);
-        if (weapon) showSimulationHitEffect(weapon);
+        if (weapon) showSimulationHitEffect(weapon, weapon.damage);
         burn.impactShown = true;
       }
     }
@@ -4883,14 +4904,21 @@ function updateSimulationContinuousDamage(now) {
     const weapon = simulation.weapons.find((entry) => entry.key === weaponKey);
     if (!weapon || !simulationWeaponIsHeld(weapon) || simulation.finished || simulation.overheated) {
       simulation.continuousFireAt.delete(weaponKey);
+      simulation.pendingHitEffectDamage.delete(weaponKey);
       continue;
     }
     const elapsed = Math.max(0, (now - lastUpdatedAt) / 1000);
     if (simulation.targetVisible) {
-      simulation.totalDamage += (weapon.damage / weapon.cycle) * elapsed;
+      const dealtDamage = (weapon.damage / weapon.cycle) * elapsed;
+      simulation.totalDamage += dealtDamage;
+      simulation.pendingHitEffectDamage.set(
+        weapon.key,
+        (simulation.pendingHitEffectDamage.get(weapon.key) || 0) + dealtDamage,
+      );
       const lastImpactAt = simulation.lastHitEffectAt.get(weapon.key) || 0;
       if (elapsed > 0 && now - lastImpactAt >= SIMULATION_CONTINUOUS_HIT_EFFECT_INTERVAL_MS) {
-        showSimulationHitEffect(weapon);
+        showSimulationHitEffect(weapon, simulation.pendingHitEffectDamage.get(weapon.key) || 0);
+        simulation.pendingHitEffectDamage.set(weapon.key, 0);
         simulation.lastHitEffectAt.set(weapon.key, now);
       }
     }
@@ -4914,6 +4942,7 @@ function syncSimulationContinuousFire(now) {
         markSimulationWeaponFiring(weapon, now);
       } else {
         simulation.continuousFireAt.delete(weapon.key);
+        simulation.pendingHitEffectDamage.delete(weapon.key);
       }
     });
 }
@@ -4953,7 +4982,7 @@ function simulationTick(now) {
       } else {
         if (simulation.targetVisible) {
           simulation.totalDamage += weapon.damage * shotCount;
-          showSimulationHitEffect(weapon);
+          showSimulationHitEffect(weapon, weapon.damage * shotCount);
         }
         addSimulationHeat(weapon, shotCount);
         const latestFireAt = nextFire + Math.max(0, shotCount - 1) * weapon.cycle * 1000;

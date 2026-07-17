@@ -2492,7 +2492,7 @@ body.simulation-open {
 
 .simulation-target-stage {
   position: relative;
-  min-height: 6.75rem;
+  min-height: 13.5rem;
   overflow: hidden;
   border: 1px solid #304850;
   border-radius: 4px;
@@ -2520,13 +2520,165 @@ body.simulation-open {
   bottom: 0.18rem;
   left: 50%;
   display: grid;
+  width: 18rem;
+  padding-bottom: 0.85rem;
   justify-items: center;
   transform: translateX(-50%);
   transition: filter 0.55s ease, opacity 0.55s ease;
 }
 
+.simulation-enemy-hud {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 5.4rem 5.2rem 5.4rem;
+  align-items: end;
+  gap: 1rem;
+}
+
+.simulation-enemy-center {
+  display: grid;
+  width: 5.2rem;
+  justify-items: center;
+}
+
+.simulation-enemy-damage-hud {
+  position: relative;
+  z-index: 9;
+  display: grid;
+  width: 5.4rem;
+  min-height: 2.25rem;
+  place-items: end center;
+  pointer-events: none;
+}
+
+.simulation-enemy-damage-hud > strong {
+  color: #fff2a3;
+  font-size: 1.12rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-shadow: 0 0 0.2rem #000, 0 0 0.55rem #e9c94aaa;
+}
+
+#simulation-enemy-damage-events {
+  position: relative;
+  width: 100%;
+  height: 1rem;
+}
+
+.simulation-damage-event {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #ff8b79;
+  font-size: 0.76rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 0.25rem #000, 0 0 0.45rem #df654f;
+  animation: simulation-damage-event 760ms ease-out forwards;
+}
+
+@keyframes simulation-damage-event {
+  from { opacity: 1; transform: translate(var(--damage-offset), 0) scale(1.12); }
+  to { opacity: 0; transform: translate(var(--damage-offset), 0.65rem) scale(0.92); }
+}
+
+.simulation-enemy-group-cooldowns {
+  display: grid;
+  align-self: end;
+  justify-self: end;
+  width: 4.23rem;
+  gap: 0.32rem;
+  padding-bottom: 1rem;
+}
+
+.simulation-enemy-group-cooldowns > div {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 0.75rem 3.2rem;
+  align-items: center;
+  gap: 0.28rem;
+}
+
+.simulation-enemy-group-cooldowns span {
+  display: block;
+  width: 0.75rem;
+  color: #a9c3cc;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.simulation-enemy-group-cooldowns b {
+  display: block;
+  width: 3.2rem;
+  height: 0.58rem;
+  overflow: hidden;
+  border: 1px solid #3b4c52;
+  border-radius: 2px;
+  background: #080d0f;
+  box-shadow: inset 0 0 0.2rem #000;
+}
+
+.simulation-enemy-group-cooldowns b i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
+  background: linear-gradient(90deg, #327fa0, var(--blue));
+  box-shadow: 0 0 0.35rem #49a6c877;
+  will-change: transform;
+}
+
+.simulation-enemy-group-cooldowns .ready span {
+  color: var(--yellow);
+}
+
+.simulation-enemy-group-cooldowns .ready b i {
+  background: linear-gradient(90deg, #d6a914, var(--yellow));
+  box-shadow: 0 0 0.4rem #f2cf4f99;
+}
+
+.simulation-enemy-group-cooldowns .empty {
+  opacity: 0.35;
+}
+
+.simulation-enemy-heat {
+  position: relative;
+  align-self: end;
+  justify-self: center;
+  width: 0.72rem;
+  height: 5.8rem;
+  margin-bottom: 0.7rem;
+  overflow: hidden;
+  border: 1px solid #59483a;
+  border-radius: 3px;
+  background: #130d0b;
+  box-shadow: inset 0 0 0.25rem #000;
+}
+
+.simulation-enemy-heat i {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transform: scaleY(0);
+  transform-origin: center bottom;
+  background: linear-gradient(0deg, var(--yellow), #ef8d3e 65%, var(--red));
+  box-shadow: 0 0 0.45rem #df654f88;
+  will-change: transform;
+}
+
+.simulation-enemy-heat.overheated {
+  border-color: #ff7463;
+  box-shadow: 0 0 0.55rem #df654f88, inset 0 0 0.25rem #000;
+}
+
 .simulation-enemy small {
-  margin-top: 0.1rem;
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
   color: #ff756b;
   font-size: 0.56rem;
   font-weight: 900;
@@ -2536,8 +2688,8 @@ body.simulation-open {
 
 .simulation-enemy-figure {
   position: relative;
-  width: 2.6rem;
-  height: 2.85rem;
+  width: 5.1rem;
+  height: 5.6rem;
   filter: drop-shadow(0 0 0.45rem #dc4e47aa);
 }
 
@@ -2628,50 +2780,50 @@ body.simulation-open {
 .simulation-enemy-head {
   top: 0;
   left: 50%;
-  width: 0.78rem;
-  height: 0.58rem;
+  width: 1.52rem;
+  height: 1.13rem;
   transform: translateX(-50%);
   clip-path: polygon(18% 0, 82% 0, 100% 38%, 80% 100%, 20% 100%, 0 38%);
 }
 
 .simulation-enemy-body {
-  top: 0.52rem;
+  top: 1.01rem;
   left: 50%;
-  width: 1.48rem;
-  height: 1.3rem;
+  width: 2.89rem;
+  height: 2.54rem;
   transform: translateX(-50%);
   clip-path: polygon(12% 0, 88% 0, 100% 28%, 82% 100%, 18% 100%, 0 28%);
 }
 
 .simulation-enemy-arm {
-  top: 0.7rem;
-  width: 0.42rem;
-  height: 1.3rem;
+  top: 1.36rem;
+  width: 0.82rem;
+  height: 2.54rem;
 }
 
 .simulation-enemy-arm.left {
-  left: 0.18rem;
+  left: 0.35rem;
   transform: rotate(8deg);
 }
 
 .simulation-enemy-arm.right {
-  right: 0.18rem;
+  right: 0.35rem;
   transform: rotate(-8deg);
 }
 
 .simulation-enemy-leg {
-  top: 1.72rem;
-  width: 0.48rem;
-  height: 1.05rem;
+  top: 3.35rem;
+  width: 0.94rem;
+  height: 2.05rem;
 }
 
 .simulation-enemy-leg.left {
-  left: 0.66rem;
+  left: 1.29rem;
   transform: rotate(4deg);
 }
 
 .simulation-enemy-leg.right {
-  right: 0.66rem;
+  right: 1.29rem;
   transform: rotate(-4deg);
 }
 
@@ -4397,7 +4549,7 @@ body.simulation-open {
   }
 
   .simulation-target-stage {
-    min-height: 6.3rem;
+    min-height: 12.8rem;
   }
 
   .simulation-list-header,

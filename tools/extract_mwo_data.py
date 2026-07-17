@@ -253,6 +253,79 @@ def parse_component_hardpoints(comp):
     return hardpoints
 
 
+def parse_hardpoint_weapon_slots(zf):
+    slot_counts = {}
+    for inner_path in zf.namelist():
+        if not inner_path.lower().endswith("-hardpoints.xml"):
+            continue
+        try:
+            root = parse_xml(zf.read(inner_path), inner_path)
+        except Exception:
+            continue
+        for hardpoint in root.findall("Hardpoint"):
+            hardpoint_id = hardpoint.attrib.get("id")
+            if hardpoint_id is None:
+                continue
+            slot_counts[str(hardpoint_id)] = len(hardpoint.findall("WeaponSlot"))
+    return slot_counts
+
+
+def apply_hardpoint_weapon_slots(hardpoints, slot_counts):
+    for hardpoint in hardpoints:
+        hardpoint.pop("weapon_slots", None)
+        weapon_slots = slot_counts.get(str(hardpoint.get("ID")))
+        if weapon_slots is not None:
+            hardpoint["weapon_slots"] = weapon_slots
+    return hardpoints
+
+
+def collect_hardpoint_slot_maps(game_dir: Path):
+    by_variant = {}
+    by_chassis = {}
+    mech_dir = game_dir / MECHS_DIR
+    if not mech_dir.exists():
+        return by_variant, by_chassis
+    for pak_path in sorted(mech_dir.glob("*.pak")):
+        try:
+            with zipfile.ZipFile(pak_path) as zf:
+                slot_counts = parse_hardpoint_weapon_slots(zf)
+                if not slot_counts:
+                    continue
+                for inner_path in zf.namelist():
+                    lower_path = inner_path.lower()
+                    if lower_path.endswith(".mdf"):
+                        by_variant[Path(inner_path).stem.lower()] = slot_counts
+                    elif lower_path.endswith("-omnipods.xml"):
+                        by_chassis[Path(inner_path).parent.name.lower()] = slot_counts
+        except zipfile.BadZipFile:
+            continue
+    return by_variant, by_chassis
+
+
+def enrich_existing_hardpoint_data(game_dir: Path, out_dir: Path):
+    mech_path = out_dir / "mechs.json"
+    omnipod_path = out_dir / "omnipods.json"
+    if not mech_path.exists() or not omnipod_path.exists():
+        raise RuntimeError("mechs.json and omnipods.json must exist for --hardpoints-only")
+
+    mechs = json.loads(mech_path.read_text(encoding="utf-8"))
+    omnipods = json.loads(omnipod_path.read_text(encoding="utf-8"))
+    by_variant, by_chassis = collect_hardpoint_slot_maps(game_dir)
+
+    for mech in mechs:
+        slot_counts = by_variant.get(str(mech.get("name", "")).lower(), {})
+        for component in mech.get("definition", {}).get("components", {}).values():
+            apply_hardpoint_weapon_slots(component.get("hardpoints", []), slot_counts)
+
+    for pod in omnipods.values():
+        slot_counts = by_chassis.get(str(pod.get("chassis", "")).lower(), {})
+        apply_hardpoint_weapon_slots(pod.get("hardpoints", []), slot_counts)
+
+    write_json(mech_path, mechs)
+    write_json(omnipod_path, omnipods)
+    return len(mechs), len(omnipods)
+
+
 def parse_component_internals(comp):
     internals = []
     for child in list(comp):
@@ -340,7 +413,7 @@ def parse_loadouts(game_data):
     return loadouts
 
 
-def parse_mdf(data: bytes, source: str, localization):
+def parse_mdf(data: bytes, source: str, localization, hardpoint_slot_counts):
     root = parse_xml(data, source)
     mech_node = root.find("Mech")
     if mech_node is None:
@@ -362,14 +435,17 @@ def parse_mdf(data: bytes, source: str, localization):
             "name": name,
             "slots": maybe_num(comp.attrib.get("Slots", 0)),
             "hp": maybe_num(comp.attrib.get("HP", 0)),
-            "hardpoints": parse_component_hardpoints(comp),
+            "hardpoints": apply_hardpoint_weapon_slots(
+                parse_component_hardpoints(comp),
+                hardpoint_slot_counts,
+            ),
             "internals": parse_component_internals(comp),
             "fixed": parse_component_fixed(comp),
         }
     return definition
 
 
-def parse_detailed_omnipods(zf, localization):
+def parse_detailed_omnipods(zf, localization, hardpoint_slot_counts):
     details = {}
     for inner_path in zf.namelist():
         if not inner_path.lower().endswith("-omnipods.xml"):
@@ -395,7 +471,10 @@ def parse_detailed_omnipods(zf, localization):
                     "chassis": chassis,
                     "set": set_name,
                     "component": component,
-                    "hardpoints": parse_component_hardpoints(comp),
+                    "hardpoints": apply_hardpoint_weapon_slots(
+                        parse_component_hardpoints(comp),
+                        hardpoint_slot_counts,
+                    ),
                     "internals": parse_component_internals(comp),
                     "fixed": parse_component_fixed(comp),
                     "quirks": parse_quirks(comp, localization, "omnipod"),
@@ -413,12 +492,22 @@ def parse_mech_definitions(game_dir: Path, localization):
     for pak_path in sorted(mech_dir.glob("*.pak")):
         try:
             with zipfile.ZipFile(pak_path) as zf:
-                omnipod_details.update(parse_detailed_omnipods(zf, localization))
+                hardpoint_slot_counts = parse_hardpoint_weapon_slots(zf)
+                omnipod_details.update(parse_detailed_omnipods(
+                    zf,
+                    localization,
+                    hardpoint_slot_counts,
+                ))
                 for inner_path in zf.namelist():
                     if not inner_path.lower().endswith(".mdf"):
                         continue
                     try:
-                        definition = parse_mdf(zf.read(inner_path), f"{pak_path.name}:{inner_path}", localization)
+                        definition = parse_mdf(
+                            zf.read(inner_path),
+                            f"{pak_path.name}:{inner_path}",
+                            localization,
+                            hardpoint_slot_counts,
+                        )
                     except Exception:
                         continue
                     if definition:
@@ -479,6 +568,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="Extract local MechWarrior Online data for MwoLab.")
     parser.add_argument("--game-dir", default=os.environ.get("MWO_GAME_DIR", ""))
     parser.add_argument("--out", default="public/data")
+    parser.add_argument(
+        "--hardpoints-only",
+        action="store_true",
+        help="Enrich existing mech and omnipod JSON with model hardpoint weapon-slot counts.",
+    )
     args = parser.parse_args(argv)
 
     game_dir = Path(args.game_dir)
@@ -494,6 +588,11 @@ def main(argv=None):
         return 2
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    if args.hardpoints_only:
+        mech_count, omnipod_count = enrich_existing_hardpoint_data(game_dir, out_dir)
+        print(f"Updated hardpoints for {mech_count} mechs and {omnipod_count} omnipods.")
+        return 0
+
     localization = parse_localization(game_dir)
 
     definitions, omnipod_details = parse_mech_definitions(game_dir, localization)

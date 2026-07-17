@@ -369,13 +369,28 @@
           </div>
           <div id="simulation-target-stage" class="simulation-target-stage target-visible" aria-label="적 노출" data-i18n-aria-label="simulation.targetVisible">
             <div class="simulation-enemy" aria-hidden="true">
-              <div class="simulation-enemy-figure">
-                <i class="simulation-enemy-head"></i>
-                <i class="simulation-enemy-body"></i>
-                <i class="simulation-enemy-arm left"></i>
-                <i class="simulation-enemy-arm right"></i>
-                <i class="simulation-enemy-leg left"></i>
-                <i class="simulation-enemy-leg right"></i>
+              <div class="simulation-enemy-hud">
+                <div class="simulation-enemy-group-cooldowns">
+                  <div data-simulation-enemy-group="1"><span>1</span><b><i></i></b></div>
+                  <div data-simulation-enemy-group="2"><span>2</span><b><i></i></b></div>
+                  <div data-simulation-enemy-group="3"><span>3</span><b><i></i></b></div>
+                  <div data-simulation-enemy-group="4"><span>4</span><b><i></i></b></div>
+                </div>
+                <div class="simulation-enemy-center">
+                  <div class="simulation-enemy-damage-hud">
+                    <strong id="simulation-enemy-total-damage">0.00</strong>
+                    <div id="simulation-enemy-damage-events"></div>
+                  </div>
+                  <div class="simulation-enemy-figure">
+                    <i class="simulation-enemy-head"></i>
+                    <i class="simulation-enemy-body"></i>
+                    <i class="simulation-enemy-arm left"></i>
+                    <i class="simulation-enemy-arm right"></i>
+                    <i class="simulation-enemy-leg left"></i>
+                    <i class="simulation-enemy-leg right"></i>
+                  </div>
+                </div>
+                <div id="simulation-enemy-heat" class="simulation-enemy-heat"><i id="simulation-enemy-heat-fill"></i></div>
               </div>
               <small>ENEMY</small>
             </div>
