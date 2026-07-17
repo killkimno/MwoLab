@@ -103,6 +103,8 @@ const TEXT = {
     "simulation.temperatureHelp": "맵 온도에 따라 초당 냉각량이 낮음 +0.15, 보통 0, 높음 -0.15, 매우 높음 -0.3만큼 보정됩니다.",
     "simulation.targetDistance": "적과의 거리",
     "simulation.distanceHelp": "최소 사거리 미만은 피해가 없고, 최소~적정 사거리는 100%, 적정~최대 사거리는 무기별 규칙에 따라 감소합니다.",
+    "simulation.endOnOverheat": "오버히트 시 종료",
+    "simulation.endOnOverheatHelp": "활성화하면 최대 발열에 도달하는 즉시 발사와 측정을 종료합니다.",
     "simulation.noTimeLimit": "시간제한 없음",
     "simulation.targetVisible": "적 노출",
     "simulation.targetHidden": "적 엄폐 · 데미지 무효",
@@ -395,6 +397,8 @@ const TEXT = {
     "simulation.temperatureHelp": "Map temperature modifies cooling per second: Low +0.15, Normal 0, High -0.15, Very high -0.3.",
     "simulation.targetDistance": "Target distance",
     "simulation.distanceHelp": "Damage is zero below minimum range, 100% from minimum through optimal range, then falls by each weapon's rule through maximum range.",
+    "simulation.endOnOverheat": "End on overheat",
+    "simulation.endOnOverheatHelp": "When enabled, firing and measurement end immediately upon reaching maximum heat.",
     "simulation.noTimeLimit": "NO TIME LIMIT",
     "simulation.targetVisible": "TARGET EXPOSED",
     "simulation.targetHidden": "TARGET COVERED · DAMAGE BLOCKED",
@@ -846,7 +850,7 @@ const STATS_CHASSIS_AGGREGATE_MODES = [
 
 const MAX_COMPARE_MECHS = 15;
 const COMPARE_RANK_EPSILON = 0.0001;
-const SIMULATION_TIMED_DURATION_MS = 20_000;
+const SIMULATION_TIMED_DURATION_MS = 16_000;
 const SIMULATION_GROUP_FIRE_INDICATOR_MS = 250;
 const SIMULATION_CONTINUOUS_HIT_EFFECT_INTERVAL_MS = 120;
 const SIMULATION_MOVEMENT_HEAT_PER_SECOND = 0.3;
@@ -964,6 +968,7 @@ const state = {
     movementState: "moving",
     mapTemperature: "normal",
     targetDistance: 180,
+    endOnOverheat: true,
     targetVisible: true,
     finished: false,
     assignments: new Map(),
@@ -4617,10 +4622,12 @@ function renderSimulationHeat() {
   const heatRateText = netCoolingRate >= 0
     ? `-${fmt(netCoolingRate, 2)}/s`
     : `+${fmt(-netCoolingRate, 2)}/s`;
+  $("simulation-heat-label").textContent = simulation.overheated
+    ? `${t("simulation.heat")} | ${t("simulation.overheated")}`
+    : t("simulation.heat");
   $("simulation-heat-value").textContent = `${simulation.currentHeat.toFixed(1)} / ${fmt(simulation.maxHeat, 1)}`;
-  $("simulation-heat-percent").textContent = simulation.overheated
-    ? `${t("simulation.overheated")} · ${percent.toFixed(1)}% · ${heatRateText}`
-    : `${percent.toFixed(1)}% · ${heatRateText}`;
+  $("simulation-heat-rate").textContent = heatRateText;
+  $("simulation-heat-percent").textContent = `${percent.toFixed(1)}%`;
   $("simulation-heat-fill").style.transform = `scaleX(${fillRatio})`;
   $("simulation-heat-gauge").classList.toggle("overheated", simulation.overheated);
   const bar = $("simulation-heat-fill").parentElement;
@@ -4664,6 +4671,10 @@ function applySimulationOverheat() {
   simulation.overheated = true;
   simulation.heldGroups.clear();
   simulation.continuousFireAt.clear();
+  if (simulation.endOnOverheat) {
+    finishSimulationRun();
+    renderSimulationScenario();
+  }
   renderSimulationHeat();
   renderSimulationGroupStatus();
 }
@@ -4878,6 +4889,7 @@ function openSimulation() {
   $("simulation-movement-state").value = simulation.movementState;
   $("simulation-map-temperature").value = simulation.mapTemperature;
   $("simulation-target-distance").value = String(simulation.targetDistance);
+  $("simulation-end-on-overheat").checked = simulation.endOnOverheat;
   resetSimulationRun();
   renderSimulationWeaponList();
   renderSimulationGroupStatus();
@@ -5073,7 +5085,7 @@ function simulationTick(now) {
   updateSimulationBurnDamage(tickNow, targetWasVisible);
   updateSimulationContinuousDamage(tickNow);
   applySimulationOverheat();
-  updateSimulationScenario(tickNow);
+  if (!simulation.finished) updateSimulationScenario(tickNow);
   syncSimulationContinuousFire(tickNow);
   if (!simulation.finished && !simulation.overheated) {
     for (const weapon of simulation.weapons) {
@@ -6870,6 +6882,15 @@ function bindEvents() {
     const distance = Number(event.target.value);
     state.simulation.targetDistance = Number.isFinite(distance) && distance >= 0 ? distance : 180;
     event.target.value = String(state.simulation.targetDistance);
+  });
+  $("simulation-end-on-overheat").addEventListener("change", (event) => {
+    const simulation = state.simulation;
+    simulation.endOnOverheat = event.target.checked;
+    if (simulation.endOnOverheat && simulation.overheated && !simulation.finished) {
+      finishSimulationRun();
+      renderSimulationMetrics();
+      renderSimulationScenario();
+    }
   });
   $("simulation-group-status").addEventListener("pointerdown", (event) => {
     const button = event.target.closest("[data-simulation-fire-group]");

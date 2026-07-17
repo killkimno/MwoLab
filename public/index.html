@@ -417,6 +417,10 @@
                   <span class="simulation-option-label"><span data-i18n="simulation.targetDistance">적과의 거리</span><button type="button" class="simulation-option-help" data-i18n-tooltip="simulation.distanceHelp" data-i18n-aria-label="simulation.distanceHelp">?</button></span>
                   <span class="simulation-distance-input"><input id="simulation-target-distance" type="number" min="0" step="10" value="180" inputmode="decimal"><small>m</small></span>
                 </label>
+                <label class="simulation-overheat-option">
+                  <span class="simulation-option-label"><span data-i18n="simulation.endOnOverheat">오버히트 시 종료</span><button type="button" class="simulation-option-help" data-i18n-tooltip="simulation.endOnOverheatHelp" data-i18n-aria-label="simulation.endOnOverheatHelp">?</button></span>
+                  <input id="simulation-end-on-overheat" type="checkbox" checked>
+                </label>
               </div>
               <span id="simulation-scenario-time" data-i18n="simulation.noTimeLimit">시간제한 없음</span>
             </div>
@@ -427,13 +431,14 @@
           <div><span data-i18n="simulation.damage">누적 데미지</span><strong id="simulation-damage">0.00</strong></div>
           <div><span>DPS</span><strong id="simulation-dps">0.00</strong></div>
           <div id="simulation-heat-gauge" class="simulation-heat-metric">
-            <span data-i18n="simulation.heat">발열</span>
+            <span id="simulation-heat-label" data-i18n="simulation.heat">발열</span>
             <div class="simulation-heat-readout">
               <strong id="simulation-heat-value">0.00 / 30.00</strong>
-              <small id="simulation-heat-percent">0.0%</small>
+              <small id="simulation-heat-rate">-0.00/s</small>
             </div>
             <div class="simulation-heat-bar" role="progressbar" aria-label="발열" data-i18n-aria-label="simulation.heat" aria-valuemin="0" aria-valuemax="30" aria-valuenow="0">
               <i id="simulation-heat-fill"></i>
+              <small id="simulation-heat-percent">0.0%</small>
             </div>
           </div>
         </div>
