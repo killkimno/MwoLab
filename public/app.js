@@ -820,6 +820,8 @@ const STATS_CHASSIS_AGGREGATE_MODES = [
 const MAX_COMPARE_MECHS = 15;
 const COMPARE_RANK_EPSILON = 0.0001;
 const SIMULATION_TIMED_DURATION_MS = 15_000;
+const SIMULATION_GROUP_FIRE_INDICATOR_MS = 250;
+const SIMULATION_CONTINUOUS_HIT_EFFECT_INTERVAL_MS = 120;
 const SIMULATION_SCENARIOS = Object.freeze({
   free: Object.freeze({ durationMs: null, visibleMs: Number.POSITIVE_INFINITY, hiddenMs: 0 }),
   stationary: Object.freeze({ durationMs: SIMULATION_TIMED_DURATION_MS, visibleMs: SIMULATION_TIMED_DURATION_MS, hiddenMs: 0 }),
@@ -931,6 +933,8 @@ const state = {
     heldGroups: new Set(),
     pointerGroups: new Map(),
     nextFireAt: new Map(),
+    groupFiringUntil: new Map(),
+    lastHitEffectAt: new Map(),
     activeBurns: new Map(),
     continuousFireAt: new Map(),
     totalDamage: 0,
@@ -4511,6 +4515,8 @@ function finishSimulationRun() {
   simulation.heldGroups.clear();
   simulation.pointerGroups.clear();
   simulation.continuousFireAt.clear();
+  simulation.groupFiringUntil.clear();
+  simulation.lastHitEffectAt.clear();
   simulation.activeBurns.clear();
   renderSimulationGroupStatus();
 }
@@ -4520,6 +4526,8 @@ function resetSimulationRun() {
   simulation.heldGroups.clear();
   simulation.pointerGroups.clear();
   simulation.nextFireAt.clear();
+  simulation.groupFiringUntil.clear();
+  simulation.lastHitEffectAt.clear();
   simulation.activeBurns.clear();
   simulation.continuousFireAt.clear();
   simulation.totalDamage = 0;
@@ -4531,6 +4539,7 @@ function resetSimulationRun() {
   simulation.startedAt = null;
   if (simulation.frameId !== null) cancelAnimationFrame(simulation.frameId);
   simulation.frameId = null;
+  document.querySelectorAll(".simulation-hit-effect").forEach((effect) => effect.remove());
   renderSimulationMetrics();
   renderSimulationScenario();
   renderSimulationGroupStatus();
@@ -4640,17 +4649,57 @@ function simulationWeaponIsHeld(weapon) {
   return false;
 }
 
-function renderSimulationGroupStatus() {
+function markSimulationWeaponFiring(weapon, firedAt, durationMs = 0) {
+  const simulation = state.simulation;
+  const firingUntil = firedAt + Math.max(SIMULATION_GROUP_FIRE_INDICATOR_MS, durationMs);
+  for (const group of simulationGroupsForWeapon(weapon)) {
+    if (!simulation.heldGroups.has(group)) continue;
+    simulation.groupFiringUntil.set(
+      group,
+      Math.max(simulation.groupFiringUntil.get(group) || 0, firingUntil),
+    );
+  }
+}
+
+function simulationGroupVisualState(group, now = performance.now()) {
+  const simulation = state.simulation;
+  const weapons = simulation.weapons.filter((weapon) => simulationWeaponInGroup(weapon, group));
+  const ready = !simulation.finished
+    && !simulation.overheated
+    && weapons.some((weapon) => (
+      weapon.continuous
+        ? !simulation.continuousFireAt.has(weapon.key)
+        : (simulation.nextFireAt.get(weapon.key) || 0) <= now
+    ));
+  if (ready) return "ready";
+  if ((simulation.groupFiringUntil.get(group) || 0) > now) return "firing";
+  if (simulation.heldGroups.has(group)) return "held";
+  return "";
+}
+
+function updateSimulationGroupStatus(now = performance.now()) {
+  document.querySelectorAll("[data-simulation-fire-group]").forEach((button) => {
+    const group = Number(button.dataset.simulationFireGroup);
+    const visualState = simulationGroupVisualState(group, now);
+    button.classList.toggle("ready", visualState === "ready");
+    button.classList.toggle("firing", visualState === "firing");
+    button.classList.toggle("held", visualState === "held");
+    button.setAttribute("aria-pressed", String(state.simulation.heldGroups.has(group)));
+  });
+}
+
+function renderSimulationGroupStatus(now = performance.now()) {
   $("simulation-group-status").innerHTML = [1, 2, 3, 4].map((group) => {
     const count = state.simulation.weapons.filter((weapon) => simulationWeaponInGroup(weapon, group)).length;
-    const active = state.simulation.heldGroups.has(group);
+    const visualState = simulationGroupVisualState(group, now);
+    const held = state.simulation.heldGroups.has(group);
     return `
       <button
-        class="simulation-group-key ${active ? "active" : ""}"
+        class="simulation-group-key ${visualState}"
         type="button"
         data-simulation-fire-group="${group}"
         aria-label="${t("simulation.group")} ${group}"
-        aria-pressed="${active}"
+        aria-pressed="${held}"
       ><strong>${group}</strong><span>${count}</span></button>
     `;
   }).join("");
@@ -4729,6 +4778,7 @@ function closeSimulation() {
   simulation.heldGroups.clear();
   simulation.pointerGroups.clear();
   simulation.continuousFireAt.clear();
+  simulation.lastHitEffectAt.clear();
   if (simulation.frameId !== null) cancelAnimationFrame(simulation.frameId);
   simulation.frameId = null;
   $("simulation-overlay").hidden = true;
@@ -4736,10 +4786,46 @@ function closeSimulation() {
   $("open-simulation").focus();
 }
 
+function showSimulationHitEffect(weapon) {
+  const figure = document.querySelector(".simulation-enemy-figure");
+  if (!figure) return;
+  const weaponType = equipmentHardpointType(weapon.item);
+  const category = ["energy", "ballistic", "missile"].includes(weaponType)
+    ? weaponType
+    : "other";
+  const effect = document.createElement("i");
+  effect.className = `simulation-hit-effect ${category}`;
+  effect.style.left = `${12 + Math.random() * 76}%`;
+  effect.style.top = `${8 + Math.random() * 78}%`;
+  figure.append(effect);
+  effect.addEventListener("animationend", () => effect.remove(), { once: true });
+  window.setTimeout(() => effect.remove(), 600);
+
+  if (
+    typeof figure.animate !== "function"
+    || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  ) return;
+  const direction = Math.random() < 0.5 ? -1 : 1;
+  const distance = 1.5 + Math.random() * 1.5;
+  figure.animate([
+    { transform: "translate(0, 0) rotate(0deg)" },
+    { transform: `translate(${direction * distance}px, -1px) rotate(${direction * 1.2}deg)`, offset: 0.25 },
+    { transform: `translate(${-direction * distance * 0.65}px, 0.6px) rotate(${-direction * 0.8}deg)`, offset: 0.55 },
+    { transform: "translate(0, 0) rotate(0deg)" },
+  ], {
+    duration: 150,
+    easing: "ease-out",
+  });
+}
+
 function startSimulationBurn(weapon, startedAt, now = startedAt, damageAllowed = state.simulation.targetVisible) {
   const durationMs = weapon.duration * 1000;
+  markSimulationWeaponFiring(weapon, startedAt, durationMs);
   if (durationMs <= 0) {
-    if (damageAllowed) state.simulation.totalDamage += weapon.damage;
+    if (damageAllowed) {
+      state.simulation.totalDamage += weapon.damage;
+      showSimulationHitEffect(weapon);
+    }
     addSimulationHeat(weapon);
     return;
   }
@@ -4748,7 +4834,11 @@ function startSimulationBurn(weapon, startedAt, now = startedAt, damageAllowed =
   const appliedDamage = weapon.damage * progress;
   const totalHeat = number(weapon.heat);
   const appliedHeat = totalHeat * progress;
-  if (damageAllowed) state.simulation.totalDamage += appliedDamage;
+  const impactShown = damageAllowed && appliedDamage > 0;
+  if (damageAllowed) {
+    state.simulation.totalDamage += appliedDamage;
+    if (impactShown) showSimulationHitEffect(weapon);
+  }
   state.simulation.currentHeat += appliedHeat;
   if (progress < 1) {
     state.simulation.activeBurns.set(weapon.key, {
@@ -4758,6 +4848,7 @@ function startSimulationBurn(weapon, startedAt, now = startedAt, damageAllowed =
       appliedHeat,
       totalDamage: weapon.damage,
       totalHeat,
+      impactShown,
     });
   }
 }
@@ -4771,7 +4862,13 @@ function updateSimulationBurnDamage(now, damageAllowed = state.simulation.target
     const targetDamage = burn.totalDamage * progress;
     const targetHeat = burn.totalHeat * progress;
     if (damageAllowed) {
-      state.simulation.totalDamage += Math.max(0, targetDamage - burn.appliedDamage);
+      const appliedDamage = Math.max(0, targetDamage - burn.appliedDamage);
+      state.simulation.totalDamage += appliedDamage;
+      if (appliedDamage > 0 && !burn.impactShown) {
+        const weapon = state.simulation.weapons.find((entry) => entry.key === weaponKey);
+        if (weapon) showSimulationHitEffect(weapon);
+        burn.impactShown = true;
+      }
     }
     state.simulation.currentHeat += Math.max(0, targetHeat - burn.appliedHeat);
     burn.appliedDamage = targetDamage;
@@ -4791,6 +4888,11 @@ function updateSimulationContinuousDamage(now) {
     const elapsed = Math.max(0, (now - lastUpdatedAt) / 1000);
     if (simulation.targetVisible) {
       simulation.totalDamage += (weapon.damage / weapon.cycle) * elapsed;
+      const lastImpactAt = simulation.lastHitEffectAt.get(weapon.key) || 0;
+      if (elapsed > 0 && now - lastImpactAt >= SIMULATION_CONTINUOUS_HIT_EFFECT_INTERVAL_MS) {
+        showSimulationHitEffect(weapon);
+        simulation.lastHitEffectAt.set(weapon.key, now);
+      }
     }
     simulation.currentHeat += (weapon.heat / weapon.cycle) * elapsed;
     simulation.continuousFireAt.set(weaponKey, now);
@@ -4809,6 +4911,7 @@ function syncSimulationContinuousFire(now) {
         if (!simulation.continuousFireAt.has(weapon.key)) {
           simulation.continuousFireAt.set(weapon.key, now);
         }
+        markSimulationWeaponFiring(weapon, now);
       } else {
         simulation.continuousFireAt.delete(weapon.key);
       }
@@ -4848,8 +4951,13 @@ function simulationTick(now) {
         const latestFireAt = nextFire + Math.max(0, shotCount - 1) * weapon.cycle * 1000;
         startSimulationBurn(weapon, latestFireAt, tickNow, simulation.targetVisible);
       } else {
-        if (simulation.targetVisible) simulation.totalDamage += weapon.damage * shotCount;
+        if (simulation.targetVisible) {
+          simulation.totalDamage += weapon.damage * shotCount;
+          showSimulationHitEffect(weapon);
+        }
         addSimulationHeat(weapon, shotCount);
+        const latestFireAt = nextFire + Math.max(0, shotCount - 1) * weapon.cycle * 1000;
+        markSimulationWeaponFiring(weapon, latestFireAt);
       }
       simulation.nextFireAt.set(weapon.key, nextFire + shotCount * weapon.cycle * 1000);
     }
@@ -4858,6 +4966,7 @@ function simulationTick(now) {
   if (tickNow >= endsAt) finishSimulationRun();
   renderSimulationMetrics(tickNow);
   renderSimulationScenario(tickNow);
+  updateSimulationGroupStatus(tickNow);
   if (simulation.finished) {
     simulation.frameId = null;
   } else {

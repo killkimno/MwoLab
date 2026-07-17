@@ -2541,7 +2541,84 @@ body.simulation-open {
   filter: drop-shadow(0 0 0.45rem #dc4e47aa);
 }
 
-.simulation-enemy-figure i {
+.simulation-hit-effect {
+  position: absolute;
+  z-index: 8;
+  display: block;
+  width: 0.72rem;
+  height: 0.72rem;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.simulation-hit-effect.energy {
+  border: 2px solid #8be8ff;
+  border-radius: 50%;
+  background: #e8fbff;
+  box-shadow: 0 0 0.35rem #56d9ff, 0 0 0.7rem #56d9ffaa;
+  animation: simulation-energy-hit 360ms ease-out forwards;
+}
+
+.simulation-hit-effect.energy::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -0.35rem;
+  width: 1.35rem;
+  height: 2px;
+  background: #d8f8ff;
+  box-shadow: 0 0 0.3rem #56d9ff;
+  transform: rotate(-32deg);
+}
+
+.simulation-hit-effect.ballistic {
+  background: conic-gradient(from 10deg, #fff4bd, transparent 8%, #ffb23e 14%, transparent 22%, #fff4bd 30%, transparent 38%, #ff8a31 46%, transparent 58%, #fff4bd 68%, transparent 78%, #ffb23e 88%, transparent);
+  clip-path: polygon(50% 0, 60% 37%, 100% 24%, 68% 50%, 100% 72%, 61% 63%, 48% 100%, 39% 63%, 0 76%, 31% 50%, 0 27%, 39% 37%);
+  filter: drop-shadow(0 0 0.22rem #ff8a31);
+  animation: simulation-ballistic-hit 300ms ease-out forwards;
+}
+
+.simulation-hit-effect.missile {
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid #ffd06a;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff8cf 0 12%, #ffb13c 20%, #e94d32 48%, transparent 70%);
+  box-shadow: 0 0 0.6rem #ff5b3dbb;
+  animation: simulation-missile-hit 420ms ease-out forwards;
+}
+
+.simulation-hit-effect.other {
+  border: 1px solid #e6eef1;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0.4rem #d7f3ff;
+  animation: simulation-energy-hit 300ms ease-out forwards;
+}
+
+@keyframes simulation-energy-hit {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(0.35); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(1.65); }
+}
+
+@keyframes simulation-ballistic-hit {
+  from { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(0.45); }
+  to { opacity: 0; transform: translate(-50%, -50%) rotate(70deg) scale(1.6); }
+}
+
+@keyframes simulation-missile-hit {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(0.25); }
+  55% { opacity: 0.9; }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(1.85); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .simulation-hit-effect {
+    animation-duration: 1ms !important;
+  }
+}
+
+.simulation-enemy-figure > i:not(.simulation-hit-effect) {
   position: absolute;
   display: block;
   border: 1px solid #ff9a90;
@@ -2702,19 +2779,42 @@ body.simulation-open {
   font-size: 0.75rem;
 }
 
-.simulation-group-key.active {
-  border-color: var(--yellow);
-  background: #3b3413;
-  box-shadow: inset 0 0 0 1px #e9c94a55;
+.simulation-group-key.ready {
+  border-color: #ffe45c;
+  background: #ffe45c;
+  color: #181400;
+  box-shadow: 0 0 9px #ffe45c66, inset 0 0 0 1px #fff3a0;
 }
 
-.simulation-group-key:hover {
+.simulation-group-key.firing {
+  border-color: #ff7463;
+  background: #a83226;
+  color: #fff;
+  box-shadow: 0 0 9px #df654f66, inset 0 0 0 1px #ff8b7c88;
+}
+
+.simulation-group-key.held {
+  border-color: var(--blue);
+  background: #185f7a;
+  color: #fff;
+  box-shadow: 0 0 9px #49a6c866, inset 0 0 0 1px #70c6e688;
+}
+
+.simulation-group-key.ready strong,
+.simulation-group-key.ready span {
+  color: #181400;
+}
+
+.simulation-group-key.firing strong,
+.simulation-group-key.firing span,
+.simulation-group-key.held strong,
+.simulation-group-key.held span {
+  color: #fff;
+}
+
+.simulation-group-key:not(.ready):not(.firing):not(.held):hover {
   border-color: var(--blue);
   background: #172a31;
-}
-
-.simulation-group-key.active strong {
-  color: var(--yellow);
 }
 
 .simulation-fire-hint {
