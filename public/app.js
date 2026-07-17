@@ -6,6 +6,7 @@ const MECHLAB_MINIMUM_SCALE = 0.5;
 let mechlabScale = 1;
 let mechlabScaleObserver = null;
 let mechlabScaleFrame = 0;
+let mechNavigationReady = false;
 
 function normalizeLanguage(value) {
   const language = String(value || "").trim().toLowerCase();
@@ -631,6 +632,25 @@ function languageUrl(language) {
   const url = new URL(window.location.href);
   url.searchParams.set("lang", language);
   return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function mechNavigationUrl(mechId = "") {
+  const url = new URL(window.location.href);
+  if (mechId) url.searchParams.set("mech", mechId);
+  else url.searchParams.delete("mech");
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function updateMechNavigation(view, mechId = "", mode = "push") {
+  const normalizedMechId = view === "mech" ? String(mechId || "") : "";
+  const historyState = {
+    mwolab: true,
+    view: normalizedMechId ? "mech" : "list",
+    mechId: normalizedMechId,
+  };
+  const url = mechNavigationUrl(normalizedMechId);
+  if (mode === "replace") window.history.replaceState(historyState, "", url);
+  else window.history.pushState(historyState, "", url);
 }
 
 function applyStaticTranslations() {
@@ -6134,10 +6154,14 @@ function renderAll() {
   }
 }
 
-function selectMech(id) {
-  state.selectedMech = mechById(id) || state.mechs[0];
+function selectMech(id, { historyMode = "push" } = {}) {
+  const nextMech = mechById(id) || state.mechs[0];
+  const preserveCurrentBuild = historyMode === "none"
+    && String(state.selectedMech?.id || "") === String(nextMech?.id || "")
+    && state.currentBuild;
+  state.selectedMech = nextMech;
   state.selectedChassis = state.selectedMech?.chassis || "";
-  state.currentBuild = loadBuild(state.selectedMech);
+  if (!preserveCurrentBuild) state.currentBuild = loadBuild(state.selectedMech);
   const selectedItem = itemById(state.selectedItemId);
   if (
     !itemMatchesMechFaction(selectedItem, state.selectedMech)
@@ -6151,8 +6175,34 @@ function selectMech(id) {
     state.mechlabBrowseMode = false;
     state.mechlabCompactListOpen = false;
   }
+  if (historyMode !== "none" && state.selectedMech) {
+    updateMechNavigation("mech", state.selectedMech.id, historyMode);
+  }
   renderAll();
   if (state.activeMainTab === "mechlab") document.querySelector(".tab-content").scrollTop = 0;
+}
+
+function applyMechNavigationFromLocation() {
+  if (!mechNavigationReady) return;
+  const requestedMechId = new URL(window.location.href).searchParams.get("mech");
+  const requestedMech = requestedMechId ? mechById(requestedMechId) : null;
+  if (state.activeMainTab !== "mechlab") setMainTab("mechlab");
+  if (requestedMech) {
+    selectMech(requestedMech.id, { historyMode: "none" });
+    return;
+  }
+  state.mechlabBrowseMode = true;
+  state.mechlabCompactListOpen = false;
+  renderAll();
+  $("mech-search").focus();
+}
+
+function initializeMechNavigation() {
+  mechNavigationReady = true;
+  const requestedMechId = new URL(window.location.href).searchParams.get("mech");
+  const requestedMech = requestedMechId ? mechById(requestedMechId) : null;
+  updateMechNavigation(requestedMech ? "mech" : "list", requestedMech?.id, "replace");
+  applyMechNavigationFromLocation();
 }
 
 function openMechFitting(id) {
@@ -6232,6 +6282,7 @@ function applyImportedMwoCode() {
     state.currentBuild = build;
     state.mechlabBrowseMode = false;
     state.mechlabCompactListOpen = false;
+    updateMechNavigation("mech", mech.id);
     closeLoadoutCodeDialog();
     renderAll();
     $("data-status").textContent = t("loadout.imported", { mech: mech.display_name });
@@ -6276,8 +6327,10 @@ function closeMechlabCompactList() {
 
 function showFullMechlabList() {
   if (state.activeMainTab !== "mechlab") return;
+  const alreadyBrowsing = state.mechlabBrowseMode;
   state.mechlabBrowseMode = true;
   state.mechlabCompactListOpen = false;
+  if (!alreadyBrowsing) updateMechNavigation("list");
   renderMechList();
   renderMechlabCompactList();
   $("mech-search").focus();
@@ -7414,6 +7467,7 @@ function removeDraggedItem() {
 }
 
 function bindEvents() {
+  window.addEventListener("popstate", applyMechNavigationFromLocation);
   const tooltipSelector = "[data-item], [data-tooltip-item], [data-loadout-item], [data-engine-heat-sink-item]";
   document.addEventListener("pointerover", (event) => {
     const target = event.target.closest(tooltipSelector);
@@ -8013,7 +8067,7 @@ async function init() {
     state.loadouts = loadouts;
     state.omnipods = omnipods;
     $("data-status").textContent = t("status.loadedData", { count: state.index.counts.mechs });
-    renderAll();
+    initializeMechNavigation();
   } catch (error) {
     $("data-status").textContent = error.message;
     console.error(error);
