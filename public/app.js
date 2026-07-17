@@ -5642,7 +5642,7 @@ function renderEquipmentList() {
             const mountType = item.item_type === "ammo" ? ammoHardpointType(item) : equipmentHardpointType(item);
             const ammoClass = item.item_type === "ammo" ? " ammo" : "";
             return `
-              <button class="item-row ${mountType || item.item_type}${ammoClass}${active}" data-item="${item.id}" type="button" draggable="true" aria-label="${escapeHtml(item.display_name)}">
+              <button class="item-row ${mountType || item.item_type}${ammoClass}${active}" data-item="${item.id}" type="button" aria-label="${escapeHtml(item.display_name)}">
                 <span class="item-row-name"><span class="item-type-mark">${HARDPOINT_LABELS[mountType] || String(item.item_type || "?")[0].toUpperCase()}</span><strong>${item.display_name}</strong></span>
                 <span>${effectiveItemSlots(item)}</span>
                 <span>${fmt(itemTons(item))}</span>
@@ -6042,7 +6042,7 @@ function renderEngineHeatSinkBay(engine, calc) {
     const item = itemById(entry.item_id);
     const name = item?.display_name || item?.name || t("build.missing", { id: entry.item_id });
     return `
-      <span class="engine-heat-sink-box filled installed-engine-heat-sink" data-engine-heat-sink-item="${index}" draggable="true" aria-label="${escapeHtml(name)}"></span>
+      <span class="engine-heat-sink-box filled installed-engine-heat-sink" data-engine-heat-sink-item="${index}" aria-label="${escapeHtml(name)}"></span>
     `;
   }).join("");
   const emptyBoxes = Array.from({ length: Math.max(0, capacity - used) }, () => (
@@ -6063,7 +6063,7 @@ function renderLoadoutItem(component, entry, index, engineBayCalc = null) {
   const ammoClass = item.item_type === "ammo" ? " ammo" : "";
   if (item.item_type === "engine" && engineBayCalc) {
     return `
-      <div class="slot-item engine engine-main-slot" data-loadout-item="${component}:${index}" draggable="true" style="--slot-span:${slots}" aria-label="${escapeHtml(item.display_name)} / ${slots} slots / ${fmt(itemTons(item))} tons">
+      <div class="slot-item engine engine-main-slot" data-loadout-item="${component}:${index}" style="--slot-span:${slots}" aria-label="${escapeHtml(item.display_name)} / ${slots} slots / ${fmt(itemTons(item))} tons">
         <span class="slot-item-mark">E</span>
         <div class="engine-slot-content">
           <strong>${item.display_name}</strong>
@@ -6074,7 +6074,7 @@ function renderLoadoutItem(component, entry, index, engineBayCalc = null) {
     `;
   }
   const row = `
-    <div class="slot-item ${mountType || item.item_type}${ammoClass}" data-loadout-item="${component}:${index}" draggable="true" style="--slot-span:${slots}" aria-label="${escapeHtml(item.display_name)} / ${slots} slots / ${fmt(itemTons(item))} tons">
+    <div class="slot-item ${mountType || item.item_type}${ammoClass}" data-loadout-item="${component}:${index}" style="--slot-span:${slots}" aria-label="${escapeHtml(item.display_name)} / ${slots} slots / ${fmt(itemTons(item))} tons">
       <span class="slot-item-mark">${HARDPOINT_LABELS[mountType] || String(item.item_type || "?")[0].toUpperCase()}</span>
       <strong>${item.display_name}</strong>
       <span class="slot-item-slots">${slots}S</span>
@@ -6981,26 +6981,278 @@ function clearDragState() {
   document.querySelectorAll(".drop-valid, .drop-invalid, .dragging").forEach((element) => {
     element.classList.remove("drop-valid", "drop-invalid", "dragging");
   });
-  document.querySelectorAll(".slot-drag-preview").forEach((element) => element.remove());
+  document.querySelectorAll(".pointer-drag-layer").forEach((element) => element.remove());
+  document.body.classList.remove("pointer-drag-active");
 }
 
-function setWarehouseSlotDragImage(event, item) {
-  if (!event.dataTransfer || !item) return;
+const EQUIPMENT_POINTER_DRAG_THRESHOLD = 5;
+let equipmentPointerDrag = null;
+let suppressEquipmentPointerClick = false;
+let equipmentPointerClickReset = 0;
+
+function equipmentPointerDragPayload(target) {
+  const engineSink = target.closest("[data-engine-heat-sink-item]");
+  if (engineSink) {
+    const index = Number(engineSink.dataset.engineHeatSinkItem);
+    const entry = engineHeatSinkEntries()[index];
+    if (!entry) return null;
+    return { sourceElement: engineSink, payload: { source: "engineHeatSink", index, itemId: entry.item_id } };
+  }
+
+  const installedRow = target.closest("[data-loadout-item]");
+  if (installedRow) {
+    const [component, indexText] = installedRow.dataset.loadoutItem.split(":");
+    const index = Number(indexText);
+    const entry = state.currentBuild?.components?.[component]?.items?.[index];
+    if (!entry) return null;
+    return {
+      sourceElement: installedRow,
+      payload: { source: "component", component, index, itemId: entry.item_id },
+    };
+  }
+
+  const warehouseRow = target.closest("[data-item]");
+  if (!warehouseRow || !$("item-list").contains(warehouseRow)) return null;
+  const item = itemById(warehouseRow.dataset.item);
+  if (!item) return null;
+  return {
+    sourceElement: warehouseRow,
+    payload: { source: "warehouse", itemId: warehouseRow.dataset.item },
+  };
+}
+
+function createWarehouseSlotPointerVisual(item) {
   const slots = Math.max(1, effectiveItemSlots(item));
   const mountType = item.item_type === "ammo" ? ammoHardpointType(item) : equipmentHardpointType(item);
   const ammoClass = item.item_type === "ammo" ? " ammo" : "";
-  const preview = document.createElement("div");
-  preview.className = `slot-item ${mountType || item.item_type}${ammoClass} slot-drag-preview`;
-  preview.style.setProperty("--slot-span", String(slots));
-  preview.innerHTML = `
+  const visual = document.createElement("div");
+  visual.style.setProperty("--slot-span", String(slots));
+  if (item.item_type === "engine") {
+    visual.className = "slot-item engine engine-main-slot";
+    visual.innerHTML = `
+      <span class="slot-item-mark">E</span>
+      <div class="engine-slot-content"><strong>${escapeHtml(item.display_name || item.name)}</strong></div>
+      <span class="slot-item-slots">${slots}S</span>
+    `;
+    return visual;
+  }
+  visual.className = `slot-item ${mountType || item.item_type}${ammoClass}`;
+  visual.innerHTML = `
     <span class="slot-item-mark">${HARDPOINT_LABELS[mountType] || String(item.item_type || "?")[0].toUpperCase()}</span>
     <strong>${escapeHtml(item.display_name || item.name)}</strong>
     <span class="slot-item-slots">${slots}S</span>
   `;
-  preview.style.zoom = mechlabScale === 1 ? "" : String(mechlabScale);
-  document.body.append(preview);
-  event.dataTransfer.setDragImage(preview, 18, Math.min(18, preview.offsetHeight / 2));
-  window.setTimeout(() => preview.remove(), 0);
+  return visual;
+}
+
+function createEquipmentPointerDragLayer(session) {
+  const { payload, sourceElement, sourceRect } = session;
+  const layer = document.createElement("div");
+  const warehouseItem = payload.source === "warehouse" ? itemById(payload.itemId) : null;
+  const visual = warehouseItem ? createWarehouseSlotPointerVisual(warehouseItem) : sourceElement.cloneNode(true);
+
+  layer.className = "pointer-drag-layer";
+  visual.classList.remove("dragging");
+  visual.classList.add("pointer-drag-visual");
+  visual.removeAttribute("id");
+  visual.removeAttribute("draggable");
+  visual.setAttribute("aria-hidden", "true");
+
+  let logicalWidth = Math.max(1, sourceElement.offsetWidth || sourceRect.width);
+  let logicalHeight = Math.max(1, sourceElement.offsetHeight || sourceRect.height);
+  let displayWidth = sourceRect.width;
+  let displayHeight = sourceRect.height;
+  let scaleX = displayWidth / logicalWidth;
+  let scaleY = displayHeight / logicalHeight;
+  if (warehouseItem) {
+    const slotSample = document.querySelector("#components .component-items > *");
+    const slotSampleRect = slotSample?.getBoundingClientRect();
+    const slotScale = slotSample?.offsetWidth && slotSampleRect?.width
+      ? slotSampleRect.width / slotSample.offsetWidth
+      : mechlabScale;
+    logicalWidth = Math.max(1, slotSample?.offsetWidth || logicalWidth);
+    visual.style.width = `${logicalWidth}px`;
+    layer.append(visual);
+    document.body.append(layer);
+    logicalHeight = Math.max(1, visual.offsetHeight);
+    displayWidth = logicalWidth * slotScale;
+    displayHeight = logicalHeight * slotScale;
+    scaleX = slotScale;
+    scaleY = slotScale;
+    const sourceRatioX = Math.min(1, Math.max(0, session.grabOffsetX / Math.max(1, sourceRect.width)));
+    const sourceRatioY = Math.min(1, Math.max(0, session.grabOffsetY / Math.max(1, sourceRect.height)));
+    session.grabOffsetX = displayWidth * sourceRatioX;
+    session.grabOffsetY = displayHeight * sourceRatioY;
+  } else {
+    layer.append(visual);
+    document.body.append(layer);
+  }
+
+  layer.style.width = `${displayWidth}px`;
+  layer.style.height = `${displayHeight}px`;
+  visual.style.width = `${logicalWidth}px`;
+  visual.style.height = `${logicalHeight}px`;
+  visual.style.transform = `scale(${scaleX}, ${scaleY})`;
+  return layer;
+}
+
+function clearEquipmentPointerDropFeedback() {
+  document.querySelectorAll(".drop-valid, .drop-invalid").forEach((element) => {
+    element.classList.remove("drop-valid", "drop-invalid");
+  });
+}
+
+function updateEquipmentPointerDropFeedback(target) {
+  const session = equipmentPointerDrag;
+  const payload = state.activeDrag;
+  if (!session || !payload) return;
+
+  const engineBay = target?.closest?.("[data-engine-heat-sink-drop]");
+  const component = engineBay ? null : target?.closest?.("[data-component-drop]");
+  const equipmentPanel = component || engineBay ? null : target?.closest?.("#equipment-panel");
+  const indicator = engineBay || component || (
+    equipmentPanel && ["component", "engineHeatSink"].includes(payload.source) ? equipmentPanel : null
+  );
+  if (indicator === session.dropIndicator) return;
+
+  clearEquipmentPointerDropFeedback();
+  session.dropIndicator = indicator;
+  if (engineBay) {
+    const warning = engineHeatSinkDropValidation(itemById(payload.itemId), payload);
+    engineBay.classList.add(warning ? "drop-invalid" : "drop-valid");
+    return;
+  }
+  if (component) {
+    const item = itemById(payload.itemId);
+    const warning = dropValidation(item, component.dataset.componentDrop, payload.source === "component" ? payload : null);
+    component.classList.add(warning ? "drop-invalid" : "drop-valid");
+    return;
+  }
+  if (indicator) indicator.classList.add("drop-valid");
+}
+
+function renderEquipmentPointerDragFrame() {
+  const session = equipmentPointerDrag;
+  if (!session?.started) return;
+  session.frame = 0;
+  const left = session.clientX - session.grabOffsetX;
+  const top = session.clientY - session.grabOffsetY;
+  session.layer.style.transform = `translate3d(${left}px, ${top}px, 0)`;
+  updateEquipmentPointerDropFeedback(document.elementFromPoint(session.clientX, session.clientY));
+}
+
+function scheduleEquipmentPointerDragFrame() {
+  if (!equipmentPointerDrag?.started || equipmentPointerDrag.frame) return;
+  equipmentPointerDrag.frame = requestAnimationFrame(renderEquipmentPointerDragFrame);
+}
+
+function startEquipmentPointerDrag(session) {
+  session.started = true;
+  state.activeDrag = session.payload;
+  session.layer = createEquipmentPointerDragLayer(session);
+  session.sourceElement.classList.add("dragging");
+  document.body.classList.add("pointer-drag-active");
+  hideEquipmentTooltip();
+  scheduleEquipmentPointerDragFrame();
+}
+
+function beginEquipmentPointerDrag(event) {
+  if (equipmentPointerDrag || !event.isPrimary || event.button !== 0) return;
+  const dragSource = equipmentPointerDragPayload(event.target);
+  if (!dragSource) return;
+  const sourceRect = dragSource.sourceElement.getBoundingClientRect();
+  equipmentPointerDrag = {
+    ...dragSource,
+    pointerId: event.pointerId,
+    started: false,
+    startX: event.clientX,
+    startY: event.clientY,
+    clientX: event.clientX,
+    clientY: event.clientY,
+    grabOffsetX: event.clientX - sourceRect.left,
+    grabOffsetY: event.clientY - sourceRect.top,
+    sourceRect,
+    layer: null,
+    frame: 0,
+    dropIndicator: null,
+  };
+  try {
+    dragSource.sourceElement.setPointerCapture(event.pointerId);
+  } catch (_error) {
+    // Pointer capture is an optimization; document-level listeners still complete the drag.
+  }
+}
+
+function moveEquipmentPointerDrag(event) {
+  const session = equipmentPointerDrag;
+  if (!session || event.pointerId !== session.pointerId) return;
+  session.clientX = event.clientX;
+  session.clientY = event.clientY;
+  if (!session.started) {
+    const distance = Math.hypot(event.clientX - session.startX, event.clientY - session.startY);
+    if (distance < EQUIPMENT_POINTER_DRAG_THRESHOLD) return;
+    startEquipmentPointerDrag(session);
+  }
+  event.preventDefault();
+  scheduleEquipmentPointerDragFrame();
+}
+
+function suppressNextEquipmentPointerClick() {
+  suppressEquipmentPointerClick = true;
+  clearTimeout(equipmentPointerClickReset);
+  equipmentPointerClickReset = window.setTimeout(() => {
+    suppressEquipmentPointerClick = false;
+  }, 0);
+}
+
+function dropEquipmentPointerDrag(target) {
+  const payload = state.activeDrag;
+  if (!payload) return;
+  const engineBay = target?.closest?.("[data-engine-heat-sink-drop]");
+  if (engineBay) {
+    const warning = engineHeatSinkDropValidation(itemById(payload.itemId), payload);
+    if (warning) setDropStatus(warning);
+    else installDraggedEngineHeatSink();
+    if (state.activeDrag) clearDragState();
+    return;
+  }
+
+  const component = target?.closest?.("[data-component-drop]");
+  if (component) {
+    const item = itemById(payload.itemId);
+    const warning = dropValidation(item, component.dataset.componentDrop, payload.source === "component" ? payload : null);
+    if (warning) setDropStatus(warning);
+    else installDraggedItem(component.dataset.componentDrop);
+    if (state.activeDrag) clearDragState();
+    return;
+  }
+
+  if (["component", "engineHeatSink"].includes(payload.source)) removeDraggedItem();
+  else clearDragState();
+}
+
+function finishEquipmentPointerDrag(event, cancelled = false) {
+  const session = equipmentPointerDrag;
+  if (!session || event.pointerId !== session.pointerId) return;
+  if (Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+    session.clientX = event.clientX;
+    session.clientY = event.clientY;
+  }
+  if (session.frame) cancelAnimationFrame(session.frame);
+  const dropTarget = session.started && !cancelled
+    ? document.elementFromPoint(session.clientX, session.clientY)
+    : null;
+  session.layer?.remove();
+  session.sourceElement.classList.remove("dragging");
+  document.body.classList.remove("pointer-drag-active");
+  clearEquipmentPointerDropFeedback();
+  equipmentPointerDrag = null;
+  if (!session.started) return;
+
+  event.preventDefault();
+  suppressNextEquipmentPointerClick();
+  if (cancelled) clearDragState();
+  else dropEquipmentPointerDrag(dropTarget);
 }
 
 function adjustArmorAllocation(button) {
@@ -7659,137 +7911,52 @@ function bindEvents() {
   });
   document.addEventListener("pointerup", stopArmorHold);
   document.addEventListener("pointercancel", stopArmorHold);
+  $("item-list").addEventListener("pointerdown", beginEquipmentPointerDrag);
+  $("components").addEventListener("pointerdown", beginEquipmentPointerDrag);
+  document.addEventListener("pointermove", moveEquipmentPointerDrag, { passive: false });
+  document.addEventListener("pointerup", (event) => finishEquipmentPointerDrag(event));
+  document.addEventListener("pointercancel", (event) => finishEquipmentPointerDrag(event, true));
+  document.addEventListener("click", (event) => {
+    if (!suppressEquipmentPointerClick) return;
+    suppressEquipmentPointerClick = false;
+    clearTimeout(equipmentPointerClickReset);
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  }, { capture: true });
   $("item-list").addEventListener("dragstart", (event) => {
     const podRow = event.target.closest("[data-omnipod]");
-    if (podRow) {
-      state.activeDrag = {
-        source: "omnipod",
-        podId: podRow.dataset.omnipod,
-        component: podRow.dataset.omnipodComponent,
-      };
-      podRow.classList.add("dragging");
-      event.dataTransfer.effectAllowed = "copy";
-      event.dataTransfer.setData("text/plain", `omnipod:${podRow.dataset.omnipod}`);
-      return;
-    }
-    const row = event.target.closest("[data-item]");
-    if (!row) return;
-    state.activeDrag = { source: "warehouse", itemId: row.dataset.item };
-    row.classList.add("dragging");
+    if (!podRow) return;
+    state.activeDrag = {
+      source: "omnipod",
+      podId: podRow.dataset.omnipod,
+      component: podRow.dataset.omnipodComponent,
+    };
+    podRow.classList.add("dragging");
     event.dataTransfer.effectAllowed = "copy";
-    event.dataTransfer.setData("text/plain", `warehouse:${row.dataset.item}`);
-    setWarehouseSlotDragImage(event, itemById(row.dataset.item));
-  });
-  $("components").addEventListener("dragstart", (event) => {
-    const engineSinkRow = event.target.closest("[data-engine-heat-sink-item]");
-    if (engineSinkRow) {
-      const index = Number(engineSinkRow.dataset.engineHeatSinkItem);
-      const entry = engineHeatSinkEntries()[index];
-      if (!entry) return;
-      state.activeDrag = { source: "engineHeatSink", index, itemId: entry.item_id };
-      engineSinkRow.classList.add("dragging");
-      event.dataTransfer.effectAllowed = "move";
-      event.dataTransfer.setData("text/plain", `engine-heatsink:${index}`);
-      return;
-    }
-    const row = event.target.closest("[data-loadout-item]");
-    if (!row) return;
-    const [component, indexText] = row.dataset.loadoutItem.split(":");
-    const index = Number(indexText);
-    const entry = state.currentBuild?.components?.[component]?.items?.[index];
-    if (!entry) return;
-    state.activeDrag = { source: "component", component, index, itemId: entry.item_id };
-    row.classList.add("dragging");
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", `component:${component}:${index}`);
+    event.dataTransfer.setData("text/plain", `omnipod:${podRow.dataset.omnipod}`);
   });
   $("components").addEventListener("dragover", (event) => {
-    const engineBay = event.target.closest("[data-engine-heat-sink-drop]");
-    if (engineBay && state.activeDrag) {
-      document.querySelectorAll("[data-component-drop], [data-engine-heat-sink-drop]")
-        .forEach((target) => target.classList.remove("drop-valid", "drop-invalid"));
-      const item = itemById(state.activeDrag.itemId);
-      const warning = engineHeatSinkDropValidation(item, state.activeDrag);
-      engineBay.classList.add(warning ? "drop-invalid" : "drop-valid");
-      if (!warning) {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = state.activeDrag.source === "warehouse" ? "copy" : "move";
-      }
-      return;
-    }
     const component = event.target.closest("[data-component-drop]");
-    if (!component || !state.activeDrag) return;
+    if (!component || state.activeDrag?.source !== "omnipod") return;
     document.querySelectorAll("[data-component-drop]").forEach((target) => target.classList.remove("drop-valid", "drop-invalid"));
-    if (state.activeDrag.source === "omnipod") {
-      const valid = state.activeDrag.component === component.dataset.componentDrop;
-      component.classList.add(valid ? "drop-valid" : "drop-invalid");
-      if (valid) {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = "copy";
-      }
-      return;
-    }
-    const item = itemById(state.activeDrag.itemId);
-    const warning = dropValidation(item, component.dataset.componentDrop, state.activeDrag.source === "component" ? state.activeDrag : null);
-    component.classList.add(warning ? "drop-invalid" : "drop-valid");
-    if (!warning || state.activeDrag.source === "component") {
+    const valid = state.activeDrag.component === component.dataset.componentDrop;
+    component.classList.add(valid ? "drop-valid" : "drop-invalid");
+    if (valid) {
       event.preventDefault();
-      event.dataTransfer.dropEffect = state.activeDrag.source === "warehouse" ? "copy" : "move";
+      event.dataTransfer.dropEffect = "copy";
     }
   });
   $("components").addEventListener("drop", (event) => {
-    const engineBay = event.target.closest("[data-engine-heat-sink-drop]");
-    if (engineBay) {
-      event.preventDefault();
-      installDraggedEngineHeatSink();
-      return;
-    }
     const component = event.target.closest("[data-component-drop]");
-    if (!component) return;
-    event.preventDefault();
     const payload = state.activeDrag;
-    if (payload?.source === "omnipod") {
-      if (payload.component === component.dataset.componentDrop) {
-        state.currentBuild.components[payload.component].omnipod = Number(payload.podId);
-        clearDragState();
-        renderVariant();
-        renderEquipmentList();
-      }
-      return;
-    }
-    const item = itemById(payload?.itemId);
-    const warning = dropValidation(item, component.dataset.componentDrop, payload?.source === "component" ? payload : null);
-    if (warning && payload?.source === "component") {
-      setDropStatus(warning);
+    if (!component || payload?.source !== "omnipod") return;
+    event.preventDefault();
+    if (payload.component === component.dataset.componentDrop) {
+      state.currentBuild.components[payload.component].omnipod = Number(payload.podId);
       clearDragState();
-      return;
+      renderVariant();
+      renderEquipmentList();
     }
-    installDraggedItem(component.dataset.componentDrop);
-  });
-  $("equipment-panel").addEventListener("dragover", (event) => {
-    if (!["component", "engineHeatSink"].includes(state.activeDrag?.source)) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    $("equipment-panel").classList.add("drop-valid");
-  });
-  $("equipment-panel").addEventListener("dragleave", (event) => {
-    if (!$("equipment-panel").contains(event.relatedTarget)) $("equipment-panel").classList.remove("drop-valid");
-  });
-  $("equipment-panel").addEventListener("drop", (event) => {
-    event.preventDefault();
-    removeDraggedItem();
-  });
-  document.addEventListener("dragover", (event) => {
-    if (!["component", "engineHeatSink"].includes(state.activeDrag?.source)) return;
-    if (event.target.closest("[data-component-drop]")) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  });
-  document.addEventListener("drop", (event) => {
-    if (!["component", "engineHeatSink"].includes(state.activeDrag?.source)) return;
-    if (event.target.closest("[data-component-drop], #equipment-panel")) return;
-    event.preventDefault();
-    removeDraggedItem();
   });
   document.addEventListener("dragend", clearDragState);
   $("save-build").addEventListener("click", () => {

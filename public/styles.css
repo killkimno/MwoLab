@@ -3652,7 +3652,7 @@ body.simulation-open {
 
 .component.drop-invalid {
   border-color: var(--red);
-  opacity: 0.58;
+  box-shadow: inset 0 0 0 1px var(--red), 0 0 0 1px rgba(220, 78, 71, 0.22);
 }
 
 .component-head {
@@ -3865,6 +3865,7 @@ body.simulation-open {
   background: repeating-linear-gradient(to bottom, #1b3540 0, #1b3540 1.65rem, #294c59 1.65rem, #294c59 calc(1.65rem + 1px));
   cursor: grab;
   overflow: hidden;
+  touch-action: none;
 }
 
 .slot-item:active {
@@ -3879,13 +3880,28 @@ body.simulation-open {
   filter: brightness(0.97);
 }
 
-.slot-drag-preview {
+.pointer-drag-layer {
   position: fixed;
   z-index: 2147483647;
-  top: -10000px;
-  left: -10000px;
-  width: min(19rem, 42vw);
+  top: 0;
+  left: 0;
+  opacity: 0.8;
   pointer-events: none;
+  will-change: transform;
+}
+
+.pointer-drag-visual {
+  margin: 0 !important;
+  opacity: 1 !important;
+  filter: none !important;
+  transform-origin: top left;
+  pointer-events: none !important;
+}
+
+body.pointer-drag-active,
+body.pointer-drag-active * {
+  cursor: grabbing !important;
+  user-select: none !important;
 }
 
 .slot-item strong {
@@ -4048,7 +4064,8 @@ body.simulation-open {
 
 .engine-inline-heat-sinks.drop-invalid {
   border-color: var(--red);
-  opacity: 0.65;
+  background: rgba(148, 38, 32, 0.18);
+  box-shadow: 0 0 0.55rem rgba(220, 78, 71, 0.5);
 }
 
 .engine-heat-sink-box {
@@ -4068,6 +4085,7 @@ body.simulation-open {
 
 .installed-engine-heat-sink {
   cursor: grab;
+  touch-action: none;
 }
 
 .installed-engine-heat-sink:active {
@@ -4543,6 +4561,7 @@ body.simulation-open {
   border-bottom-color: #1f2d32;
   color: #b8c8cd;
   cursor: grab;
+  touch-action: none;
 }
 
 .equipment-panel .item-row:active {
