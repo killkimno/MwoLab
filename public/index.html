@@ -14,7 +14,7 @@
       </div>
 
       <nav class="main-tabs" aria-label="Main tabs">
-        <button class="tab-button active" type="button" data-main-tab="mechlab" aria-controls="tab-mechlab" data-i18n="tabs.mechlab">현재 멕랩</button>
+        <button class="tab-button active" type="button" data-main-tab="mechlab" aria-controls="tab-mechlab" data-i18n="tabs.mechlab">멕랩</button>
         <button class="tab-button" type="button" data-main-tab="info" aria-controls="tab-info" data-i18n="tabs.info">정보</button>
         <button class="tab-button" type="button" data-main-tab="compare" aria-controls="tab-compare" data-i18n="tabs.compare">비교하기</button>
         <button class="tab-button" type="button" data-main-tab="stats" aria-controls="tab-stats" data-i18n="tabs.stats">통계</button>
@@ -31,7 +31,7 @@
             <div class="toolbar">
               <div class="mech-toolbar-row">
                 <input id="mech-search" type="search" placeholder="기종 또는 변형 검색" data-i18n-placeholder="search.mechPlaceholder">
-                <button id="mech-list-view-toggle" class="mech-list-view-toggle" type="button" aria-pressed="true" title="작은 리스트 보기" data-i18n-title="list.smallView">&lt;&lt;</button>
+                <button id="mech-list-view-toggle" class="mech-list-view-toggle" type="button" aria-pressed="true" title="작은 리스트 보기" data-i18n-title="list.smallView" hidden>&lt;&lt;</button>
               </div>
               <select id="faction-filter">
                 <option value="" data-i18n="filters.allFactions">모든 진영</option>
@@ -58,19 +58,27 @@
               <div class="workspace mechlab-workspace">
                 <section class="variant-panel">
                   <div>
-                    <h2 id="variant-name" data-i18n="info.selectMech">멕을 선택하세요</h2>
+                    <div class="variant-title-row">
+                      <h2 id="variant-name" data-i18n="info.selectMech">멕을 선택하세요</h2>
+                      <button id="show-mech-list" class="show-mech-list-button" type="button" data-i18n="mechlab.showList" hidden>멕 리스트</button>
+                    </div>
                     <div id="variant-meta" class="muted"></div>
                   </div>
                   <div class="actions">
-                    <button id="show-mech-list" type="button" data-i18n="mechlab.showList">멕 리스트</button>
-                    <button id="reset-stock" type="button">Stock</button>
+                    <button id="open-build-actions" type="button">LOADOUT</button>
                     <button id="save-build" type="button">Save</button>
-                    <button id="clear-build" type="button">Clear</button>
                   </div>
                 </section>
 
                 <section class="mechlab-grid">
-                  <aside class="mech-summary-panel" aria-label="Mech summary">
+                  <aside id="mechlab-compact-list-panel" class="mechlab-compact-list-panel" aria-label="Compact mech list" hidden>
+                    <div class="mechlab-compact-list-toolbar">
+                      <input id="mechlab-compact-search" type="search" placeholder="기종 또는 변형 검색" data-i18n-placeholder="search.mechPlaceholder">
+                      <button id="close-mechlab-compact-list" class="mechlab-compact-list-close" type="button" aria-label="Close mech list">X</button>
+                    </div>
+                    <div id="mechlab-compact-list" class="mech-list compact-mech-list"></div>
+                  </aside>
+                  <aside id="mech-summary-panel" class="mech-summary-panel" aria-label="Mech summary">
                     <div id="mech-summary-name" class="mech-summary-name">-</div>
                     <div class="mech-summary-stats">
                       <div class="mech-summary-row">
@@ -118,7 +126,6 @@
                       <button class="equipment-category-tab" type="button" role="tab" aria-selected="false" data-equipment-category="equipment" data-i18n="filters.equipment">장비</button>
                       <button class="equipment-category-tab" type="button" role="tab" aria-selected="false" data-equipment-category="omnipods" data-i18n="filters.omnipods" hidden>옵니포드</button>
                     </div>
-                    <div id="selected-item" class="selected-item muted" data-i18n="equipment.noItem">장비가 선택되지 않았습니다</div>
                     <div id="warehouse-columns" class="warehouse-columns" aria-hidden="true"><span>Item</span><span>Slots</span><span>Tons</span></div>
                     <div id="item-list" class="item-list"></div>
                     <section id="upgrade-panel" class="upgrade-panel" aria-label="Upgrades">
@@ -132,9 +139,12 @@
 
             <section id="tab-info" class="tab-panel info-workspace" hidden>
               <section class="variant-panel">
-                <div>
-                  <h2 id="info-variant-name" data-i18n="info.selectMech">멕을 선택하세요</h2>
-                  <div id="info-variant-meta" class="muted"></div>
+                <div class="info-variant-heading">
+                  <div>
+                    <h2 id="info-variant-name" data-i18n="info.selectMech">멕을 선택하세요</h2>
+                    <div id="info-variant-meta" class="muted"></div>
+                  </div>
+                  <button id="fit-info-mech" class="fit-mech-button" type="button" data-i18n="stats.fit" hidden>핏팅하기</button>
                 </div>
                 <div class="info-actions">
                   <label class="toggle-row">
@@ -292,6 +302,23 @@
       <div id="compare-overlay-cells" class="compare-header-overlay-cells"></div>
     </div>
 
+    <div id="build-actions-overlay" class="build-actions-overlay" hidden>
+      <section class="build-actions-dialog" role="dialog" aria-modal="true" aria-labelledby="build-actions-title">
+        <header>
+          <h2 id="build-actions-title">LOADOUT ACTIONS</h2>
+          <button id="close-build-actions-x" class="build-actions-close" type="button" aria-label="Close">X</button>
+        </header>
+        <div class="build-actions-list">
+          <button type="button" data-build-action="strip-armor">STRIP ARMOR</button>
+          <button type="button" data-build-action="strip-equipment">STRIP EQUIPMENT</button>
+          <button type="button" data-build-action="strip-all">STRIP ALL</button>
+          <button type="button" data-build-action="max-armor">MAX ARMOR</button>
+          <button type="button" data-build-action="stock-loadout">STOCK LOADOUT</button>
+        </div>
+        <button id="close-build-actions" class="build-actions-cancel" type="button">CLOSE</button>
+      </section>
+    </div>
+
     <div id="loadout-code-overlay" class="loadout-code-overlay" hidden>
       <section class="loadout-code-dialog" role="dialog" aria-modal="true" aria-labelledby="loadout-code-title">
         <header>
@@ -390,6 +417,8 @@
         <div id="simulation-weapon-list" class="simulation-weapon-list"></div>
       </section>
     </div>
+
+    <div id="equipment-tooltip" class="equipment-tooltip" role="tooltip" hidden></div>
 
     <script src="mwo-codec.js"></script>
     <script src="app.js"></script>
