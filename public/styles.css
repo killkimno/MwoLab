@@ -2904,6 +2904,89 @@ body.simulation-open {
   font-weight: 800;
 }
 
+.simulation-option-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.22rem;
+  white-space: nowrap;
+}
+
+.simulation-option-help {
+  position: relative;
+  display: inline-grid;
+  width: 0.9rem;
+  height: 0.9rem;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #52727e;
+  border-radius: 50%;
+  background: #17292f;
+  color: var(--blue);
+  cursor: help;
+  font: 900 0.58rem/1 sans-serif;
+}
+
+.simulation-option-help::before,
+.simulation-option-help::after {
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -0.2rem);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.simulation-option-help::before {
+  content: "";
+  top: calc(100% + 0.18rem);
+  border-right: 0.28rem solid transparent;
+  border-bottom: 0.32rem solid #65848f;
+  border-left: 0.28rem solid transparent;
+}
+
+.simulation-option-help::after {
+  content: attr(data-tooltip);
+  top: calc(100% + 0.48rem);
+  width: max-content;
+  max-width: min(16rem, 70vw);
+  padding: 0.4rem 0.48rem;
+  border: 1px solid #65848f;
+  border-radius: 3px;
+  background: #071013f5;
+  box-shadow: 0 0.35rem 0.8rem #0009;
+  color: #d7e7eb;
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+}
+
+.simulation-option-help:hover,
+.simulation-option-help:focus-visible {
+  border-color: var(--blue);
+  outline: none;
+}
+
+.simulation-option-help:hover::before,
+.simulation-option-help:hover::after,
+.simulation-option-help:focus-visible::before,
+.simulation-option-help:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.simulation-environment-options > label:first-child .simulation-option-help::after {
+  left: -0.5rem;
+  transform: translate(0, -0.2rem);
+}
+
+.simulation-environment-options > label:first-child .simulation-option-help:hover::after,
+.simulation-environment-options > label:first-child .simulation-option-help:focus-visible::after {
+  transform: translate(0, 0);
+}
+
 .simulation-environment-options select,
 .simulation-environment-options input {
   min-width: 0;
@@ -2941,31 +3024,6 @@ body.simulation-open {
 
 .simulation-distance-input small {
   font-size: 0.6rem;
-}
-
-.simulation-environment-help {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.35rem;
-  padding-top: 0.35rem;
-}
-
-.simulation-environment-help p {
-  display: grid;
-  gap: 0.12rem;
-  margin: 0;
-  padding: 0.28rem 0.38rem;
-  border: 1px solid #263b43;
-  border-radius: 3px;
-  background: #0b1519;
-  color: #819aa3;
-  font-size: 0.58rem;
-  line-height: 1.35;
-}
-
-.simulation-environment-help strong {
-  color: #bed1d7;
-  font-size: 0.62rem;
 }
 
 .simulation-group-status {
@@ -4622,10 +4680,6 @@ body.simulation-open {
 
   .simulation-target-stage {
     min-height: 12.8rem;
-  }
-
-  .simulation-environment-help {
-    grid-template-columns: 1fr;
   }
 
   .simulation-list-header,

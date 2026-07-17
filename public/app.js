@@ -632,6 +632,9 @@ function applyStaticTranslations() {
   document.querySelectorAll("[data-i18n-title]").forEach((element) => {
     element.setAttribute("title", t(element.dataset.i18nTitle));
   });
+  document.querySelectorAll("[data-i18n-tooltip]").forEach((element) => {
+    element.dataset.tooltip = t(element.dataset.i18nTooltip);
+  });
   document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
     element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
   });
@@ -958,9 +961,9 @@ const state = {
     open: false,
     weapons: [],
     scenarioId: "free",
-    movementState: "stationary",
+    movementState: "moving",
     mapTemperature: "normal",
-    targetDistance: 150,
+    targetDistance: 180,
     targetVisible: true,
     finished: false,
     assignments: new Map(),
@@ -4381,7 +4384,7 @@ function simulationWeaponRangeProfile(item, rangeBonus = 0) {
 function simulationWeaponDamageMultiplier(weapon, distance = state.simulation.targetDistance) {
   const profile = weapon.rangeProfile;
   if (!profile) return 1;
-  const targetDistance = Math.max(0, number(Number(distance), 150));
+  const targetDistance = Math.max(0, number(Number(distance), 180));
   if (targetDistance < profile.minimumRange || targetDistance > profile.maximumRange) return 0;
   if (targetDistance <= profile.optimalRange) return 1;
 
@@ -6865,7 +6868,7 @@ function bindEvents() {
   });
   $("simulation-target-distance").addEventListener("change", (event) => {
     const distance = Number(event.target.value);
-    state.simulation.targetDistance = Number.isFinite(distance) && distance >= 0 ? distance : 150;
+    state.simulation.targetDistance = Number.isFinite(distance) && distance >= 0 ? distance : 180;
     event.target.value = String(state.simulation.targetDistance);
   });
   $("simulation-group-status").addEventListener("pointerdown", (event) => {
@@ -6936,7 +6939,7 @@ function bindEvents() {
       closeSimulation();
       return;
     }
-    if (event.target.matches("input, select, textarea")) return;
+    if (event.target.matches("input, select, textarea") || event.target.closest(".simulation-option-help")) return;
     const group = Number(event.key);
     if (group < 1 || group > 4) return;
     event.preventDefault();
@@ -6944,7 +6947,7 @@ function bindEvents() {
   });
   document.addEventListener("keyup", (event) => {
     if (!state.simulation.open) return;
-    if (event.target.matches("input, select, textarea")) return;
+    if (event.target.matches("input, select, textarea") || event.target.closest(".simulation-option-help")) return;
     const group = Number(event.key);
     if (group < 1 || group > 4) return;
     event.preventDefault();

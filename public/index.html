@@ -397,15 +397,15 @@
             <div class="simulation-wall" aria-hidden="true"></div>
             <div class="simulation-target-readout">
               <div class="simulation-environment-options">
-                <label title="100% 속력으로 이동할 때 초당 0.3의 발열이 추가됩니다." data-i18n-title="simulation.movementHelp">
-                  <span data-i18n="simulation.movementState">이동 상태</span>
+                <label>
+                  <span class="simulation-option-label"><span data-i18n="simulation.movementState">이동 상태</span><button type="button" class="simulation-option-help" data-i18n-tooltip="simulation.movementHelp" data-i18n-aria-label="simulation.movementHelp">?</button></span>
                   <select id="simulation-movement-state">
                     <option value="stationary" data-i18n="simulation.stationary">정지</option>
-                    <option value="moving" data-i18n="simulation.moving">이동중</option>
+                    <option value="moving" data-i18n="simulation.moving" selected>이동중</option>
                   </select>
                 </label>
-                <label title="맵 온도에 따라 초당 냉각량이 낮음 +0.15, 보통 0, 높음 -0.15, 매우 높음 -0.3만큼 보정됩니다." data-i18n-title="simulation.temperatureHelp">
-                  <span data-i18n="simulation.mapTemperature">맵 온도</span>
+                <label>
+                  <span class="simulation-option-label"><span data-i18n="simulation.mapTemperature">맵 온도</span><button type="button" class="simulation-option-help" data-i18n-tooltip="simulation.temperatureHelp" data-i18n-aria-label="simulation.temperatureHelp">?</button></span>
                   <select id="simulation-map-temperature">
                     <option value="low" data-i18n="simulation.temperatureLow">낮음</option>
                     <option value="normal" data-i18n="simulation.temperatureNormal" selected>보통</option>
@@ -413,18 +413,13 @@
                     <option value="veryHigh" data-i18n="simulation.temperatureVeryHigh">매우 높음</option>
                   </select>
                 </label>
-                <label title="최소 사거리 미만은 피해가 없고, 최소~적정 사거리는 100%, 적정~최대 사거리는 무기별 규칙에 따라 감소합니다." data-i18n-title="simulation.distanceHelp">
-                  <span data-i18n="simulation.targetDistance">적과의 거리</span>
-                  <span class="simulation-distance-input"><input id="simulation-target-distance" type="number" min="0" step="10" value="150" inputmode="decimal"><small>m</small></span>
+                <label>
+                  <span class="simulation-option-label"><span data-i18n="simulation.targetDistance">적과의 거리</span><button type="button" class="simulation-option-help" data-i18n-tooltip="simulation.distanceHelp" data-i18n-aria-label="simulation.distanceHelp">?</button></span>
+                  <span class="simulation-distance-input"><input id="simulation-target-distance" type="number" min="0" step="10" value="180" inputmode="decimal"><small>m</small></span>
                 </label>
               </div>
               <span id="simulation-scenario-time" data-i18n="simulation.noTimeLimit">시간제한 없음</span>
             </div>
-          </div>
-          <div class="simulation-environment-help">
-            <p><strong data-i18n="simulation.movementState">이동 상태</strong><span data-i18n="simulation.movementHelp">100% 속력으로 이동할 때 초당 0.3의 발열이 추가됩니다.</span></p>
-            <p><strong data-i18n="simulation.mapTemperature">맵 온도</strong><span data-i18n="simulation.temperatureHelp">맵 온도에 따라 초당 냉각량이 낮음 +0.15, 보통 0, 높음 -0.15, 매우 높음 -0.3만큼 보정됩니다.</span></p>
-            <p><strong data-i18n="simulation.targetDistance">적과의 거리</strong><span data-i18n="simulation.distanceHelp">최소 사거리 미만은 피해가 없고, 최소~적정 사거리는 100%, 적정~최대 사거리는 무기별 규칙에 따라 감소합니다.</span></p>
           </div>
         </section>
         <div class="simulation-metrics" aria-live="polite">
