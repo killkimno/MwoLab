@@ -253,6 +253,14 @@ def parse_component_hardpoints(comp):
     return hardpoints
 
 
+def normalize_hardpoint_id(value):
+    text = str(value).strip()
+    try:
+        return str(int(text))
+    except ValueError:
+        return text.lower()
+
+
 def parse_hardpoint_weapon_slots(zf):
     slot_counts = {}
     for inner_path in zf.namelist():
@@ -266,14 +274,14 @@ def parse_hardpoint_weapon_slots(zf):
             hardpoint_id = hardpoint.attrib.get("id")
             if hardpoint_id is None:
                 continue
-            slot_counts[str(hardpoint_id)] = len(hardpoint.findall("WeaponSlot"))
+            slot_counts[normalize_hardpoint_id(hardpoint_id)] = len(hardpoint.findall("WeaponSlot"))
     return slot_counts
 
 
 def apply_hardpoint_weapon_slots(hardpoints, slot_counts):
     for hardpoint in hardpoints:
         hardpoint.pop("weapon_slots", None)
-        weapon_slots = slot_counts.get(str(hardpoint.get("ID")))
+        weapon_slots = slot_counts.get(normalize_hardpoint_id(hardpoint.get("ID")))
         if weapon_slots is not None:
             hardpoint["weapon_slots"] = weapon_slots
     return hardpoints

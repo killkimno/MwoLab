@@ -42,9 +42,10 @@
 - A full extraction command is `python tools/extract_mwo_data.py --game-dir "F:\Game\Steam\steamapps\common\MechWarrior Online" --out public\data`.
 - Full extraction refreshes every generated dataset from the currently installed game and can include unrelated balance-data or numeric-format changes. For a hardpoint-only refresh that preserves the existing equipment and loadout data, use `python tools/extract_mwo_data.py --game-dir "F:\Game\Steam\steamapps\common\MechWarrior Online" --out public\data --hardpoints-only`.
 - Standard and omnipod weapon capacities come from each chassis archive's `*-hardpoints.xml`. Match the MDF or omnipod hardpoint `ID` to `<Hardpoint id="...">` and store the number of direct `<WeaponSlot>` children as `weapon_slots`.
+- Normalize hardpoint IDs before matching so numeric IDs with leading zeroes compare equally. For example, XML hardpoint ID `"02"` must match MDF or omnipod hardpoint ID `2`; do not compare their raw string forms.
 - The MDF hardpoint `Slots` attribute is not the number of equippable weapons. Do not use it for hardpoint capacity. For example, an MDF value of `Slots="10"` can map to only three `<WeaponSlot>` entries.
 - Do not infer maximum hardpoint capacity from the stock loadout. Stock equipment describes installed weapons, not all weapons the chassis can mount.
 - App-side hardpoint counts, fitting limits, component badges, mech-list badges, and stats must use `hardpoint.weapon_slots`. Use a fallback of one only when the chassis hardpoint mapping genuinely has no matching entry.
 - Preserve raw extracted attributes such as `Slots`; add `weapon_slots` instead of overwriting source fields with a different meaning.
-- Hardpoint regression checks: `UM-SC` must be ballistic 2, energy 3, AMS 1; `UM-R60` ballistic 4, energy 2; `UM-R60L` ballistic 2, energy 4; and `HBK-4G` ballistic 3.
+- Hardpoint regression checks: `UM-SC` must be ballistic 2, energy 3, AMS 1; `UM-R60` ballistic 4, energy 2; `UM-R60L` ballistic 2, energy 4; `HBK-4G` ballistic 3; and the `FMT-AL` left-arm omnipod must be energy 3.
 - After extraction changes, validate both standard mech definitions and omnipod definitions, run Python and JavaScript syntax checks, run `git diff --check`, and inspect generated-file scope before keeping the result.
