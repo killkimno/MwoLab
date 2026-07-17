@@ -1038,6 +1038,12 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function mechIconSrc(mech) {
+  const name = String(mech?.name || "").toLowerCase();
+  if (!name) return "";
+  return `assets/mech-icons/${encodeURIComponent(name)}.png`;
+}
+
 function itemById(id) {
   return state.equipment?.items?.[String(id)] || null;
 }
@@ -5401,7 +5407,6 @@ function renderVariantRow(mech) {
     <button class="mech-row variant-row${selected}" data-mech="${mech.id}" type="button">
       <span class="row-title">
         <span class="mech-title-main">${omnipodIcon(mech)}<strong>${variantCode(mech)}</strong></span>
-        <span>${mech.faction || "unknown"}</span>
       </span>
       <span class="badge-line">${stockHardpointBadges(mech)}</span>
     </button>
@@ -5441,11 +5446,14 @@ function renderMechCard(mech, activeChassis) {
   const accelerationBoosted = state.infoApplyQuirks && Math.abs(data.movement.acceleration - data.baseMovement.acceleration) >= 0.0001;
   const decelerationBoosted = state.infoApplyQuirks && Math.abs(data.movement.deceleration - data.baseMovement.deceleration) >= 0.0001;
   const turnBoosted = state.infoApplyQuirks && Math.abs(data.movement.turnSpeed - data.baseMovement.turnSpeed) >= 0.0001;
+  const iconSrc = mechIconSrc(mech);
   return `
     <button class="mech-card${active}${chassisActive}" data-mech="${mech.id}" type="button">
+      <span class="mech-card-media">
+        <img src="${escapeHtml(iconSrc)}" alt="" loading="lazy" decoding="async">
+      </span>
       <span class="mech-card-title">
         <strong>${omnipodIcon(mech)}<span>${mech.display_name || variantCode(mech)}</span></strong>
-        <span>${factionLabel(mech.faction)} · ${data.stats.MaxTons || "?"}t</span>
       </span>
       <span class="mech-card-stats">
         <span><span>${t("info.durability")}</span><strong class="${durabilityBoosted ? "boosted" : ""}">${formatInfoNumber(data.combinedTotal, 0)}</strong></span>
