@@ -103,6 +103,7 @@ const TEXT = {
     "simulation.temperatureHelp": "맵 온도에 따라 초당 냉각량이 낮음 +0.15, 보통 0, 높음 -0.15, 매우 높음 -0.3만큼 보정됩니다.",
     "simulation.targetDistance": "적과의 거리",
     "simulation.distanceHelp": "최소 사거리 미만은 피해가 없고, 최소~적정 사거리는 100%, 적정~최대 사거리는 무기별 규칙에 따라 감소합니다.",
+    "simulation.applySplash": "스플래쉬 적용",
     "simulation.endOnOverheat": "오버히트 시 종료",
     "simulation.endOnOverheatHelp": "활성화하면 최대 발열에 도달하는 즉시 발사와 측정을 종료합니다.",
     "simulation.noTimeLimit": "시간제한 없음",
@@ -397,6 +398,7 @@ const TEXT = {
     "simulation.temperatureHelp": "Map temperature modifies cooling per second: Low +0.15, Normal 0, High -0.15, Very high -0.3.",
     "simulation.targetDistance": "Target distance",
     "simulation.distanceHelp": "Damage is zero below minimum range, 100% from minimum through optimal range, then falls by each weapon's rule through maximum range.",
+    "simulation.applySplash": "Apply splash",
     "simulation.endOnOverheat": "End on overheat",
     "simulation.endOnOverheatHelp": "When enabled, firing and measurement end immediately upon reaching maximum heat.",
     "simulation.noTimeLimit": "NO TIME LIMIT",
@@ -968,6 +970,7 @@ const state = {
     movementState: "moving",
     mapTemperature: "normal",
     targetDistance: 180,
+    applySplashDamage: true,
     endOnOverheat: true,
     targetVisible: true,
     finished: false,
@@ -1001,6 +1004,19 @@ function number(value, fallback = 0) {
 function fmt(value, digits = 1) {
   const numeric = number(value);
   return Number.isInteger(numeric) ? `${numeric}` : numeric.toFixed(digits);
+}
+
+function weaponDirectDamage(item) {
+  return number(item?.stats?.damage) * number(item?.stats?.numFiring, 1);
+}
+
+function weaponSplashDamage(item) {
+  return weaponDirectDamage(item) * Math.max(0, number(item?.stats?.splashPercent));
+}
+
+function weaponTotalDamage(item, includeSplash = true) {
+  const directDamage = weaponDirectDamage(item);
+  return directDamage + (includeSplash ? weaponSplashDamage(item) * 2 : 0);
 }
 
 function normalizeLookupKey(value) {
@@ -1932,7 +1948,7 @@ function effectiveComponentDefinition(mech = state.selectedMech, build = state.c
   const pod = podById(buildComponent.omnipod);
   const podDefinition = pod ? omnipodDefinition(pod) : { hardpoints: [], internals: [], fixed: [] };
   const podHardpoints = podDefinition.hardpoints;
-  let hardpoints = podHardpoints.length
+  let hardpoints = pod
     ? podHardpoints.map((hardpoint) => ({
       ...hardpoint,
       hardpoint_type: hardpointType(hardpoint),
@@ -3998,7 +4014,7 @@ function calculateBuild() {
       const mountType = equipmentHardpointType(item);
       if (mountType) usage.hardpoints[mountType] = (usage.hardpoints[mountType] || 0) + 1;
       if (item.item_type === "weapon") {
-        alpha += number(item.stats?.damage) * number(item.stats?.numFiring, 1);
+        alpha += weaponTotalDamage(item);
       }
       if (item.item_type === "ammo") ammo += number(item.stats?.numShots);
       if (isHeatSink(item)) installedHeatSinkCount += 1;
@@ -4030,7 +4046,7 @@ function calculateBuild() {
         usage.hardpoints[type] = (usage.hardpoints[type] || 0) + 1;
       }
       if (item.item_type === "weapon") {
-        alpha += number(item.stats?.damage) * number(item.stats?.numFiring, 1);
+        alpha += weaponTotalDamage(item);
       }
       if (item.item_type === "ammo") {
         ammo += number(item.stats?.numShots);
@@ -4409,7 +4425,8 @@ function simulationWeaponDamageMultiplier(weapon, distance = state.simulation.ta
 }
 
 function simulationWeaponDamage(weapon, shotCount = 1) {
-  return number(weapon.damage) * Math.max(0, number(shotCount, 1)) * simulationWeaponDamageMultiplier(weapon);
+  const damage = state.simulation.applySplashDamage ? weapon.damage : weapon.directDamage;
+  return number(damage) * Math.max(0, number(shotCount, 1)) * simulationWeaponDamageMultiplier(weapon);
 }
 
 function isSimulationMachineGun(item) {
@@ -4478,7 +4495,9 @@ function collectSimulationWeapons() {
         key: `${state.selectedMech.id}:fixed:${component}:${index}:${item.id}`,
         item,
         component,
-        damage: number(item.stats?.damage) * number(item.stats?.numFiring, 1),
+        directDamage: weaponDirectDamage(item),
+        splashDamage: weaponSplashDamage(item),
+        damage: weaponTotalDamage(item),
         heat: simulationWeaponHeat(item, quirks),
         continuous: isSimulationMachineGun(item),
         rangeProfile: simulationWeaponRangeProfile(item, simulationWeaponRangeBonus(item, quirks)),
@@ -4495,7 +4514,9 @@ function collectSimulationWeapons() {
         key: `${state.selectedMech.id}:installed:${component}:${index}:${item.id}`,
         item,
         component,
-        damage: number(item.stats?.damage) * number(item.stats?.numFiring, 1),
+        directDamage: weaponDirectDamage(item),
+        splashDamage: weaponSplashDamage(item),
+        damage: weaponTotalDamage(item),
         heat: simulationWeaponHeat(item, quirks),
         continuous: isSimulationMachineGun(item),
         rangeProfile: simulationWeaponRangeProfile(item, simulationWeaponRangeBonus(item, quirks)),
@@ -4853,7 +4874,7 @@ function renderSimulationWeaponList() {
         <div class="simulation-cooldown ready" role="progressbar" aria-label="${t("simulation.cooldown")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
           <i data-simulation-cooldown="${weapon.key}" style="transform:scaleX(1)"></i>
         </div>
-        <span>${fmt(weapon.damage, 2)}</span>
+        <span>${fmt(state.simulation.applySplashDamage ? weapon.damage : weapon.directDamage, 1)}</span>
         <span>${weapon.cycle.toFixed(2)}s</span>
         <div class="simulation-group-options">${groupButtons}</div>
       </div>
@@ -4889,6 +4910,7 @@ function openSimulation() {
   $("simulation-movement-state").value = simulation.movementState;
   $("simulation-map-temperature").value = simulation.mapTemperature;
   $("simulation-target-distance").value = String(simulation.targetDistance);
+  $("simulation-apply-splash").checked = simulation.applySplashDamage;
   $("simulation-end-on-overheat").checked = simulation.endOnOverheat;
   resetSimulationRun();
   renderSimulationWeaponList();
@@ -5448,6 +5470,48 @@ function ammoMatchesInstalledWeapons(item, ammoTypes = installedWeaponAmmoTypes(
   return item?.item_type === "ammo" && ammoTypes.has(normalizeLookupKey(item.stats?.type || item.name));
 }
 
+function selectedMechEquipmentCapabilities() {
+  if (!state.selectedMech || !state.currentBuild) return null;
+  const definition = effectiveDefinition(state.selectedMech, state.currentBuild);
+  const stats = currentDefinition(state.selectedMech).stats || {};
+  return {
+    hardpoints: hardpointCountsFromDefinition(definition),
+    isOmniMech: hasFixedOmnipods(state.selectedMech),
+    tons: number(stats.MaxTons),
+    maxJumpJets: number(stats.MaxJumpJets),
+    canEquipEcm: number(stats.CanEquipECM) > 0,
+    canEquipMasc: number(stats.CanEquipMASC) > 0 || number(stats.CanEquipMasc) > 0,
+  };
+}
+
+function equipmentMatchesSelectedMechCapabilities(item, capabilities = selectedMechEquipmentCapabilities()) {
+  if (!item || !capabilities) return true;
+  const hardpointTypeName = equipmentHardpointType(item);
+  if (item.item_type === "weapon" && HARDPOINT_ORDER.includes(hardpointTypeName)) {
+    return number(capabilities.hardpoints[hardpointTypeName]) > 0;
+  }
+  if (isEcm(item)) {
+    return capabilities.isOmniMech
+      ? number(capabilities.hardpoints.ecm) > 0
+      : capabilities.canEquipEcm || number(capabilities.hardpoints.ecm) > 0;
+  }
+  if (item.item_type === "jumpjet") {
+    const minTons = number(item.stats?.minTons);
+    const maxTons = number(item.stats?.maxTons);
+    return capabilities.maxJumpJets > 0
+      && (!minTons || capabilities.tons >= minTons)
+      && (!maxTons || capabilities.tons <= maxTons);
+  }
+  if (item.item_type === "masc") {
+    const minTons = number(item.stats?.TonsMin);
+    const maxTons = number(item.stats?.TonsMax);
+    return capabilities.canEquipMasc
+      && (!minTons || capabilities.tons >= minTons)
+      && (!maxTons || capabilities.tons <= maxTons);
+  }
+  return true;
+}
+
 function renderEquipmentList() {
   hideEquipmentTooltip();
   const isOmniMech = hasFixedOmnipods(state.selectedMech);
@@ -5476,11 +5540,13 @@ function renderEquipmentList() {
     : [state.activeEquipmentCategory];
   const ids = [...new Set(families.flatMap((family) => state.equipment.families[family] || []))];
   const ammoTypes = state.activeEquipmentCategory === "ammo" ? installedWeaponAmmoTypes() : null;
+  const capabilities = selectedMechEquipmentCapabilities();
   const rows = ids
     .map((id) => itemById(id))
     .filter(Boolean)
     .filter((item) => !ammoTypes || ammoMatchesInstalledWeapons(item, ammoTypes))
     .filter((item) => itemMatchesMechFaction(item))
+    .filter((item) => equipmentMatchesSelectedMechCapabilities(item, capabilities))
     .filter((item) => heatSinkMatchesUpgrade(item))
     .filter((item) => !guidanceMismatch(item));
 
@@ -5995,6 +6061,7 @@ function selectMech(id) {
   const selectedItem = itemById(state.selectedItemId);
   if (
     !itemMatchesMechFaction(selectedItem, state.selectedMech)
+    || !equipmentMatchesSelectedMechCapabilities(selectedItem)
     || !heatSinkMatchesUpgrade(selectedItem)
   ) {
     state.selectedItemId = null;
@@ -6294,20 +6361,139 @@ function tooltipQuirkValue(base, final, digits = 2, unit = "") {
 
 function tooltipValueHtml(value) {
   if (!value || typeof value !== "object") return escapeHtml(value);
+  if (typeof value.html === "string") return value.html;
   return `<span class="equipment-tooltip-final quirk-applied">${escapeHtml(value.final)}</span><span class="equipment-tooltip-quirk-detail">(<span class="equipment-tooltip-base">${escapeHtml(value.base)}</span> <span class="equipment-tooltip-operator">${escapeHtml(value.operator)}</span> <span class="equipment-tooltip-quirk-value">${escapeHtml(value.quirk)}</span>)</span>`;
+}
+
+function isRofDamageWeapon(item) {
+  const keys = simulationItemKeys(item);
+  return Array.from(keys).some((key) => (
+    key.includes("machinegun")
+    || key.includes("rotaryautocannon")
+    || key.includes("beamlaser")
+    || key.includes("flamer")
+  ));
+}
+
+function weaponDamagePerSecond(item, quirks = []) {
+  const directDamage = weaponDirectDamage(item);
+  const rof = number(item?.stats?.rof);
+  if (!(rof > 0)) return { base: directDamage, final: directDamage };
+  const rofBonus = simulationSpecificQuirkTotal(quirks, item, "_rof_multiplier", "increase");
+  return {
+    base: directDamage * rof,
+    final: directDamage * rof * (1 + rofBonus),
+  };
+}
+
+function weaponDamageTooltipValue(item, quirks = []) {
+  if (isRofDamageWeapon(item)) {
+    const damagePerSecond = weaponDamagePerSecond(item, quirks);
+    return tooltipQuirkValue(damagePerSecond.base, damagePerSecond.final, 1, "/s");
+  }
+  const directDamage = tooltipNumber(weaponDirectDamage(item), 1);
+  const totalSplashDamage = weaponSplashDamage(item) * 2;
+  if (!(totalSplashDamage > 0)) return directDamage;
+  return {
+    html: `${escapeHtml(directDamage)} <span class="equipment-tooltip-splash">+ ${escapeHtml(tooltipNumber(totalSplashDamage, 1))}</span>`,
+  };
 }
 
 function weaponTooltipRanges(item) {
   const ranges = (item?.ranges || [])
     .map((range) => ({ start: number(range.start), modifier: number(range.damageModifier) }))
-    .filter((range) => Number.isFinite(range.start));
+    .filter((range) => Number.isFinite(range.start))
+    .sort((left, right) => left.start - right.start);
   if (!ranges.length) return {};
   const maxRange = Math.max(...ranges.map((range) => range.start));
   const maxModifier = Math.max(...ranges.map((range) => range.modifier));
-  const optimalRange = Math.max(...ranges
-    .filter((range) => range.modifier === maxModifier)
-    .map((range) => range.start));
-  return { maxRange, optimalRange };
+  const fullDamageRanges = ranges.filter((range) => Math.abs(range.modifier - maxModifier) < 0.0001);
+  const minRange = fullDamageRanges[0]?.start;
+  const optimalRange = fullDamageRanges.at(-1)?.start;
+  const hasMinimumRange = Number.isFinite(minRange)
+    && minRange > ranges[0].start
+    && ranges[0].modifier < maxModifier;
+  return { maxRange, optimalRange, minRange: hasMinimumRange ? minRange : undefined };
+}
+
+function weaponTooltipSpread(item, quirks) {
+  const spread = number(item?.stats?.spread);
+  if (!(spread > 0)) return null;
+  const type = equipmentHardpointType(item);
+  const reduction = quirkReduction(quirks, "all_spread_multiplier")
+    + quirkReduction(quirks, `${type}_spread_multiplier`)
+    + simulationSpecificQuirkTotal(quirks, item, "_spread_multiplier");
+  return tooltipQuirkValue(spread, spread * Math.max(0, 1 - reduction), 2);
+}
+
+function weaponTooltipCriticalChance(item) {
+  const chances = String(item?.stats?.critChanceIncrease ?? "")
+    .split(",")
+    .map((value) => Number(value));
+  if (!chances.some((value) => Number.isFinite(value) && value !== 0)) return null;
+  const values = chances.map((chance) => {
+    if (!Number.isFinite(chance) || chance === 0) return null;
+    if (Math.abs(chance + 1) < 0.0001) {
+      return '<span class="equipment-tooltip-negative">X</span>';
+    }
+    const text = escapeHtml(tooltipNumber(chance * 100, 1, "%"));
+    return chance < 0 ? `<span class="equipment-tooltip-negative">${text}</span>` : text;
+  });
+  while (values.length && values.at(-1) === null) values.pop();
+  return {
+    html: values.map((value) => value ?? "-").join(" / "),
+  };
+}
+
+function weaponTooltipCriticalDamage(item) {
+  const multiplier = Number(item?.stats?.critDamMult);
+  if (!Number.isFinite(multiplier) || Math.abs(multiplier - 1) < 0.0001) return null;
+  const value = `${escapeHtml(String(Number(multiplier.toFixed(2))))}x`;
+  return multiplier < 1
+    ? { html: `<span class="equipment-tooltip-negative">${value}</span>` }
+    : value;
+}
+
+function weaponTooltipTargetHeat(item) {
+  const targetHeat = number(item?.stats?.heatdamage);
+  if (!(targetHeat > 0)) return null;
+  return tooltipNumber(targetHeat, 2, isRofDamageWeapon(item) ? "/s" : "");
+}
+
+function isUltraAutoCannon(item) {
+  return Array.from(simulationItemKeys(item)).some((key) => key.includes("ultraautocannon"));
+}
+
+function ultraAutoCannonJamStats(item, quirks = []) {
+  const baseChance = Math.max(0, number(item?.stats?.JammingChance));
+  const baseDuration = Math.max(0, number(item?.stats?.JammedTime));
+  const chanceReduction = quirkReduction(quirks, "all_jamchance_multiplier")
+    + simulationSpecificQuirkTotal(quirks, item, "_jamchance_multiplier");
+  const durationReduction = quirkReduction(quirks, "all_jamduration_multiplier")
+    + simulationSpecificQuirkTotal(quirks, item, "_jamduration_multiplier");
+  return {
+    baseChance,
+    chance: Math.max(0, Math.min(1, baseChance * Math.max(0, 1 - chanceReduction))),
+    baseDuration,
+    duration: Math.max(0, baseDuration * Math.max(0, 1 - durationReduction)),
+  };
+}
+
+function ultraAutoCannonExpectedDamagePerMinute(item, quirks = []) {
+  if (!isUltraAutoCannon(item)) return null;
+  const damage = weaponDirectDamage(item);
+  const extraShots = Math.max(0, number(item?.stats?.ShotsDuringCooldown));
+  const doubleTapDelay = Math.max(0, number(item?.stats?.volleydelay));
+  const calculate = (activeQuirks) => {
+    const timing = simulationWeaponTiming(item, activeQuirks);
+    const jam = ultraAutoCannonJamStats(item, activeQuirks);
+    const cooldown = Math.max(0.016, timing.cooldown);
+    const expectedDamage = damage * (1 + (1 - jam.chance) * extraShots);
+    const jammedCycle = Math.max(cooldown, doubleTapDelay + jam.duration);
+    const expectedCycle = (1 - jam.chance) * cooldown + jam.chance * jammedCycle;
+    return expectedDamage / Math.max(0.016, expectedCycle) * 60;
+  };
+  return { base: calculate([]), final: calculate(quirks) };
 }
 
 function engineTooltipMaxSpeed(engine) {
@@ -6327,7 +6513,6 @@ function equipmentTooltipGroups(item) {
   ]];
 
   if (item.item_type === "weapon") {
-    const damage = number(stats.damage) * number(stats.numFiring, 1);
     const ranges = weaponTooltipRanges(item);
     const type = equipmentHardpointType(item);
     const timing = simulationWeaponTiming(item, quirks);
@@ -6337,7 +6522,7 @@ function equipmentTooltipGroups(item) {
       + quirkIncrease(quirks, `${type}_velocity_multiplier`)
       + simulationSpecificQuirkTotal(quirks, item, "_velocity_multiplier", "increase");
     groups.push([
-      ["DAMAGE", tooltipNumber(damage, 2)],
+      ["DAMAGE", weaponDamageTooltipValue(item, quirks)],
       ["HEAT", tooltipQuirkValue(itemHeat(item), heat, 2)],
       ["COOLDOWN", tooltipQuirkValue(stats.cooldown, timing.cooldown, 2, " s")],
     ]);
@@ -6345,21 +6530,52 @@ function equipmentTooltipGroups(item) {
       ["DURATION", tooltipQuirkValue(stats.duration, timing.duration, 2, " s")],
     ]);
     const rangeRows = [];
+    if (Number.isFinite(ranges.minRange)) rangeRows.push([
+      "MIN RANGE",
+      tooltipQuirkValue(ranges.minRange, ranges.minRange * (1 + rangeBonus), 0, " m"),
+    ]);
+    if (Number.isFinite(ranges.optimalRange)) rangeRows.push([
+      "OPTIMAL RANGE",
+      tooltipQuirkValue(ranges.optimalRange, ranges.optimalRange * (1 + rangeBonus), 0, " m"),
+    ]);
     if (Number.isFinite(ranges.maxRange)) rangeRows.push([
       "MAX RANGE",
       tooltipQuirkValue(ranges.maxRange, ranges.maxRange * (1 + rangeBonus), 0, " m"),
     ]);
-    if (Number.isFinite(ranges.optimalRange) && ranges.optimalRange !== ranges.maxRange) {
-      rangeRows.push([
-        "OPTIMAL RANGE",
-        tooltipQuirkValue(ranges.optimalRange, ranges.optimalRange * (1 + rangeBonus), 0, " m"),
-      ]);
-    }
     if (number(stats.speed) > 0) rangeRows.push([
       "VELOCITY",
       tooltipQuirkValue(stats.speed, number(stats.speed) * (1 + velocityBonus), 1, " m/s"),
     ]);
     groups.push(rangeRows);
+    const weaponDetailRows = [];
+    const spread = weaponTooltipSpread(item, quirks);
+    const criticalChance = weaponTooltipCriticalChance(item);
+    const criticalDamage = weaponTooltipCriticalDamage(item);
+    const targetHeat = weaponTooltipTargetHeat(item);
+    if (spread) weaponDetailRows.push(["SPREAD", spread]);
+    if (criticalChance) weaponDetailRows.push(["CRITICAL CHANCE", criticalChance]);
+    if (criticalDamage) weaponDetailRows.push(["CRITICAL DAMAGE", criticalDamage]);
+    if (targetHeat) weaponDetailRows.push(["TARGET HEAT", targetHeat]);
+    if (number(stats.chargeTime) > 0) {
+      weaponDetailRows.push(["CHARGE TIME", tooltipNumber(stats.chargeTime, 2, " s")]);
+    }
+    if (isUltraAutoCannon(item)) {
+      const jam = ultraAutoCannonJamStats(item, quirks);
+      const expectedDpm = ultraAutoCannonExpectedDamagePerMinute(item, quirks);
+      weaponDetailRows.push([
+        "JAM DURATION",
+        tooltipQuirkValue(jam.baseDuration, jam.duration, 2, " s"),
+      ]);
+      weaponDetailRows.push([
+        "JAM CHANCE",
+        tooltipQuirkValue(jam.baseChance * 100, jam.chance * 100, 1, "%"),
+      ]);
+      if (expectedDpm) weaponDetailRows.push([
+        "EXPECTED DPM",
+        tooltipQuirkValue(expectedDpm.base, expectedDpm.final, 1, "/min"),
+      ]);
+    }
+    groups.push(weaponDetailRows);
   } else if (isHeatSink(item)) {
     const dissipationBonus = quirkIncrease(quirks, "heatdissipation_multiplier");
     groups.push([
@@ -6592,6 +6808,7 @@ function dropValidation(item, component, source = null) {
   }
   const guidanceWarning = guidanceMismatch(item);
   if (guidanceWarning) return guidanceWarning;
+  if (!equipmentMatchesSelectedMechCapabilities(item)) return t("build.noAutoInstallLocation");
   if (source?.component === component) return null;
   const compDef = effectiveComponentDefinition(state.selectedMech, state.currentBuild, component);
   const calc = calculateBuild();
@@ -6646,7 +6863,8 @@ function dropValidation(item, component, source = null) {
   }
 
   const type = equipmentHardpointType(item);
-  if (type) {
+  const standardEcmMount = type === "ecm" && !hasFixedOmnipods(state.selectedMech);
+  if (type && !standardEcmMount) {
     const capacity = (compDef.hardpoints || [])
       .filter((hp) => hardpointType(hp) === type)
       .reduce((sum, hp) => sum + hardpointSlots(hp), 0);
@@ -6882,6 +7100,11 @@ function bindEvents() {
     const distance = Number(event.target.value);
     state.simulation.targetDistance = Number.isFinite(distance) && distance >= 0 ? distance : 180;
     event.target.value = String(state.simulation.targetDistance);
+  });
+  $("simulation-apply-splash").addEventListener("change", (event) => {
+    state.simulation.applySplashDamage = event.target.checked;
+    resetSimulationRun();
+    renderSimulationWeaponList();
   });
   $("simulation-end-on-overheat").addEventListener("change", (event) => {
     const simulation = state.simulation;
@@ -7416,6 +7639,7 @@ function bindEvents() {
         state.currentBuild.components[payload.component].omnipod = Number(payload.podId);
         clearDragState();
         renderVariant();
+        renderEquipmentList();
       }
       return;
     }

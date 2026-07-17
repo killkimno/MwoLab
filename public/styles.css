@@ -3033,7 +3033,12 @@ body.simulation-open {
   grid-template-columns: auto 1rem;
 }
 
-.simulation-environment-options .simulation-overheat-option input {
+.simulation-environment-options .simulation-splash-option {
+  grid-template-columns: auto 1rem;
+}
+
+.simulation-environment-options .simulation-overheat-option input,
+.simulation-environment-options .simulation-splash-option input {
   width: 1rem;
   height: 1rem;
   margin: 0;
@@ -4496,6 +4501,15 @@ body.simulation-open {
 .equipment-tooltip-stats strong .equipment-tooltip-quirk-value {
   color: var(--yellow);
   font-weight: 800;
+}
+
+.equipment-tooltip-stats strong .equipment-tooltip-splash {
+  color: #ffe34f;
+}
+
+.equipment-tooltip-stats strong .equipment-tooltip-negative {
+  color: #ff6262;
+  font-weight: 900;
 }
 
 .equipment-tooltip-card p {
