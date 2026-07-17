@@ -219,6 +219,10 @@ h3 {
   overflow: hidden;
 }
 
+#tab-mechlab.mechlab-scale-limited {
+  overflow: auto;
+}
+
 .pill {
   min-width: 4.5rem;
   border: 1px solid var(--line);
@@ -3867,9 +3871,21 @@ body.simulation-open {
   cursor: grabbing;
 }
 
-.slot-item.dragging,
+.slot-item.dragging {
+  filter: brightness(0.97);
+}
+
 .item-row.dragging {
-  opacity: 0.4;
+  filter: brightness(0.97);
+}
+
+.slot-drag-preview {
+  position: fixed;
+  z-index: 2147483647;
+  top: -10000px;
+  left: -10000px;
+  width: min(19rem, 42vw);
+  pointer-events: none;
 }
 
 .slot-item strong {
@@ -4059,7 +4075,7 @@ body.simulation-open {
 }
 
 .installed-engine-heat-sink.dragging {
-  opacity: 0.4;
+  filter: brightness(0.97);
 }
 
 .fixed-engine-heat-sink {
@@ -4870,5 +4886,71 @@ body.simulation-open {
 
   .stats-rank {
     min-width: 2rem;
+  }
+}
+
+/* MechLab keeps its 16:9 desktop canvas while the viewport scales the canvas as a whole. */
+#tab-mechlab .mechlab-grid {
+  grid-template-columns: minmax(18rem, 21rem) minmax(0, 1fr) minmax(21rem, 24rem);
+  overflow: hidden;
+}
+
+#tab-mechlab .components {
+  grid-template-columns: repeat(5, minmax(12rem, 1fr));
+  min-width: 62rem;
+}
+
+@media (max-width: 680px) {
+  #tab-mechlab {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #tab-mechlab.mechlab-scale-limited {
+    overflow: auto;
+  }
+
+  #tab-mechlab .mechlab-workspace {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+    padding: 0.75rem 1rem 1rem;
+    overflow: hidden;
+  }
+
+  #tab-mechlab .variant-panel {
+    display: flex;
+  }
+
+  #tab-mechlab .actions {
+    justify-content: flex-end;
+  }
+
+  #tab-mechlab .mech-summary-panel {
+    min-height: 0;
+    border-right: 1px solid var(--line);
+    border-bottom: 0;
+  }
+
+  #tab-mechlab .components-panel {
+    overflow: auto;
+  }
+
+  #tab-mechlab .component-column {
+    display: grid;
+  }
+
+  #tab-mechlab .component {
+    grid-column: auto;
+    order: initial;
+  }
+
+  #tab-mechlab .equipment-panel {
+    min-height: 0;
+    margin-top: 0;
+  }
+
+  .mech-browser-layout.mechlab-focused-layout .tab-content {
+    overflow: hidden;
   }
 }

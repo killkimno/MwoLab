@@ -1,5 +1,11 @@
 const SUPPORTED_LANGUAGES = new Set(["kr", "en"]);
 const DEFAULT_LANGUAGE = "kr";
+const MECHLAB_REFERENCE_WIDTH = 1920;
+const MECHLAB_REFERENCE_HEIGHT = 1080;
+const MECHLAB_MINIMUM_SCALE = 0.5;
+let mechlabScale = 1;
+let mechlabScaleObserver = null;
+let mechlabScaleFrame = 0;
 
 function normalizeLanguage(value) {
   const language = String(value || "").trim().toLowerCase();
@@ -2015,7 +2021,51 @@ function setMainTab(tabName) {
   renderComparePanel();
   renderStatsPanel();
   updateCompareOverlay();
+  if (tabName === "mechlab") requestAnimationFrame(updateMechlabScale);
   if (tabName === "mechlab" && state.mechlabBrowseMode) $("mech-search").focus();
+}
+
+function updateMechlabScale() {
+  const panel = $("tab-mechlab");
+  const workspace = panel?.querySelector(".mechlab-workspace");
+  if (!panel || !workspace) return;
+
+  const availableWidth = panel.clientWidth;
+  const availableHeight = panel.clientHeight;
+  if (!availableWidth || !availableHeight) return;
+
+  const nextScale = Math.max(
+    MECHLAB_MINIMUM_SCALE,
+    Math.min(1, availableWidth / MECHLAB_REFERENCE_WIDTH, availableHeight / MECHLAB_REFERENCE_HEIGHT),
+  );
+  mechlabScale = Number(nextScale.toFixed(4));
+  const logicalWidth = Math.max(MECHLAB_REFERENCE_WIDTH, availableWidth / mechlabScale);
+  const logicalHeight = Math.max(MECHLAB_REFERENCE_HEIGHT, availableHeight / mechlabScale);
+  const scaleLimited = mechlabScale === MECHLAB_MINIMUM_SCALE
+    && (MECHLAB_REFERENCE_WIDTH * mechlabScale > availableWidth
+      || MECHLAB_REFERENCE_HEIGHT * mechlabScale > availableHeight);
+  workspace.style.zoom = mechlabScale === 1 ? "" : String(mechlabScale);
+  workspace.style.width = mechlabScale === 1 ? "" : `${logicalWidth}px`;
+  workspace.style.height = mechlabScale === 1 ? "" : `${logicalHeight}px`;
+  workspace.dataset.scale = String(mechlabScale);
+  panel.classList.toggle("mechlab-scale-limited", scaleLimited);
+}
+
+function scheduleMechlabScaleUpdate() {
+  cancelAnimationFrame(mechlabScaleFrame);
+  mechlabScaleFrame = requestAnimationFrame(updateMechlabScale);
+}
+
+function setupMechlabAutoScale() {
+  const panel = $("tab-mechlab");
+  if (!panel) return;
+  mechlabScaleObserver?.disconnect();
+  if (typeof ResizeObserver === "function") {
+    mechlabScaleObserver = new ResizeObserver(scheduleMechlabScaleUpdate);
+    mechlabScaleObserver.observe(panel);
+  }
+  window.addEventListener("resize", scheduleMechlabScaleUpdate, { passive: true });
+  scheduleMechlabScaleUpdate();
 }
 
 function addQuirk(collector, quirk, source) {
@@ -4383,21 +4433,28 @@ function simulationWeaponRangeBonus(item, quirks) {
 
 function simulationWeaponRangeProfile(item, rangeBonus = 0) {
   const multiplier = Math.max(0, 1 + number(rangeBonus));
-  const ranges = (item?.ranges || [])
+  const sourceRanges = (item?.ranges || [])
     .map((range) => ({
-      start: number(range.start) * multiplier,
+      start: number(range.start),
       modifier: Math.max(0, number(range.damageModifier)),
       interpolation: String(range.interpolationToNextRange || "linear").toLowerCase(),
       exponent: Math.max(0.0001, number(range.exponent, 1)),
     }))
     .sort((left, right) => left.start - right.start);
-  if (!ranges.length) return null;
-  const maxModifier = Math.max(...ranges.map((range) => range.modifier));
-  const fullDamageRanges = ranges.filter((range) => Math.abs(range.modifier - maxModifier) < 0.0001);
+  if (!sourceRanges.length) return null;
+  const maxModifier = Math.max(...sourceRanges.map((range) => range.modifier));
+  const fullDamageRanges = sourceRanges.filter((range) => Math.abs(range.modifier - maxModifier) < 0.0001);
+  const minimumRange = fullDamageRanges[0]?.start ?? sourceRanges[0].start;
+  const optimalRange = fullDamageRanges.at(-1)?.start ?? sourceRanges[0].start;
+  const ranges = sourceRanges.map((range) => ({
+    ...range,
+    start: range.start <= minimumRange ? range.start : range.start * multiplier,
+  }));
   return {
     ranges,
-    minimumRange: fullDamageRanges[0]?.start ?? ranges[0].start,
-    optimalRange: fullDamageRanges.at(-1)?.start ?? ranges[0].start,
+    rangeMultiplier: multiplier,
+    minimumRange,
+    optimalRange: optimalRange <= minimumRange ? optimalRange : optimalRange * multiplier,
     maximumRange: ranges.at(-1).start,
   };
 }
@@ -4406,6 +4463,13 @@ function simulationWeaponDamageMultiplier(weapon, distance = state.simulation.ta
   const profile = weapon.rangeProfile;
   if (!profile) return 1;
   const targetDistance = Math.max(0, number(Number(distance), 180));
+  if (isAtmWeapon(weapon.item)) {
+    const multiplier = Math.max(0, number(profile.rangeMultiplier, 1));
+    if (targetDistance < 60 || targetDistance > atmRangeBoundary(1100, multiplier)) return 0;
+    if (targetDistance < atmRangeBoundary(350, multiplier)) return 1.25;
+    if (targetDistance < atmRangeBoundary(650, multiplier)) return 1;
+    return 0.8;
+  }
   if (targetDistance < profile.minimumRange || targetDistance > profile.maximumRange) return 0;
   if (targetDistance <= profile.optimalRange) return 1;
 
@@ -6464,6 +6528,29 @@ function isUltraAutoCannon(item) {
   return Array.from(simulationItemKeys(item)).some((key) => key.includes("ultraautocannon"));
 }
 
+function isAtmWeapon(item) {
+  const keys = simulationItemKeys(item);
+  return keys.has("atm") || keys.has("clanatm");
+}
+
+function atmRangeBoundary(distance, multiplier = 1) {
+  return Number((number(distance) * Math.max(0, number(multiplier, 1))).toFixed(6));
+}
+
+function atmTooltipDamageBands(item, rangeBonus = 0) {
+  if (!isAtmWeapon(item)) return [];
+  const damage = weaponDirectDamage(item);
+  const multiplier = Math.max(0, 1 + number(rangeBonus));
+  const secondStart = Math.ceil(atmRangeBoundary(350, multiplier));
+  const thirdStart = Math.ceil(atmRangeBoundary(650, multiplier));
+  const maximumRange = Math.round(atmRangeBoundary(1100, multiplier));
+  return [
+    { damage: damage * 1.25, start: 60, end: secondStart - 1 },
+    { damage, start: secondStart, end: thirdStart - 1 },
+    { damage: damage * 0.8, start: thirdStart, end: maximumRange },
+  ];
+}
+
 function ultraAutoCannonJamStats(item, quirks = []) {
   const baseChance = Math.max(0, number(item?.stats?.JammingChance));
   const baseDuration = Math.max(0, number(item?.stats?.JammedTime));
@@ -6532,7 +6619,7 @@ function equipmentTooltipGroups(item) {
     const rangeRows = [];
     if (Number.isFinite(ranges.minRange)) rangeRows.push([
       "MIN RANGE",
-      tooltipQuirkValue(ranges.minRange, ranges.minRange * (1 + rangeBonus), 0, " m"),
+      tooltipNumber(ranges.minRange, 0, " m"),
     ]);
     if (Number.isFinite(ranges.optimalRange)) rangeRows.push([
       "OPTIMAL RANGE",
@@ -6548,6 +6635,12 @@ function equipmentTooltipGroups(item) {
     ]);
     groups.push(rangeRows);
     const weaponDetailRows = [];
+    atmTooltipDamageBands(item, rangeBonus).forEach((band, index) => {
+      weaponDetailRows.push([
+        `DAMAGE BAND ${index + 1}`,
+        `${tooltipNumber(band.damage, 1)} (${band.start}~${band.end} m)`,
+      ]);
+    });
     const spread = weaponTooltipSpread(item, quirks);
     const criticalChance = weaponTooltipCriticalChance(item);
     const criticalDamage = weaponTooltipCriticalDamage(item);
@@ -6888,6 +6981,26 @@ function clearDragState() {
   document.querySelectorAll(".drop-valid, .drop-invalid, .dragging").forEach((element) => {
     element.classList.remove("drop-valid", "drop-invalid", "dragging");
   });
+  document.querySelectorAll(".slot-drag-preview").forEach((element) => element.remove());
+}
+
+function setWarehouseSlotDragImage(event, item) {
+  if (!event.dataTransfer || !item) return;
+  const slots = Math.max(1, effectiveItemSlots(item));
+  const mountType = item.item_type === "ammo" ? ammoHardpointType(item) : equipmentHardpointType(item);
+  const ammoClass = item.item_type === "ammo" ? " ammo" : "";
+  const preview = document.createElement("div");
+  preview.className = `slot-item ${mountType || item.item_type}${ammoClass} slot-drag-preview`;
+  preview.style.setProperty("--slot-span", String(slots));
+  preview.innerHTML = `
+    <span class="slot-item-mark">${HARDPOINT_LABELS[mountType] || String(item.item_type || "?")[0].toUpperCase()}</span>
+    <strong>${escapeHtml(item.display_name || item.name)}</strong>
+    <span class="slot-item-slots">${slots}S</span>
+  `;
+  preview.style.zoom = mechlabScale === 1 ? "" : String(mechlabScale);
+  document.body.append(preview);
+  event.dataTransfer.setDragImage(preview, 18, Math.min(18, preview.offsetHeight / 2));
+  window.setTimeout(() => preview.remove(), 0);
 }
 
 function adjustArmorAllocation(button) {
@@ -7565,6 +7678,7 @@ function bindEvents() {
     row.classList.add("dragging");
     event.dataTransfer.effectAllowed = "copy";
     event.dataTransfer.setData("text/plain", `warehouse:${row.dataset.item}`);
+    setWarehouseSlotDragImage(event, itemById(row.dataset.item));
   });
   $("components").addEventListener("dragstart", (event) => {
     const engineSinkRow = event.target.closest("[data-engine-heat-sink-item]");
@@ -7701,6 +7815,7 @@ async function loadJson(path) {
 async function init() {
   applyStaticTranslations();
   bindEvents();
+  setupMechlabAutoScale();
   setMainTab(state.activeMainTab);
   try {
     state.index = await loadJson("data/index.json");
