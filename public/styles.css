@@ -3274,6 +3274,7 @@ body.simulation-open {
 }
 
 .simulation-cooldown {
+  position: relative;
   height: 0.58rem;
   overflow: hidden;
   border: 1px solid #3b4c52;
@@ -3296,6 +3297,27 @@ body.simulation-open {
 .simulation-cooldown.ready i {
   background: linear-gradient(90deg, #d6a914, var(--yellow));
   box-shadow: 0 0 0.4rem #f2cf4f99;
+}
+
+.simulation-cooldown.jammed {
+  border-color: #ff5b4d;
+}
+
+.simulation-cooldown.jammed i {
+  background: linear-gradient(90deg, #7e1717, #ef4538);
+  box-shadow: 0 0 0.4rem #ff493899;
+}
+
+.simulation-cooldown b {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 0.48rem;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 2px #000, 0 0 0.25rem #000;
+  pointer-events: none;
 }
 
 .simulation-group-options {
@@ -4662,6 +4684,10 @@ body.pointer-drag-active * {
   text-align: center;
 }
 
+.omnipod-hardpoint.zero {
+  font-weight: 400;
+}
+
 .omnipod-hardpoint.energy { color: var(--yellow); }
 .omnipod-hardpoint.missile { color: #62dc98; }
 .omnipod-hardpoint.ballistic { color: #c8a1dd; }
@@ -4670,7 +4696,7 @@ body.pointer-drag-active * {
 
 .item-row-name {
   display: grid;
-  grid-template-columns: 1.35rem minmax(0, 1fr);
+  grid-template-columns: 1.75rem minmax(0, 1fr);
   align-items: center;
   min-width: 0;
   height: 100%;

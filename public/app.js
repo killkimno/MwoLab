@@ -1004,6 +1004,10 @@ const state = {
     heldGroups: new Set(),
     pointerGroups: new Map(),
     nextFireAt: new Map(),
+    cooldownStartAt: new Map(),
+    jamStartsAt: new Map(),
+    jammedUntil: new Map(),
+    pendingShots: [],
     groupFiringUntil: new Map(),
     lastHitEffectAt: new Map(),
     pendingHitEffectDamage: new Map(),
@@ -4455,6 +4459,50 @@ function simulationWeaponTiming(item, quirks) {
   return { duration, cooldown, cycle: Math.max(0.016, cooldown + duration) };
 }
 
+function weaponVolleySize(item) {
+  if (equipmentHardpointType(item) !== "missile") return 1;
+  return Math.max(1, Math.trunc(number(item?.stats?.volleysize, 1)));
+}
+
+function weaponFiringEventCount(item) {
+  const shots = Math.max(1, Math.trunc(number(item?.stats?.numFiring, 1)));
+  return Math.ceil(shots / weaponVolleySize(item));
+}
+
+function weaponFiringTime(item) {
+  const stats = item?.stats || {};
+  return Math.max(0, weaponFiringEventCount(item) - 1) * Math.max(0, number(stats.volleydelay));
+}
+
+function weaponHasExpectedCooldown(item) {
+  const stats = item?.stats || {};
+  return isUltraAutoCannon(item)
+    || number(stats.chargeTime) > 0
+    || number(stats.duration) > 0
+    || weaponFiringTime(item) > 0;
+}
+
+function weaponExpectedCooldown(item, quirks = []) {
+  if (!weaponHasExpectedCooldown(item)) return null;
+  const stats = item?.stats || {};
+  const timing = simulationWeaponTiming(item, quirks);
+  const firingTime = weaponFiringTime(item);
+  if (isUltraAutoCannon(item)) {
+    const jam = ultraAutoCannonJamStats(item, quirks);
+    // One guaranteed volley plus one double-tap attempt; a jam replaces the extra volley.
+    return (
+      firingTime
+      + (1 - jam.chance) * timing.cooldown
+      + jam.chance * Math.max(timing.cooldown, jam.duration)
+    ) / Math.max(1, 2 - jam.chance);
+  }
+  return Math.max(0.016,
+    Math.max(0, number(stats.chargeTime))
+    + firingTime
+    + timing.duration
+    + timing.cooldown);
+}
+
 function simulationWeaponCycle(item, quirks) {
   return simulationWeaponTiming(item, quirks).cycle;
 }
@@ -4598,6 +4646,7 @@ function collectSimulationWeapons() {
       const item = itemById(itemId);
       if (item?.item_type !== "weapon") return;
       const timing = simulationWeaponTiming(item, quirks);
+      const expectedCooldown = weaponExpectedCooldown(item, quirks);
       weapons.push({
         key: `${state.selectedMech.id}:fixed:${component}:${index}:${item.id}`,
         item,
@@ -4607,8 +4656,16 @@ function collectSimulationWeapons() {
         damage: weaponTotalDamage(item),
         heat: simulationWeaponHeat(item, quirks),
         continuous: isSimulationMachineGun(item),
+        chargeTime: Math.max(0, number(item.stats?.chargeTime)),
+        firingTime: weaponFiringTime(item),
+        shotCount: Math.max(1, Math.trunc(number(item.stats?.numFiring, 1))),
+        volleySize: weaponVolleySize(item),
+        shotDelay: Math.max(0, number(item.stats?.volleydelay)),
+        ultra: isUltraAutoCannon(item),
+        jam: ultraAutoCannonJamStats(item, quirks),
         rangeProfile: simulationWeaponRangeProfile(item, simulationWeaponRangeBonus(item, quirks)),
         ...timing,
+        cycle: expectedCooldown ?? timing.cycle,
         entry: null,
       });
     });
@@ -4617,6 +4674,7 @@ function collectSimulationWeapons() {
       const item = itemById(entry.item_id);
       if (item?.item_type !== "weapon") return;
       const timing = simulationWeaponTiming(item, quirks);
+      const expectedCooldown = weaponExpectedCooldown(item, quirks);
       weapons.push({
         key: `${state.selectedMech.id}:installed:${component}:${index}:${item.id}`,
         item,
@@ -4626,8 +4684,16 @@ function collectSimulationWeapons() {
         damage: weaponTotalDamage(item),
         heat: simulationWeaponHeat(item, quirks),
         continuous: isSimulationMachineGun(item),
+        chargeTime: Math.max(0, number(item.stats?.chargeTime)),
+        firingTime: weaponFiringTime(item),
+        shotCount: Math.max(1, Math.trunc(number(item.stats?.numFiring, 1))),
+        volleySize: weaponVolleySize(item),
+        shotDelay: Math.max(0, number(item.stats?.volleydelay)),
+        ultra: isUltraAutoCannon(item),
+        jam: ultraAutoCannonJamStats(item, quirks),
         rangeProfile: simulationWeaponRangeProfile(item, simulationWeaponRangeBonus(item, quirks)),
         ...timing,
+        cycle: expectedCooldown ?? timing.cycle,
         entry,
       });
     });
@@ -4702,6 +4768,7 @@ function finishSimulationRun() {
   simulation.lastHitEffectAt.clear();
   simulation.pendingHitEffectDamage.clear();
   simulation.activeBurns.clear();
+  simulation.pendingShots.length = 0;
   renderSimulationGroupStatus();
 }
 
@@ -4710,6 +4777,10 @@ function resetSimulationRun() {
   simulation.heldGroups.clear();
   simulation.pointerGroups.clear();
   simulation.nextFireAt.clear();
+  simulation.cooldownStartAt.clear();
+  simulation.jamStartsAt.clear();
+  simulation.jammedUntil.clear();
+  simulation.pendingShots.length = 0;
   simulation.groupFiringUntil.clear();
   simulation.lastHitEffectAt.clear();
   simulation.pendingHitEffectDamage.clear();
@@ -4814,15 +4885,22 @@ function renderSimulationCooldowns(now = performance.now()) {
     if (!weapon) return;
     const nextFire = state.simulation.nextFireAt.get(weapon.key) || 0;
     const remaining = Math.max(0, nextFire - now);
-    const cooldownStart = nextFire - weapon.cooldown * 1000;
+    const cooldownStart = state.simulation.cooldownStartAt.get(weapon.key) ?? nextFire;
+    const totalCooldown = Math.max(0, nextFire - cooldownStart);
+    const jamStart = state.simulation.jamStartsAt.get(weapon.key) || 0;
+    const jammedUntil = state.simulation.jammedUntil.get(weapon.key) || 0;
+    const jammed = now >= jamStart && now < jammedUntil;
     const progress = !nextFire || remaining <= 0
       ? 1
-      : weapon.cooldown > 0 && now >= cooldownStart
-        ? Math.max(0, Math.min(1, 1 - remaining / (weapon.cooldown * 1000)))
+      : totalCooldown > 0 && now >= cooldownStart
+        ? Math.max(0, Math.min(1, (now - cooldownStart) / totalCooldown))
         : 0;
     bar.style.transform = `scaleX(${progress})`;
-    bar.parentElement.classList.toggle("ready", progress >= 1);
+    bar.parentElement.classList.toggle("ready", progress >= 1 && !jammed);
+    bar.parentElement.classList.toggle("jammed", jammed);
     bar.parentElement.setAttribute("aria-valuenow", String(Math.round(progress * 100)));
+    const jamLabel = bar.parentElement.querySelector("[data-simulation-jam]");
+    if (jamLabel) jamLabel.hidden = !jammed;
   });
 }
 
@@ -4857,10 +4935,11 @@ function renderSimulationEnemyHud(now = performance.now()) {
       if (selectedWeapon.continuous || shortestRemaining <= 0) {
         progress = 1;
       } else {
-        const cooldownStart = (simulation.nextFireAt.get(selectedWeapon.key) || 0)
-          - selectedWeapon.cooldown * 1000;
-        progress = selectedWeapon.cooldown > 0 && now >= cooldownStart
-          ? Math.max(0, Math.min(1, 1 - shortestRemaining / (selectedWeapon.cooldown * 1000)))
+        const nextFire = simulation.nextFireAt.get(selectedWeapon.key) || 0;
+        const cooldownStart = simulation.cooldownStartAt.get(selectedWeapon.key) ?? nextFire;
+        const totalCooldown = Math.max(0, nextFire - cooldownStart);
+        progress = totalCooldown > 0 && now >= cooldownStart
+          ? Math.max(0, Math.min(1, (now - cooldownStart) / totalCooldown))
           : 0;
       }
     }
@@ -4980,6 +5059,7 @@ function renderSimulationWeaponList() {
         </div>
         <div class="simulation-cooldown ready" role="progressbar" aria-label="${t("simulation.cooldown")}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
           <i data-simulation-cooldown="${weapon.key}" style="transform:scaleX(1)"></i>
+          <b data-simulation-jam hidden>JAM</b>
         </div>
         <span>${fmt(state.simulation.applySplashDamage ? weapon.damage : weapon.directDamage, 1)}</span>
         <span>${weapon.cycle.toFixed(2)}s</span>
@@ -5087,6 +5167,84 @@ function showSimulationHitEffect(weapon, damage = 0) {
     duration: 150,
     easing: "ease-out",
   });
+}
+
+function queueSimulationVolley(weapon, startsAt) {
+  const shotCount = Math.max(1, weapon.shotCount);
+  const volleySize = Math.max(1, weapon.volleySize);
+  const eventCount = Math.ceil(shotCount / volleySize);
+  for (let index = 0; index < eventCount; index += 1) {
+    const eventShots = Math.min(volleySize, shotCount - index * volleySize);
+    state.simulation.pendingShots.push({
+      weaponKey: weapon.key,
+      at: startsAt + index * weapon.shotDelay * 1000,
+      shotFraction: eventShots / shotCount,
+    });
+  }
+}
+
+function scheduleSimulationWeaponCycle(weapon, triggerAt) {
+  const simulation = state.simulation;
+  const firesAt = triggerAt + weapon.chargeTime * 1000;
+  if (weapon.duration > 0) {
+    simulation.pendingShots.push({ weaponKey: weapon.key, at: firesAt, burn: true });
+    const cooldownStart = firesAt + weapon.duration * 1000;
+    simulation.cooldownStartAt.set(weapon.key, cooldownStart);
+    simulation.nextFireAt.set(weapon.key, cooldownStart + weapon.cooldown * 1000);
+    return;
+  }
+
+  queueSimulationVolley(weapon, firesAt);
+  const cooldownStart = firesAt + weapon.firingTime * 1000;
+  simulation.cooldownStartAt.set(weapon.key, cooldownStart);
+  let nextFireAt = cooldownStart + weapon.cooldown * 1000;
+
+  if (weapon.ultra) {
+    const jammed = Math.random() < weapon.jam.chance;
+    if (jammed) {
+      const jammedUntil = cooldownStart + weapon.jam.duration * 1000;
+      simulation.jamStartsAt.set(weapon.key, cooldownStart);
+      simulation.jammedUntil.set(weapon.key, jammedUntil);
+      nextFireAt = Math.max(nextFireAt, jammedUntil);
+    } else {
+      simulation.jamStartsAt.delete(weapon.key);
+      simulation.jammedUntil.delete(weapon.key);
+      // The double-tap volley fires during the active cooldown and does not pause it.
+      queueSimulationVolley(weapon, cooldownStart);
+    }
+  } else {
+    simulation.jamStartsAt.delete(weapon.key);
+    simulation.jammedUntil.delete(weapon.key);
+  }
+  simulation.nextFireAt.set(weapon.key, nextFireAt);
+}
+
+function processSimulationPendingShots(now) {
+  const simulation = state.simulation;
+  if (!simulation.pendingShots.length) return;
+  const pending = [];
+  simulation.pendingShots
+    .sort((left, right) => left.at - right.at)
+    .forEach((shot) => {
+      if (shot.at > now) {
+        pending.push(shot);
+        return;
+      }
+      const weapon = simulation.weapons.find((entry) => entry.key === shot.weaponKey);
+      if (!weapon) return;
+      if (shot.burn) {
+        startSimulationBurn(weapon, shot.at, now, simulation.targetVisible);
+        return;
+      }
+      const damage = simulationWeaponDamage(weapon, shot.shotFraction);
+      if (simulation.targetVisible && damage > 0) {
+        simulation.totalDamage += damage;
+        showSimulationHitEffect(weapon, damage);
+      }
+      addSimulationHeat(weapon, shot.shotFraction);
+      markSimulationWeaponFiring(weapon, shot.at);
+    });
+  simulation.pendingShots = pending;
 }
 
 function startSimulationBurn(weapon, startedAt, now = startedAt, damageAllowed = state.simulation.targetVisible) {
@@ -5213,6 +5371,7 @@ function simulationTick(now) {
   coolSimulationHeat(tickNow);
   updateSimulationBurnDamage(tickNow, targetWasVisible);
   updateSimulationContinuousDamage(tickNow);
+  processSimulationPendingShots(tickNow);
   applySimulationOverheat();
   if (!simulation.finished) updateSimulationScenario(tickNow);
   syncSimulationContinuousFire(tickNow);
@@ -5220,29 +5379,14 @@ function simulationTick(now) {
     for (const weapon of simulation.weapons) {
       if (weapon.continuous) continue;
       if (!simulationWeaponIsHeld(weapon)) continue;
-      const nextFire = simulation.nextFireAt.get(weapon.key) ?? tickNow;
-      if (nextFire > tickNow) continue;
-      const shotCount = Math.floor((tickNow - nextFire) / (weapon.cycle * 1000)) + 1;
-      if (weapon.duration > 0) {
-        if (simulation.targetVisible) {
-          const completedDamage = simulationWeaponDamage(weapon, Math.max(0, shotCount - 1));
-          simulation.totalDamage += completedDamage;
-          if (completedDamage > 0) showSimulationHitEffect(weapon, completedDamage);
-        }
-        addSimulationHeat(weapon, Math.max(0, shotCount - 1));
-        const latestFireAt = nextFire + Math.max(0, shotCount - 1) * weapon.cycle * 1000;
-        startSimulationBurn(weapon, latestFireAt, tickNow, simulation.targetVisible);
-      } else {
-        if (simulation.targetVisible) {
-          const dealtDamage = simulationWeaponDamage(weapon, shotCount);
-          simulation.totalDamage += dealtDamage;
-          if (dealtDamage > 0) showSimulationHitEffect(weapon, dealtDamage);
-        }
-        addSimulationHeat(weapon, shotCount);
-        const latestFireAt = nextFire + Math.max(0, shotCount - 1) * weapon.cycle * 1000;
-        markSimulationWeaponFiring(weapon, latestFireAt);
+      let nextFire = simulation.nextFireAt.get(weapon.key) ?? tickNow;
+      let scheduled = 0;
+      while (nextFire <= tickNow && scheduled < 100) {
+        scheduleSimulationWeaponCycle(weapon, nextFire);
+        processSimulationPendingShots(tickNow);
+        nextFire = simulation.nextFireAt.get(weapon.key) ?? Number.POSITIVE_INFINITY;
+        scheduled += 1;
       }
-      simulation.nextFireAt.set(weapon.key, nextFire + shotCount * weapon.cycle * 1000);
     }
   }
   applySimulationOverheat();
@@ -5292,10 +5436,10 @@ function setSimulationGroupHeld(group, held) {
       if (weapon.continuous) return;
       const nextFire = simulation.nextFireAt.get(weapon.key) || 0;
       if (nextFire <= now) {
-        startSimulationBurn(weapon, now, now, simulation.targetVisible);
-        simulation.nextFireAt.set(weapon.key, now + weapon.cycle * 1000);
+        scheduleSimulationWeaponCycle(weapon, now);
       }
     });
+    processSimulationPendingShots(now);
     syncSimulationContinuousFire(now);
     applySimulationOverheat();
     renderSimulationMetrics(now);
@@ -5874,7 +6018,7 @@ function renderOmnipodList() {
             return `
               <button class="omnipod-row${active}" data-omnipod="${pod.id}" data-omnipod-component="${component}" type="button" draggable="true" title="${String(pod.set).toUpperCase()} ${String(component).replaceAll("_", " ").toUpperCase()}">
                 <strong>${String(pod.set).toUpperCase()} ${String(component).replaceAll("_", " ").toUpperCase()}</strong>
-                ${HARDPOINT_ORDER.map((type) => `<span class="omnipod-hardpoint ${type}">${number(counts[type])}</span>`).join("")}
+                ${HARDPOINT_ORDER.map((type) => `<span class="omnipod-hardpoint ${type}${number(counts[type]) === 0 ? " zero" : ""}">${number(counts[type])}</span>`).join("")}
               </button>
             `;
           }).join("")}
@@ -6501,6 +6645,17 @@ function tooltipQuirkValue(base, final, digits = 2, unit = "") {
   };
 }
 
+function tooltipFinalQuirkValue(base, final, digits = 2, unit = "") {
+  const baseNumber = Number(base);
+  const finalNumber = Number(final);
+  if (!Number.isFinite(baseNumber) || !Number.isFinite(finalNumber)) return "-";
+  const value = tooltipNumber(finalNumber, digits, unit);
+  if (Math.abs(finalNumber - baseNumber) < 0.0001) return value;
+  return {
+    html: `<span class="equipment-tooltip-final quirk-applied">${escapeHtml(value)}</span>`,
+  };
+}
+
 function tooltipValueHtml(value) {
   if (!value || typeof value !== "object") return escapeHtml(value);
   if (typeof value.html === "string") return value.html;
@@ -6644,23 +6799,6 @@ function ultraAutoCannonJamStats(item, quirks = []) {
   };
 }
 
-function ultraAutoCannonExpectedDamagePerMinute(item, quirks = []) {
-  if (!isUltraAutoCannon(item)) return null;
-  const damage = weaponDirectDamage(item);
-  const extraShots = Math.max(0, number(item?.stats?.ShotsDuringCooldown));
-  const doubleTapDelay = Math.max(0, number(item?.stats?.volleydelay));
-  const calculate = (activeQuirks) => {
-    const timing = simulationWeaponTiming(item, activeQuirks);
-    const jam = ultraAutoCannonJamStats(item, activeQuirks);
-    const cooldown = Math.max(0.016, timing.cooldown);
-    const expectedDamage = damage * (1 + (1 - jam.chance) * extraShots);
-    const jammedCycle = Math.max(cooldown, doubleTapDelay + jam.duration);
-    const expectedCycle = (1 - jam.chance) * cooldown + jam.chance * jammedCycle;
-    return expectedDamage / Math.max(0.016, expectedCycle) * 60;
-  };
-  return { base: calculate([]), final: calculate(quirks) };
-}
-
 function engineTooltipMaxSpeed(engine) {
   const definition = currentDefinition(state.selectedMech);
   const tons = number(definition?.stats?.MaxTons);
@@ -6681,16 +6819,23 @@ function equipmentTooltipGroups(item) {
     const ranges = weaponTooltipRanges(item);
     const type = equipmentHardpointType(item);
     const timing = simulationWeaponTiming(item, quirks);
+    const baseExpectedCooldown = weaponExpectedCooldown(item, []);
+    const expectedCooldown = weaponExpectedCooldown(item, quirks);
     const heat = simulationWeaponHeat(item, quirks);
     const rangeBonus = simulationWeaponRangeBonus(item, quirks);
     const velocityBonus = quirkIncrease(quirks, "all_velocity_multiplier")
       + quirkIncrease(quirks, `${type}_velocity_multiplier`)
       + simulationSpecificQuirkTotal(quirks, item, "_velocity_multiplier", "increase");
-    groups.push([
+    const timingRows = [
       ["DAMAGE", weaponDamageTooltipValue(item, quirks)],
       ["HEAT", tooltipQuirkValue(itemHeat(item), heat, 2)],
       ["COOLDOWN", tooltipQuirkValue(stats.cooldown, timing.cooldown, 2, " s")],
+    ];
+    if (baseExpectedCooldown !== null && expectedCooldown !== null) timingRows.push([
+      "EXPECTED COOLDOWN",
+      tooltipFinalQuirkValue(baseExpectedCooldown, expectedCooldown, 1, " s"),
     ]);
+    groups.push(timingRows);
     if (number(stats.duration) > 0) groups.push([
       ["DURATION", tooltipQuirkValue(stats.duration, timing.duration, 2, " s")],
     ]);
@@ -6712,6 +6857,16 @@ function equipmentTooltipGroups(item) {
       tooltipQuirkValue(stats.speed, number(stats.speed) * (1 + velocityBonus), 1, " m/s"),
     ]);
     groups.push(rangeRows);
+    const firingShots = Math.max(1, Math.trunc(number(stats.numFiring, 1)));
+    const pelletsPerShot = Math.max(1, Math.trunc(number(stats.numPerShot, 1)));
+    const displayedShots = pelletsPerShot > 1 ? pelletsPerShot : firingShots;
+    const shotInterval = Math.max(0, number(stats.volleydelay));
+    const ammoInfoRows = [];
+    if (displayedShots > 1) ammoInfoRows.push(["SHOTS", tooltipNumber(displayedShots, 0)]);
+    if (firingShots > 1 && shotInterval > 0) {
+      ammoInfoRows.push(["SHOT INTERVAL", tooltipNumber(shotInterval, 4, " s")]);
+    }
+    if (ammoInfoRows.length) groups.push(ammoInfoRows);
     const weaponDetailRows = [];
     atmTooltipDamageBands(item, rangeBonus).forEach((band, index) => {
       weaponDetailRows.push([
@@ -6732,7 +6887,6 @@ function equipmentTooltipGroups(item) {
     }
     if (isUltraAutoCannon(item)) {
       const jam = ultraAutoCannonJamStats(item, quirks);
-      const expectedDpm = ultraAutoCannonExpectedDamagePerMinute(item, quirks);
       weaponDetailRows.push([
         "JAM DURATION",
         tooltipQuirkValue(jam.baseDuration, jam.duration, 2, " s"),
@@ -6740,10 +6894,6 @@ function equipmentTooltipGroups(item) {
       weaponDetailRows.push([
         "JAM CHANCE",
         tooltipQuirkValue(jam.baseChance * 100, jam.chance * 100, 1, "%"),
-      ]);
-      if (expectedDpm) weaponDetailRows.push([
-        "EXPECTED DPM",
-        tooltipQuirkValue(expectedDpm.base, expectedDpm.final, 1, "/min"),
       ]);
     }
     groups.push(weaponDetailRows);
@@ -7968,6 +8118,7 @@ function bindEvents() {
   $("components").addEventListener("click", (event) => {
     const engineSinkRow = event.target.closest("[data-engine-heat-sink-item]");
     if (engineSinkRow) {
+      if (event.detail <= 0 || event.detail % 2 !== 0) return;
       event.preventDefault();
       removeInstalledEngineHeatSink(Number(engineSinkRow.dataset.engineHeatSinkItem));
       return;
@@ -7975,6 +8126,7 @@ function bindEvents() {
     if (event.target.closest("[data-engine-heat-sink-drop]")) return;
     const installedRow = event.target.closest("[data-loadout-item]");
     if (installedRow) {
+      if (event.detail <= 0 || event.detail % 2 !== 0) return;
       const [component, indexText] = installedRow.dataset.loadoutItem.split(":");
       event.preventDefault();
       removeInstalledItem(component, Number(indexText));
