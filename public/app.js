@@ -7065,6 +7065,7 @@ function positionEquipmentTooltip(target = activeEquipmentTooltipTarget) {
   const margin = 8;
   const rect = target.getBoundingClientRect();
   tooltip.style.maxWidth = "";
+  tooltip.style.maxHeight = "";
   const naturalWidth = tooltip.offsetWidth;
   const spaceRight = Math.max(0, window.innerWidth - margin - rect.right - gap);
   const spaceLeft = Math.max(0, rect.left - gap - margin);
@@ -7076,7 +7077,14 @@ function positionEquipmentTooltip(target = activeEquipmentTooltipTarget) {
     ? rect.right + gap
     : rect.left - gap - tooltip.offsetWidth;
   tooltip.style.left = `${Math.max(margin, Math.min(left, window.innerWidth - tooltip.offsetWidth - margin))}px`;
-  tooltip.style.top = `${rect.top}px`;
+
+  const availableHeight = Math.max(1, window.innerHeight - margin * 2);
+  const naturalHeight = tooltip.offsetHeight;
+  if (naturalHeight > availableHeight) tooltip.style.maxHeight = `${availableHeight}px`;
+  const renderedHeight = Math.min(naturalHeight, availableHeight);
+  const maximumTop = Math.max(margin, window.innerHeight - margin - renderedHeight);
+  const top = Math.max(margin, Math.min(rect.top, maximumTop));
+  tooltip.style.top = `${top}px`;
 }
 
 function showEquipmentTooltip(target) {
@@ -7709,6 +7717,7 @@ function bindEvents() {
   });
   document.addEventListener("pointerout", (event) => {
     if (!activeEquipmentTooltipTarget || activeEquipmentTooltipTarget.contains(event.relatedTarget)) return;
+    if ($("equipment-tooltip")?.contains(event.relatedTarget)) return;
     const nextTarget = event.relatedTarget?.closest?.(tooltipSelector);
     if (nextTarget) showEquipmentTooltip(nextTarget);
     else hideEquipmentTooltip();
