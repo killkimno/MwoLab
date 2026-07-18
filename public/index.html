@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>MwoLab</title>
-    <link rel="stylesheet" href="styles.css?v=20260718-12">
+    <link rel="stylesheet" href="styles.css?v=20260719-04">
   </head>
   <body>
     <div id="app">
@@ -30,21 +30,10 @@
           <aside class="sidebar">
             <div class="toolbar">
               <div class="mech-toolbar-row">
+                <button class="mech-filter-button" type="button" data-open-mech-filter aria-haspopup="dialog" aria-controls="mech-filter-overlay" data-i18n="filters.open">필터</button>
                 <input id="mech-search" type="search" placeholder="기종 또는 변형 검색" data-i18n-placeholder="search.mechPlaceholder">
                 <button id="mech-list-view-toggle" class="mech-list-view-toggle" type="button" aria-pressed="true" title="작은 리스트 보기" data-i18n-title="list.smallView" hidden>&lt;&lt;</button>
               </div>
-              <select id="faction-filter">
-                <option value="" data-i18n="filters.allFactions">모든 진영</option>
-                <option value="InnerSphere">Inner Sphere</option>
-                <option value="Clan">Clan</option>
-              </select>
-              <select id="weight-filter">
-                <option value="" data-i18n="filters.allWeightClasses">모든 체급</option>
-                <option value="light" data-i18n="weight.light">라이트</option>
-                <option value="medium" data-i18n="weight.medium">미디엄</option>
-                <option value="heavy" data-i18n="weight.heavy">헤비</option>
-                <option value="assault" data-i18n="weight.assault">어썰트</option>
-              </select>
               <select id="mech-sort">
                 <option value="default" data-i18n="sort.default">기본 정렬</option>
                 <option value="tons" data-i18n="sort.tons">톤수 정렬</option>
@@ -65,7 +54,6 @@
                     <div id="variant-meta" class="muted"></div>
                   </div>
                   <div class="actions">
-                    <button id="open-build-actions" type="button" data-i18n="mechlab.tools">TOOL</button>
                     <button id="open-ui-settings" type="button" data-i18n="ui.open">UI</button>
                     <button id="save-build" type="button">Save</button>
                   </div>
@@ -74,44 +62,14 @@
                 <section class="mechlab-grid">
                   <aside id="mechlab-compact-list-panel" class="mechlab-compact-list-panel" aria-label="Compact mech list" hidden>
                     <div class="mechlab-compact-list-toolbar">
+                      <button class="mech-filter-button" type="button" data-open-mech-filter aria-haspopup="dialog" aria-controls="mech-filter-overlay" data-i18n="filters.open">필터</button>
                       <input id="mechlab-compact-search" type="search" placeholder="기종 또는 변형 검색" data-i18n-placeholder="search.mechPlaceholder">
                       <button id="close-mechlab-compact-list" class="mechlab-compact-list-close" type="button" aria-label="Close mech list">X</button>
                     </div>
                     <div id="mechlab-compact-list" class="mech-list compact-mech-list"></div>
                   </aside>
                   <aside id="mech-summary-panel" class="mech-summary-panel" aria-label="Mech summary">
-                    <div id="mech-summary-name" class="mech-summary-name">-</div>
-                    <div class="mech-summary-stats">
-                      <div class="mech-summary-row">
-                        <span class="mech-summary-label">TONNAGE</span>
-                        <div class="mech-summary-value">
-                          <strong id="mech-summary-current-tons">-</strong>
-                          <span>/</span>
-                          <span id="mech-summary-max-tons">-</span>
-                        </div>
-                      </div>
-                      <div class="mech-summary-row">
-                        <span class="mech-summary-label">SLOTS</span>
-                        <div class="mech-summary-value">
-                          <strong id="mech-summary-current-slots">-</strong>
-                          <span>/</span>
-                          <span id="mech-summary-max-slots">-</span>
-                        </div>
-                      </div>
-                      <div class="mech-summary-row">
-                        <span class="mech-summary-label">HEAT SINKS</span>
-                        <div class="mech-summary-value">
-                          <strong id="mech-summary-heat-sinks">-</strong>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="mech-summary-actions">
-                      <button id="open-simulation" class="simulation-open-button" type="button" data-i18n="simulation.open" disabled>시뮬레이션</button>
-                      <div class="loadout-code-actions">
-                        <button id="import-loadout-code" type="button" data-i18n="loadout.import">IMPORT</button>
-                        <button id="export-loadout-code" type="button" data-i18n="loadout.export" disabled>EXPORT</button>
-                      </div>
-                    </div>
+                    <div id="mech-summary-content" class="mech-summary-content"></div>
                   </aside>
 
                   <div class="components-panel" aria-label="Hardpoints">
@@ -303,6 +261,33 @@
       <div id="compare-overlay-cells" class="compare-header-overlay-cells"></div>
     </div>
 
+    <div id="mech-filter-overlay" class="build-actions-overlay mech-filter-overlay" hidden>
+      <section class="build-actions-dialog mech-filter-dialog" role="dialog" aria-modal="true" aria-labelledby="mech-filter-title">
+        <header>
+          <h2 id="mech-filter-title" data-i18n="filters.title">멕 필터</h2>
+          <button id="close-mech-filter-x" class="build-actions-close" type="button" aria-label="Close">X</button>
+        </header>
+        <section class="mech-filter-section" aria-labelledby="mech-filter-faction-title">
+          <h3 id="mech-filter-faction-title" data-i18n="filters.faction">진영</h3>
+          <div class="mech-filter-options mech-filter-faction-options" role="group" aria-labelledby="mech-filter-faction-title">
+            <button type="button" data-mech-filter-faction="" data-i18n="filters.all">모두</button>
+            <button type="button" data-mech-filter-faction="Clan" data-i18n="filters.clan">클랜</button>
+            <button type="button" data-mech-filter-faction="InnerSphere" data-i18n="filters.innerSphere">이너</button>
+          </div>
+        </section>
+        <section class="mech-filter-section" aria-labelledby="mech-filter-weight-title">
+          <h3 id="mech-filter-weight-title" data-i18n="filters.weightClass">체급</h3>
+          <div class="mech-filter-options mech-filter-weight-options" role="group" aria-labelledby="mech-filter-weight-title">
+            <button type="button" data-mech-filter-weight="light" data-i18n="weight.light">라이트</button>
+            <button type="button" data-mech-filter-weight="medium" data-i18n="weight.medium">미디엄</button>
+            <button type="button" data-mech-filter-weight="heavy" data-i18n="weight.heavy">헤비</button>
+            <button type="button" data-mech-filter-weight="assault" data-i18n="weight.assault">어썰트</button>
+          </div>
+        </section>
+        <button id="close-mech-filter" class="build-actions-cancel" type="button" data-i18n="filters.close">닫기</button>
+      </section>
+    </div>
+
     <div id="build-actions-overlay" class="build-actions-overlay" hidden>
       <section class="build-actions-dialog" role="dialog" aria-modal="true" aria-labelledby="build-actions-title">
         <header>
@@ -491,6 +476,6 @@
     <div id="equipment-tooltip" class="equipment-tooltip" role="tooltip" hidden></div>
 
     <script src="mwo-codec.js"></script>
-    <script src="app.js?v=20260718-25"></script>
+    <script src="app.js?v=20260719-06"></script>
   </body>
 </html>

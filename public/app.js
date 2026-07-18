@@ -7,6 +7,7 @@ let mechlabScale = 1;
 let mechlabScaleObserver = null;
 let mechlabScaleFrame = 0;
 let mechNavigationReady = false;
+let mechFilterTrigger = null;
 
 function normalizeLanguage(value) {
   const language = String(value || "").trim().toLowerCase();
@@ -148,6 +149,14 @@ const TEXT = {
     "list.variantCount": "{count} 변형",
     "filters.allFactions": "모든 진영",
     "filters.allWeightClasses": "모든 체급",
+    "filters.open": "필터",
+    "filters.title": "멕 필터",
+    "filters.faction": "진영",
+    "filters.weightClass": "체급",
+    "filters.all": "모두",
+    "filters.clan": "클랜",
+    "filters.innerSphere": "이너",
+    "filters.close": "닫기",
     "filters.allEquipment": "모든 장비",
     "filters.weapons": "무기",
     "filters.ammo": "탄약",
@@ -450,6 +459,14 @@ const TEXT = {
     "list.variantCount": "{count} variants",
     "filters.allFactions": "All factions",
     "filters.allWeightClasses": "All weight classes",
+    "filters.open": "Filter",
+    "filters.title": "Mech filters",
+    "filters.faction": "Faction",
+    "filters.weightClass": "Weight class",
+    "filters.all": "All",
+    "filters.clan": "Clan",
+    "filters.innerSphere": "Inner Sphere",
+    "filters.close": "Close",
     "filters.allEquipment": "All equipment",
     "filters.weapons": "Weapons",
     "filters.ammo": "Ammo",
@@ -1001,6 +1018,8 @@ const state = {
   renderedStatsValueScale: 1,
   largeMechList: true,
   mechSort: "default",
+  mechFilterFaction: "",
+  mechFilterWeightClasses: new Set(),
   mechListSummaryCache: new Map(),
   mechHardpointBadgeCache: new Map(),
   mechHardpointTypeCache: new Map(),
@@ -1226,6 +1245,16 @@ function isArtemisWeapon(item) {
 
 function artemisEquipped(build = state.currentBuild) {
   return Boolean(build?.upgrades?.artemis?.Equipped);
+}
+
+function activeWeaponAmmoType(weapon, build = state.currentBuild) {
+  if (weapon?.item_type !== "weapon") return "";
+  const artemisAmmoType = String(weapon.stats?.artemisAmmoType || "");
+  const usesArtemisAmmo = Boolean(artemisAmmoType) && (
+    number(weapon.stats?.alwaysHasArtemis) > 0
+    || (artemisEquipped(build) && isGuidanceWeapon(weapon))
+  );
+  return usesArtemisAmmo ? artemisAmmoType : String(weapon.stats?.ammoType || "");
 }
 
 function guidanceUpgrade(build = state.currentBuild) {
@@ -4262,8 +4291,8 @@ function calculateBuild() {
   }, 0);
   const baseSlotUsage = Object.values(componentUsage).reduce((sum, usage) => sum + number(usage.slots), 0);
   const requiredUpgradeSlots = requiredStructureSlots + requiredArmorSlots;
-  const upgradeCalculationUsage = baseSlotUsage + requiredUpgradeSlots;
-  const upgradeFreeSlots = Math.max(0, totalSlotCapacity - upgradeCalculationUsage);
+  const reservedUpgradeUsage = baseSlotUsage + requiredUpgradeSlots;
+  const upgradeFreeSlots = Math.max(0, totalSlotCapacity - reservedUpgradeUsage);
   Object.entries(componentUsage).forEach(([name, usage]) => {
     const slotLimit = number(definition.components?.[name]?.slots);
     const availableSlots = Math.max(0, slotLimit - number(usage.slots));
@@ -4284,19 +4313,16 @@ function calculateBuild() {
       usage.warnings.push(`Slots ${usage.slots}/${slotLimit}`);
     }
   });
-  // Component slot counts only include upgrade slots that are currently forced
-  // into that component. The build-wide count must reserve every movable upgrade
-  // slot, including black candidates, because they share the same remaining capacity.
+  // Armor and structure upgrades are always applied. Only the upgrade slots that
+  // fit around installed equipment are rendered, while the summary reserves the
+  // full required amount so an over-capacity build remains visible.
   const displayedSlotUsage = Object.values(componentUsage).reduce((sum, usage) => sum + number(usage.slots), 0);
+  const allocatedStructureSlots = requiredStructureSlots - structureAllocation.unallocated;
+  const allocatedArmorSlots = requiredArmorSlots - armorAllocation.unallocated;
+  const allocatedUpgradeSlots = allocatedStructureSlots + allocatedArmorSlots;
+  const upgradeCalculationUsage = reservedUpgradeUsage;
   const currentSlotUsage = upgradeCalculationUsage;
-  const freeSlots = upgradeFreeSlots;
-
-  if (structureAllocation.unallocated) {
-    warnings.push(t("build.structureSlotsUnavailable", { count: structureAllocation.unallocated }));
-  }
-  if (armorAllocation.unallocated) {
-    warnings.push(t("build.armorSlotsUnavailable", { count: armorAllocation.unallocated }));
-  }
+  const freeSlots = Math.max(0, totalSlotCapacity - currentSlotUsage);
 
   for (const [name, usage] of Object.entries(componentUsage)) {
     for (const warning of usage.warnings) {
@@ -4354,9 +4380,12 @@ function calculateBuild() {
     freeSlots,
     structureFreeSlots: upgradeFreeSlots,
     upgradeFreeSlots,
-    structureSlots: requiredStructureSlots,
-    armorSlots: requiredArmorSlots,
-    upgradeSlots: requiredUpgradeSlots,
+    structureSlots: allocatedStructureSlots,
+    armorSlots: allocatedArmorSlots,
+    upgradeSlots: allocatedUpgradeSlots,
+    requiredStructureSlots,
+    requiredArmorSlots,
+    requiredUpgradeSlots,
     unallocatedStructureSlots: structureAllocation.unallocated,
     unallocatedArmorSlots: armorAllocation.unallocated,
     warnings,
@@ -4384,9 +4413,39 @@ function renderSummary(calc = state.selectedMech && state.currentBuild ? calcula
 
 function filteredMechsForCompactList() {
   const search = String($("mechlab-compact-search")?.value || "").trim().toLowerCase();
-  return state.mechs.filter((mech) => (
-    !search || `${mech.display_name} ${mech.name} ${mech.chassis}`.toLowerCase().includes(search)
-  ));
+  return state.mechs.filter((mech) => mechMatchesListFilters(mech, search));
+}
+
+function mechMatchesListFilters(mech, search = "") {
+  const selectedWeights = state.mechFilterWeightClasses;
+  const weightFilterActive = selectedWeights.size > 0 && selectedWeights.size < 4;
+  const matchesSearch = !search
+    || `${mech.display_name} ${mech.name} ${mech.chassis}`.toLowerCase().includes(search);
+  const matchesFaction = !state.mechFilterFaction || mech.faction === state.mechFilterFaction;
+  const matchesWeight = !weightFilterActive || selectedWeights.has(mech.weight_class);
+  return matchesSearch && matchesFaction && matchesWeight;
+}
+
+function renderMechFilterControls() {
+  const overlayOpen = !$("mech-filter-overlay").hidden;
+  const weightFilterActive = state.mechFilterWeightClasses.size > 0
+    && state.mechFilterWeightClasses.size < 4;
+  const filterActive = Boolean(state.mechFilterFaction) || weightFilterActive;
+  document.querySelectorAll("[data-open-mech-filter]").forEach((button) => {
+    button.classList.toggle("active", filterActive);
+    button.setAttribute("aria-expanded", String(overlayOpen));
+    button.setAttribute("aria-pressed", String(filterActive));
+  });
+  document.querySelectorAll("[data-mech-filter-faction]").forEach((button) => {
+    const active = button.dataset.mechFilterFaction === state.mechFilterFaction;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelectorAll("[data-mech-filter-weight]").forEach((button) => {
+    const active = state.mechFilterWeightClasses.has(button.dataset.mechFilterWeight);
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
 }
 
 function renderMechlabCompactList() {
@@ -4429,6 +4488,7 @@ function renderMechlabCompactList() {
 }
 
 function renderMechList() {
+  renderMechFilterControls();
   const filtered = filteredMechsForList();
   const grouped = groupMechsForList(filtered);
   const activeChassis = activeChassisForList();
@@ -4482,16 +4542,214 @@ function renderMechList() {
     .join("");
 }
 
+function installedMechItems(itemType) {
+  if (!state.selectedMech || !state.currentBuild) return [];
+  const definition = effectiveDefinition(state.selectedMech, state.currentBuild);
+  const items = [];
+  for (const component of COMPONENT_ORDER) {
+    const fixedIds = definition.components?.[component]?.fixed || [];
+    const installedIds = (state.currentBuild.components?.[component]?.items || [])
+      .map((entry) => entry.item_id);
+    [...fixedIds, ...installedIds].forEach((itemId) => {
+      const item = itemById(itemId);
+      if (item?.item_type === itemType) items.push(item);
+    });
+  }
+  return items;
+}
+
+function mechSummarySection(title, rows, className = "") {
+  return `
+    <section class="mech-summary-section ${className}">
+      <h3>${title}</h3>
+      <div class="mech-summary-metrics">
+        ${rows.map(([label, value, tone = ""]) => `
+          <div class="mech-summary-metric ${tone}">
+            <span>${label}</span>
+            <strong>${value}</strong>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function ammoGroupWeaponLabel(weapons) {
+  const counts = new Map();
+  weapons.forEach((weapon) => {
+    const label = String(weapon.item.display_name || weapon.item.name || "WEAPON").toUpperCase();
+    counts.set(label, (counts.get(label) || 0) + 1);
+  });
+  return Array.from(counts, ([label, count]) => `${label}${count > 1 ? ` ×${count}` : ""}`).join(" + ");
+}
+
+function mechSummaryAmmoGroups(weapons) {
+  const groups = new Map();
+  weapons.forEach((weapon) => {
+    const ammoType = activeWeaponAmmoType(weapon.item);
+    const key = normalizeLookupKey(ammoType);
+    if (!key) return;
+    if (!groups.has(key)) groups.set(key, { key, weapons: [], rounds: 0 });
+    groups.get(key).weapons.push(weapon);
+  });
+  installedMechItems("ammo").forEach((ammo) => {
+    const key = normalizeLookupKey(ammo.stats?.type || ammo.name);
+    if (groups.has(key)) groups.get(key).rounds += Math.max(0, number(ammo.stats?.numShots));
+  });
+  return Array.from(groups.values())
+    .map((group) => {
+      const roundsPerVolley = group.weapons.reduce(
+        (sum, weapon) => sum + Math.max(0, number(weapon.item.stats?.ammoPerShot)),
+        0,
+      );
+      const volleys = roundsPerVolley > 0 ? Math.floor(group.rounds / roundsPerVolley) : 0;
+      const volleyDamage = group.weapons.reduce((sum, weapon) => sum + number(weapon.damage), 0);
+      return {
+        ...group,
+        label: ammoGroupWeaponLabel(group.weapons),
+        volleys,
+        totalDamage: volleys * volleyDamage,
+      };
+    })
+    .sort((left, right) => left.label.localeCompare(right.label, undefined, { numeric: true }));
+}
+
+function renderMechSummaryAmmo(weapons) {
+  const groups = mechSummaryAmmoGroups(weapons);
+  if (!groups.length) return "";
+  return `
+    <section class="mech-summary-section mech-summary-ammo-section">
+      <h3>AMMO</h3>
+      <div class="mech-summary-ammo-head"><span>WEAPON</span><span>AMMO</span><span>VOLLEYS</span><span>DMG</span></div>
+      <div class="mech-summary-ammo-rows">
+        ${groups.map((group) => `
+          <div class="mech-summary-ammo-row">
+            <strong title="${escapeHtml(group.label)}">${escapeHtml(group.label)}</strong>
+            <span>${fmt(group.rounds, 0)}</span>
+            <span>${fmt(group.volleys, 0)}</span>
+            <span>${fmt(group.totalDamage, 0)}</span>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderMechSummaryQuirks(quirks) {
+  return `
+    <section class="mech-summary-section mech-summary-quirks-section">
+      <h3>QUIRKS</h3>
+      <div class="mech-summary-quirks">
+        ${quirks.length ? quirks.map((quirk) => `
+          <div class="mech-summary-quirk ${quirkToneClass(quirk)}" title="${escapeHtml(quirk.source_text || quirk.name)}">
+            <span>${escapeHtml(quirk.display_name)}</span>
+            <strong>${escapeHtml(quirk.value_text)}</strong>
+          </div>
+        `).join("") : '<div class="empty">No quirks</div>'}
+      </div>
+    </section>
+  `;
+}
+
 function renderMechSummary(calc = null) {
   const mech = state.selectedMech;
-  $("mech-summary-name").textContent = mech?.display_name || "-";
-  $("mech-summary-current-tons").textContent = calc ? fmt(calc.totalTons) : "-";
-  $("mech-summary-max-tons").textContent = calc ? fmt(calc.maxTons) : "-";
-  $("mech-summary-current-slots").textContent = calc ? fmt(calc.currentSlotUsage, 0) : "-";
-  $("mech-summary-max-slots").textContent = calc ? fmt(calc.totalSlotCapacity, 0) : "-";
-  $("mech-summary-heat-sinks").textContent = calc ? fmt(calc.totalHeatSinkCount, 0) : "-";
-  $("open-simulation").disabled = !mech || !state.currentBuild;
-  $("export-loadout-code").disabled = !mech || !state.currentBuild;
+  if (!mech || !calc) {
+    $("mech-summary-content").innerHTML = "";
+    return;
+  }
+
+  const quirks = effectiveQuirks(mech, state.currentBuild);
+  const quirkValues = mechlabQuirkValues(mech, state.currentBuild);
+  const weapons = collectSimulationWeapons();
+  const heatSink = simulationHeatSinkItem();
+  const heatSystem = simulationHeatSystemFromSink(
+    heatSink,
+    calc.totalHeatSinkCount,
+    quirkIncrease(quirks, "heatdissipation_multiplier"),
+  );
+  const alphaHeat = weapons.reduce((sum, weapon) => sum + number(weapon.heat), 0);
+  const dps = weapons.reduce((sum, weapon) => sum + number(weapon.damage) / Math.max(0.016, number(weapon.cycle, 0.016)), 0);
+  const hps = weapons.reduce((sum, weapon) => sum + number(weapon.heat) / Math.max(0.016, number(weapon.cycle, 0.016)), 0);
+  const dph = alphaHeat > 0 ? calc.alpha / alphaHeat : null;
+  const heatEfficiency = hps <= heatSystem.coolingRate + 0.0001
+    ? 100
+    : Math.max(0, Math.min(100, heatSystem.coolingRate / hps * 100));
+  const alphaHeatRecovery = heatSystem.coolingRate > 0
+    ? alphaHeat / heatSystem.coolingRate
+    : null;
+  const movement = movementInfo(quirkValues, mech);
+  const speed = calc.engine
+    ? engineTooltipMaxSpeed(calc.engine) * quirkMultiplier(quirkValues, ["mechtopspeed_multiplier"])
+    : 0;
+  const maxArmor = armorInfoRows(quirkValues, mech).reduce((sum, row) => sum + number(row.total), 0);
+  const structure = structureInfoRows(quirkValues, mech).reduce((sum, row) => sum + number(row.total), 0);
+  const jumpJets = installedMechItems("jumpjet");
+  const jumpJetCount = jumpJets.length;
+  const jumpJetSlotBonus = quirks.reduce((sum, quirk) => (
+    String(quirk.name || "").toLowerCase() === "jumpjetslots_additive"
+      ? sum + number(quirk.value)
+      : sum
+  ), 0);
+  const maxJumpJets = number(currentDefinition(mech).stats?.MaxJumpJets) + Math.max(0, jumpJetSlotBonus);
+  const jumpJetBurnMultiplier = 1 + quirkIncrease(quirks, "jumpjets_burntime_multiplier");
+  const jumpJetInitialMultiplier = 1 + quirkIncrease(quirks, "jumpjets_initialthrust_multiplier");
+  const jumpJetVerticalLift = jumpJets.reduce((sum, item) => sum + number(item.stats?.boost_z), 0);
+  const jumpJetDuration = jumpJets.reduce((max, item) => Math.max(max, number(item.stats?.duration)), 0)
+    * jumpJetBurnMultiplier;
+  const jumpJetInitialThrust = jumpJets.reduce((max, item) => Math.max(max, number(item.stats?.boost_instant)), 0)
+    * jumpJetInitialMultiplier;
+  const mechMaxTons = Math.max(1, number(currentDefinition(mech).stats?.MaxTons, 1));
+  const jumpJetHeight = jumpJetCount > 0
+    ? (7.5 * jumpJetVerticalLift + jumpJetDuration * 0.75 * jumpJetInitialThrust) / mechMaxTons
+    : 0;
+  const tonsOver = calc.totalTons > calc.maxTons + 0.0001;
+  const slotsOver = calc.currentSlotUsage > calc.totalSlotCapacity;
+  const alphaHeatPercent = heatSystem.maxHeat > 0 ? alphaHeat / heatSystem.maxHeat * 100 : 0;
+
+  $("mech-summary-content").innerHTML = `
+    <div class="mech-summary-limits">
+      <div class="mech-summary-limit ${tonsOver ? "over-limit" : ""}"><span>TONNAGE</span><strong>${fmt(calc.totalTons)} <small>/ ${fmt(calc.maxTons)}</small></strong></div>
+      <div class="mech-summary-limit ${slotsOver ? "over-limit" : ""}"><span>SLOTS</span><strong>${fmt(calc.currentSlotUsage, 0)} <small>/ ${fmt(calc.totalSlotCapacity, 0)}</small></strong></div>
+    </div>
+    ${mechSummarySection("GENERAL", [
+      ["SPEED", `${fmt(speed)} kph`],
+      ["TURN SPEED", `${fmt(movement.turnSpeed)}°/s`],
+      ["ACCELERATION", fmt(movement.acceleration)],
+      ["DECELERATION", fmt(movement.deceleration)],
+      ["ARMOR", `${fmt(calc.armor, 0)} / ${fmt(maxArmor, 0)}`],
+      ["STRUCTURE", fmt(structure, 0)],
+      ["JUMP JETS", `${jumpJetCount} / ${fmt(maxJumpJets, 0)} (${fmt(jumpJetHeight, 1)}m)`],
+    ])}
+    ${mechSummarySection("HEAT", [
+      ["HEAT SINKS", fmt(calc.totalHeatSinkCount, 0)],
+      ["HEAT CAPACITY", fmt(heatSystem.maxHeat)],
+      ["DISSIPATION", `${fmt(heatSystem.coolingRate, 2)}/s`],
+      ["HEAT EFFICIENCY", `${fmt(heatEfficiency, 1)}%`],
+      ["ALPHA HEAT RECOVERY", alphaHeatRecovery === null ? "-" : `${fmt(alphaHeatRecovery, 2)}s`],
+    ])}
+    ${mechSummarySection("WEAPON", [
+      ["FIREPOWER", fmt(calc.alpha, 2)],
+      ["DPS", fmt(dps, 2)],
+      ["DPH", dph === null ? "-" : fmt(dph, 2)],
+      ["HPS", fmt(hps, 2)],
+      ["ALPHA HEAT", `${fmt(alphaHeat, 2)} (${fmt(alphaHeatPercent, 1)}%)`],
+    ])}
+    ${renderMechSummaryAmmo(weapons)}
+    ${renderMechSummaryQuirks(quirks)}
+  `;
+}
+
+function renderMechlabActionPanel() {
+  return `
+    <section class="mechlab-action-panel" aria-label="MechLab actions">
+      <button id="open-simulation" class="simulation-open-button" type="button" data-mechlab-action="simulation">${t("simulation.open")}</button>
+      <button id="open-build-actions" class="mechlab-tool-button" type="button" data-mechlab-action="tools">${t("mechlab.tools")}</button>
+      <div class="loadout-code-actions">
+        <button id="import-loadout-code" type="button" data-mechlab-action="import">${t("loadout.import")}</button>
+        <button id="export-loadout-code" type="button" data-mechlab-action="export">${t("loadout.export")}</button>
+      </div>
+    </section>
+  `;
 }
 
 function simulationItemKeys(item) {
@@ -5542,14 +5800,7 @@ function setSimulationGroupHeld(group, held) {
 
 function filteredMechsForList() {
   const search = $("mech-search").value.trim().toLowerCase();
-  const factionFilter = $("faction-filter").value;
-  const weightFilter = $("weight-filter").value;
-  return state.mechs.filter((mech) => {
-    const matchesSearch = !search || `${mech.display_name} ${mech.name} ${mech.chassis}`.toLowerCase().includes(search);
-    const matchesFaction = !factionFilter || mech.faction === factionFilter;
-    const matchesWeight = !weightFilter || mech.weight_class === weightFilter;
-    return matchesSearch && matchesFaction && matchesWeight;
-  });
+  return state.mechs.filter((mech) => mechMatchesListFilters(mech, search));
 }
 
 function activeChassisForList() {
@@ -5794,7 +6045,7 @@ function installedWeaponAmmoTypes() {
     [...fixedIds, ...installedIds].forEach((itemId) => {
       const weapon = itemById(itemId);
       if (weapon?.item_type !== "weapon") return;
-      const ammoType = normalizeLookupKey(weapon.stats?.ammoType);
+      const ammoType = normalizeLookupKey(activeWeaponAmmoType(weapon));
       if (ammoType) types.add(ammoType);
     });
   }
@@ -6016,7 +6267,9 @@ function artemisCounterpart(item, equipped) {
   let targetName;
   if (equipped) {
     if (item.item_type === "weapon" && !item.stats?.artemisAmmoType) return null;
-    targetName = item.item_type === "weapon" ? `${name}_Artemis` : `${name}Artemis`;
+    targetName = item.item_type === "weapon"
+      ? `${name}_Artemis`
+      : (/Half$/i.test(name) ? name.replace(/Half$/i, "ArtemisHalf") : `${name}Artemis`);
   } else {
     targetName = name.replace(/_?Artemis/gi, "");
   }
@@ -6063,9 +6316,13 @@ function selectUpgrade(category, value) {
     };
     if (category === "heatsinks") applyHeatSinkUpgrade(item);
   }
-  reflowInstalledEquipment();
+  if (!["armor", "structure"].includes(category)) reflowInstalledEquipment();
   const selectedItem = itemById(state.selectedItemId);
-  if (guidanceMismatch(selectedItem) || !heatSinkMatchesUpgrade(selectedItem)) state.selectedItemId = null;
+  if (
+    guidanceMismatch(selectedItem)
+    || !heatSinkMatchesUpgrade(selectedItem)
+    || (selectedItem?.item_type === "ammo" && !ammoMatchesInstalledWeapons(selectedItem))
+  ) state.selectedItemId = null;
   renderEquipmentList();
   renderVariant();
 }
@@ -6290,6 +6547,7 @@ function renderComponents(calc = calculateBuild()) {
   $("components").innerHTML = columns.map((column) => `
     <div class="component-column component-column-${column.className}">
       ${column.components.map((name) => rendered[name]).join("")}
+      ${column.className === "left-arm" ? renderMechlabActionPanel() : ""}
     </div>
   `).join("");
 }
@@ -6615,6 +6873,34 @@ function showFullMechlabList() {
   renderMechList();
   renderMechlabCompactList();
   $("mech-search").focus();
+}
+
+function openMechFilterDialog(trigger) {
+  mechFilterTrigger = trigger || document.activeElement;
+  $("mech-filter-overlay").hidden = false;
+  document.body.classList.add("mech-filter-open");
+  renderMechFilterControls();
+  requestAnimationFrame(() => {
+    $("mech-filter-overlay").querySelector("[data-mech-filter-faction].active")?.focus();
+  });
+}
+
+function closeMechFilterDialog() {
+  if ($("mech-filter-overlay").hidden) return;
+  $("mech-filter-overlay").hidden = true;
+  document.body.classList.remove("mech-filter-open");
+  renderMechFilterControls();
+  mechFilterTrigger?.focus();
+  mechFilterTrigger = null;
+}
+
+function toggleMechWeightFilter(weightClass) {
+  if (state.mechFilterWeightClasses.has(weightClass)) {
+    state.mechFilterWeightClasses.delete(weightClass);
+  } else {
+    state.mechFilterWeightClasses.add(weightClass);
+  }
+  renderMechList();
 }
 
 function openBuildActionsDialog() {
@@ -7395,28 +7681,6 @@ function dropValidation(item, component, source = null) {
     + addedItemSlots;
   if (!slotLimit || nextSlots > slotLimit) return `Slots ${nextSlots}/${slotLimit}`;
 
-  if (calc.upgradeSlots) {
-    const availableUpgradeCapacity = STRUCTURE_SLOT_ORDER.reduce((sum, name) => {
-      const componentLimit = number(effectiveComponentDefinition(state.selectedMech, state.currentBuild, name).slots);
-      const componentUsage = calc.componentUsage[name] || { slots: 0, occupiedUpgradeSlots: 0 };
-      const baseUsage = componentUsage.slots - number(componentUsage.occupiedUpgradeSlots);
-      return sum + Math.max(0, componentLimit - baseUsage);
-    }, 0);
-    const sourceInUpgradeArea = source?.component && STRUCTURE_SLOT_ORDER.includes(source.component);
-    const targetInUpgradeArea = STRUCTURE_SLOT_ORDER.includes(component);
-    let nextUpgradeCapacity = availableUpgradeCapacity
-      + (sourceInUpgradeArea ? addedItemSlots : 0)
-      - (targetInUpgradeArea ? addedItemSlots : 0);
-    if (item.item_type === "engine" && !source) {
-      nextUpgradeCapacity += replacedEngineSlots;
-      nextUpgradeCapacity += engineSideSlots(loadoutInstalledEngine()) * 2;
-      nextUpgradeCapacity -= engineSideSlots(item) * 2;
-    }
-    if (nextUpgradeCapacity < calc.upgradeSlots) {
-      return t("build.upgradeSlotsUnavailable", { count: calc.upgradeSlots - nextUpgradeCapacity });
-    }
-  }
-
   if (item.item_type === "engine") {
     const proposedSideSlots = engineSideSlots(item);
     for (const side of ENGINE_SIDE_COMPONENTS) {
@@ -7955,15 +8219,12 @@ function bindEvents() {
   window.addEventListener("resize", () => {
     if (activeEquipmentTooltipTarget) positionEquipmentTooltip();
   }, { passive: true });
-  $("import-loadout-code").addEventListener("click", () => openLoadoutCodeDialog("import"));
-  $("export-loadout-code").addEventListener("click", () => openLoadoutCodeDialog("export"));
   $("close-loadout-code").addEventListener("click", closeLoadoutCodeDialog);
   $("apply-loadout-code").addEventListener("click", applyImportedMwoCode);
   $("copy-loadout-code").addEventListener("click", copyExportedMwoCode);
   $("loadout-code-overlay").addEventListener("mousedown", (event) => {
     if (event.target === $("loadout-code-overlay")) closeLoadoutCodeDialog();
   });
-  $("open-simulation").addEventListener("click", openSimulation);
   $("close-simulation").addEventListener("click", closeSimulation);
   $("reset-simulation").addEventListener("click", resetSimulationRun);
   $("simulation-scenario-options").addEventListener("change", (event) => {
@@ -8053,6 +8314,13 @@ function bindEvents() {
     renderSimulationGroupStatus();
   });
   document.addEventListener("keydown", (event) => {
+    if (!$("mech-filter-overlay").hidden) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeMechFilterDialog();
+      }
+      return;
+    }
     if (!$("ui-settings-overlay").hidden) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -8124,7 +8392,8 @@ function bindEvents() {
   });
   document.querySelectorAll("[data-main-tab]").forEach((button) => {
     button.addEventListener("click", () => {
-      if (button.dataset.mainTab === "mechlab" && state.activeMainTab === "mechlab") {
+      if (button.dataset.mainTab === "mechlab") {
+        if (state.activeMainTab !== "mechlab") setMainTab("mechlab");
         showFullMechlabList();
         return;
       }
@@ -8132,8 +8401,25 @@ function bindEvents() {
     });
   });
   $("mech-search").addEventListener("input", renderMechList);
-  $("faction-filter").addEventListener("change", renderMechList);
-  $("weight-filter").addEventListener("change", renderMechList);
+  document.querySelectorAll("[data-open-mech-filter]").forEach((button) => {
+    button.addEventListener("click", () => openMechFilterDialog(button));
+  });
+  $("close-mech-filter-x").addEventListener("click", closeMechFilterDialog);
+  $("close-mech-filter").addEventListener("click", closeMechFilterDialog);
+  $("mech-filter-overlay").addEventListener("click", (event) => {
+    const faction = event.target.closest("[data-mech-filter-faction]");
+    if (faction) {
+      state.mechFilterFaction = faction.dataset.mechFilterFaction;
+      renderMechList();
+      return;
+    }
+    const weight = event.target.closest("[data-mech-filter-weight]");
+    if (weight) {
+      toggleMechWeightFilter(weight.dataset.mechFilterWeight);
+      return;
+    }
+    if (event.target === event.currentTarget) closeMechFilterDialog();
+  });
   $("mech-sort").addEventListener("change", (event) => {
     state.mechSort = event.target.value;
     renderMechList();
@@ -8161,7 +8447,6 @@ function bindEvents() {
   $("show-mech-list").addEventListener("click", showMechlabList);
   $("close-mechlab-compact-list").addEventListener("click", closeMechlabCompactList);
   $("mechlab-compact-search").addEventListener("input", renderMechlabCompactList);
-  $("open-build-actions").addEventListener("click", openBuildActionsDialog);
   $("open-ui-settings").addEventListener("click", openUiSettingsDialog);
   $("close-ui-settings-x").addEventListener("click", closeUiSettingsDialog);
   $("close-ui-settings").addEventListener("click", closeUiSettingsDialog);
@@ -8439,6 +8724,15 @@ function bindEvents() {
     selectUpgrade(button.dataset.upgradeCategory, button.dataset.upgradeValue);
   });
   $("components").addEventListener("click", (event) => {
+    const mechlabAction = event.target.closest("[data-mechlab-action]");
+    if (mechlabAction) {
+      const action = mechlabAction.dataset.mechlabAction;
+      if (action === "simulation") openSimulation();
+      else if (action === "import") openLoadoutCodeDialog("import");
+      else if (action === "export") openLoadoutCodeDialog("export");
+      else if (action === "tools") openBuildActionsDialog();
+      return;
+    }
     const engineRatingButton = event.target.closest("[data-engine-rating-delta]");
     if (engineRatingButton) {
       event.preventDefault();

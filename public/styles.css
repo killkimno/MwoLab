@@ -309,8 +309,21 @@ h3 {
 
 .mech-toolbar-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.5rem;
+}
+
+.mech-filter-button {
+  min-width: 3.5rem;
+  padding-inline: 0.65rem;
+  font-weight: 800;
+}
+
+.mech-filter-button.active {
+  border-color: var(--green);
+  background: #17372b;
+  color: #d9ffe8;
+  box-shadow: 0 0 0.45rem #46d98b33;
 }
 
 .mech-list-view-toggle {
@@ -502,7 +515,8 @@ h3 {
 }
 
 .large-chassis-row {
-  grid-template-columns: minmax(0, 1fr) 5rem 3rem;
+  position: relative;
+  grid-template-columns: minmax(0, 1fr) 3rem;
   gap: 0.75rem;
   align-items: center;
   min-height: 2.45rem;
@@ -510,6 +524,13 @@ h3 {
   border-left: 3px solid var(--blue);
   border-radius: 3px;
   background: #202226;
+}
+
+.large-chassis-row .expand-indicator {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  transform: translateY(-50%);
 }
 
 .faction-clan .large-chassis-row {
@@ -527,12 +548,18 @@ h3 {
 }
 
 .large-chassis-row .chassis-title strong {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 38%;
   overflow: hidden;
   color: var(--blue);
   font-size: 0.95rem;
   letter-spacing: 0.03rem;
+  text-align: left;
   text-overflow: ellipsis;
   text-transform: uppercase;
+  transform: translate(-50%, -50%);
   white-space: nowrap;
 }
 
@@ -541,6 +568,14 @@ h3 {
   color: var(--text);
   font-weight: 800;
   text-align: right;
+}
+
+.large-chassis-ton {
+  position: absolute;
+  top: 50%;
+  left: 75%;
+  transform: translate(-50%, -50%);
+  text-align: center;
 }
 
 .mech-card-grid {
@@ -1980,7 +2015,7 @@ h3 {
 
 .mechlab-grid {
   display: grid;
-  grid-template-columns: minmax(18rem, 21rem) minmax(0, 1fr) minmax(21rem, 24rem);
+  grid-template-columns: minmax(28rem, 32rem) minmax(0, 1fr) minmax(21rem, 24rem);
   gap: 0.75rem;
   min-height: 0;
   overflow: hidden;
@@ -2010,7 +2045,7 @@ h3 {
 
 .mechlab-compact-list-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 2.35rem;
+  grid-template-columns: auto minmax(0, 1fr) 2.35rem;
   gap: 0.4rem;
   padding: 0.5rem;
   border-bottom: 1px solid #37505a;
@@ -2047,59 +2082,220 @@ h3 {
   border-radius: 0;
 }
 
-.mech-summary-name {
-  min-height: 4.2rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.75rem 1rem;
+.mech-summary-content {
+  display: grid;
+  align-content: start;
+}
+
+.mech-summary-limits {
+  display: grid;
+  gap: 1px;
+  padding: 0.65rem 0.7rem;
   border-bottom: 1px solid #263036;
-  color: #d8dddf;
-  font-size: 1.55rem;
-  font-weight: 600;
-  line-height: 1.2;
-  text-align: center;
-  text-transform: uppercase;
-  overflow-wrap: anywhere;
+  background: #26343a;
 }
 
-.mech-summary-stats {
-  display: grid;
-  gap: 1rem;
-  padding: 0.75rem 1rem 1rem;
-}
-
-.mech-summary-row {
-  display: grid;
-  gap: 0.3rem;
-}
-
-.mech-summary-label {
-  color: #7da2b0;
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.mech-summary-value {
+.mech-summary-limit {
   display: flex;
   align-items: baseline;
-  justify-content: flex-end;
-  gap: 0.45rem;
-  color: #e2e7e9;
-  font-size: 1.45rem;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 1.9rem;
+  padding: 0.25rem 0.4rem;
+  background: #101719;
 }
 
-.mech-summary-value strong {
-  color: #5fa8d3;
-  font-size: 2rem;
+.mech-summary-limit:nth-child(even) {
+  background: #182328;
+}
+
+.mech-summary-limit > span {
+  color: #7da2b0;
+  font-size: 0.8rem;
   font-weight: 800;
-  line-height: 1;
+  letter-spacing: 0.05em;
 }
 
-.mech-summary-actions {
+.mech-summary-limit strong {
+  color: #64b8e8;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.mech-summary-limit small {
+  color: #d7e0e3;
+  font-size: 0.8em;
+}
+
+.mech-summary-limit.over-limit strong {
+  color: #ff5959;
+  text-shadow: 0 0 0.35rem #ff303055;
+}
+
+.mech-summary-limit.over-limit small {
+  color: #d7e0e3;
+  text-shadow: none;
+}
+
+.mech-summary-section {
+  padding: 0.55rem 0.7rem 0.65rem;
+  border-bottom: 1px solid #263036;
+}
+
+.mech-summary-section > h3 {
+  margin: 0 0 0.4rem;
+  color: #6d9caf;
+  font-size: 0.84rem;
+  letter-spacing: 0.06em;
+}
+
+.mech-summary-metrics {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  padding: 1px;
+  background: #26343a;
+}
+
+.mech-summary-metric {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.55rem;
-  padding: 0 1rem 1rem;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.25rem 0.4rem;
+  background: #101719;
+}
+
+.mech-summary-metric:nth-child(even) {
+  background: #182328;
+}
+
+.mech-summary-metric:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.mech-summary-metric > span {
+  min-width: 0;
+  color: #7897a3;
+  font-size: 0.78rem;
+  line-height: 1.15;
+}
+
+.mech-summary-metric > strong {
+  color: #d7e4e8;
+  font-size: 0.9rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.mechlab-action-panel {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.65rem;
+  border: 1px solid #37505a;
+  border-radius: 3px;
+  background: #10181c;
+  box-shadow: inset 0 0 0 1px #0a0f11;
+}
+
+.mechlab-action-panel .simulation-open-button {
+  min-height: 2.65rem;
+}
+
+.mechlab-action-panel .loadout-code-actions button,
+.mechlab-tool-button {
+  min-height: 2.35rem;
+}
+
+.mechlab-tool-button {
+  width: 100%;
+  border-color: #69747a;
+  background: #292f32;
+  color: #d9e1e4;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.mechlab-tool-button:hover {
+  border-color: #82b5c8;
+  background: #344249;
+}
+
+.mech-summary-ammo-head,
+.mech-summary-ammo-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2.7rem 3.3rem 3.3rem;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.mech-summary-ammo-head {
+  padding: 0 0.25rem 0.25rem;
+  color: #7897a3;
+  font-size: 0.68rem;
+  text-align: right;
+}
+
+.mech-summary-ammo-head span:first-child {
+  text-align: left;
+}
+
+.mech-summary-ammo-rows {
+  display: grid;
+  gap: 1px;
+  background: #25343a;
+}
+
+.mech-summary-ammo-row {
+  min-height: 1.75rem;
+  padding: 0.25rem;
+  background: #11191c;
+  color: #b8c8ce;
+  font-size: 0.78rem;
+  text-align: right;
+}
+
+.mech-summary-ammo-row:nth-child(even) {
+  background: #182328;
+}
+
+.mech-summary-ammo-row strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #70b8cf;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mech-summary-quirks {
+  display: grid;
+  gap: 1px;
+}
+
+.mech-summary-quirk {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  min-height: 1.45rem;
+  padding: 0.18rem 0.25rem;
+  background: #101719;
+  font-size: 0.76rem;
+}
+
+.mech-summary-quirk:nth-child(even) {
+  background: #192125;
+}
+
+.mech-summary-quirk span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mech-summary-quirk strong {
+  white-space: nowrap;
 }
 
 .simulation-open-button {
@@ -2141,6 +2337,7 @@ body.loadout-code-open {
   overflow: hidden;
 }
 
+body.mech-filter-open,
 body.build-actions-open,
 body.ui-settings-open {
   overflow: hidden;
@@ -2217,6 +2414,58 @@ body.ui-settings-open {
 .build-actions-cancel {
   justify-self: end;
   min-width: 6rem;
+}
+
+.mech-filter-dialog {
+  width: min(30rem, calc(100vw - 2rem));
+}
+
+.mech-filter-section {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.mech-filter-section h3 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mech-filter-options {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.mech-filter-faction-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mech-filter-weight-options {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mech-filter-options button {
+  min-width: 0;
+  min-height: 2.65rem;
+  padding-inline: 0.45rem;
+  border-color: #385864;
+  background: #14252b;
+  color: #d7e7eb;
+  font-weight: 800;
+}
+
+.mech-filter-options button:hover,
+.mech-filter-options button.active {
+  border-color: #52b9df;
+  background: #1b3944;
+  color: #fff;
+}
+
+.mech-filter-options button.active {
+  border-color: var(--green);
+  box-shadow: inset 0 -3px 0 var(--green), 0 0 0.35rem #46d98b44;
 }
 
 .ui-settings-dialog {
