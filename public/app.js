@@ -1067,8 +1067,15 @@ function fmt(value, digits = 1) {
   return Number.isInteger(numeric) ? `${numeric}` : numeric.toFixed(digits);
 }
 
+function weaponProjectilesPerFiring(item) {
+  if (String(item?.stats?.projectileclass || "").toLowerCase() !== "bullet") return 1;
+  return Math.max(1, Math.trunc(number(item?.stats?.numPerShot, 1)));
+}
+
 function weaponDirectDamage(item) {
-  return number(item?.stats?.damage) * number(item?.stats?.numFiring, 1);
+  return number(item?.stats?.damage)
+    * number(item?.stats?.numFiring, 1)
+    * weaponProjectilesPerFiring(item);
 }
 
 function weaponSplashDamage(item) {
