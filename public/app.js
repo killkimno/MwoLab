@@ -1109,6 +1109,33 @@ function loadoutInstalledEngine(build = state.currentBuild) {
   return null;
 }
 
+function engineSeriesKey(engine) {
+  return String(engine?.name || "").replace(/_\d+$/i, "").toLowerCase();
+}
+
+function adjacentEngineRating(engine, direction, mech = state.selectedMech) {
+  if (!engine || !direction || !mech) return null;
+  const series = engineSeriesKey(engine);
+  const currentRating = number(engine.stats?.rating);
+  const stats = mech.definition?.stats || {};
+  const minRating = number(stats.MinEngineRating);
+  const maxRating = number(stats.MaxEngineRating, Number.POSITIVE_INFINITY);
+  return Object.values(state.equipment?.items || {})
+    .filter((candidate) => (
+      candidate?.item_type === "engine"
+      && engineSeriesKey(candidate) === series
+      && itemMatchesMechFaction(candidate, mech)
+      && number(candidate.stats?.rating) >= minRating
+      && number(candidate.stats?.rating) <= maxRating
+      && (direction > 0
+        ? number(candidate.stats?.rating) > currentRating
+        : number(candidate.stats?.rating) < currentRating)
+    ))
+    .sort((a, b) => direction > 0
+      ? number(a.stats?.rating) - number(b.stats?.rating)
+      : number(b.stats?.rating) - number(a.stats?.rating))[0] || null;
+}
+
 function fixedOmniEngine(mech = state.selectedMech) {
   if (!mech || !hasFixedOmnipods(mech)) return null;
   const stats = mech.definition?.stats || {};
@@ -6008,10 +6035,30 @@ function selectUpgrade(category, value) {
     };
     if (category === "heatsinks") applyHeatSinkUpgrade(item);
   }
+  reflowInstalledEquipment();
   const selectedItem = itemById(state.selectedItemId);
   if (guidanceMismatch(selectedItem) || !heatSinkMatchesUpgrade(selectedItem)) state.selectedItemId = null;
   renderEquipmentList();
   renderVariant();
+}
+
+function replaceOmnipod(component, podId) {
+  const pod = podById(podId);
+  const buildComponent = state.currentBuild?.components?.[component];
+  if (
+    !pod
+    || !buildComponent
+    || String(pod.component || "") !== String(component)
+    || String(pod.chassis || "").toLowerCase() !== String(state.selectedMech?.chassis || "").toLowerCase()
+  ) return false;
+  if (String(buildComponent.omnipod || "") === String(pod.id)) return false;
+
+  buildComponent.items = (buildComponent.items || [])
+    .filter((entry) => itemById(entry.item_id)?.item_type === "engine");
+  buildComponent.omnipod = Number(pod.id);
+  normalizeEngineHeatSinks(state.selectedMech, state.currentBuild);
+  reflowInstalledEquipment();
+  return true;
 }
 
 function renderOmnipodList() {
@@ -6086,12 +6133,13 @@ function renderArmorStepper(
   const available = Math.max(0, capacity - value - pairedValue);
   const label = side === "rear" ? "REAR" : "FRONT";
   const finalValue = value + quirkBonus;
-  const quirkOnly = value === 0 && quirkBonus !== 0;
+  const inputMin = Math.max(0, quirkBonus);
+  const inputMax = Math.max(inputMin, capacity - pairedValue + quirkBonus);
   return `
     <div class="component-armor-row">
       <div class="component-armor-allocation">
         <span class="component-armor-side">${showLabel ? label : ""}</span>
-        <strong class="component-armor-value${quirkOnly ? " quirk-tone-armor" : ""}">${fmt(finalValue)}</strong>
+        <input class="component-armor-value${quirkBonus !== 0 ? " quirk-tone-armor" : ""}" type="number" inputmode="numeric" step="1" min="${inputMin}" max="${inputMax}" value="${finalValue}" data-armor-input data-armor-component="${name}" data-armor-side="${side}" data-armor-quirk="${quirkBonus}" aria-label="${COMPONENT_NAMES[name] || name} ${side} armor value">
         <div class="component-armor-stepper" aria-label="${COMPONENT_NAMES[name] || name} ${side} armor">
           <button type="button" data-armor-component="${name}" data-armor-side="${side}" data-armor-delta="1" ${available <= 0 ? "disabled" : ""} aria-label="Increase ${side} armor">+</button>
           <button type="button" data-armor-component="${name}" data-armor-side="${side}" data-armor-delta="-1" ${value <= 0 ? "disabled" : ""} aria-label="Decrease ${side} armor">-</button>
@@ -6129,6 +6177,22 @@ function renderComponent(name, calc, quirkValues) {
     Math.max(0, number(capacity) - number(usage.hardpoints?.[type])),
   ]));
   const hps = renderHardpointBadges(remainingHardpoints, "component-hardpoint", true);
+  const currentOmnipod = hasFixedOmnipods(state.selectedMech) ? podById(buildComp.omnipod) : null;
+  const omnipodName = currentOmnipod
+    ? String(currentOmnipod.set || "OMNIPOD").toUpperCase()
+    : "";
+  const fixedOmnipod = Boolean(currentOmnipod && name === "centre_torso");
+  const hardpointDisplay = currentOmnipod
+    ? `
+      <div class="component-omnipod-card${fixedOmnipod ? " fixed" : ""}" title="${fixedOmnipod ? "Fixed omnipod" : "Drop a matching omnipod here to replace it"}">
+        <div class="component-omnipod-card-head">
+          <span>OMNIPOD</span>
+          <strong>${escapeHtml(omnipodName)}</strong>
+        </div>
+        <div class="hardpoint-line component-hardpoint-line component-omnipod-hardpoints${hps ? "" : " empty"}">${hps}</div>
+      </div>
+    `
+    : `<div class="hardpoint-line component-hardpoint-line${hps ? "" : " empty"}">${hps}</div>`;
   const internalRows = (compDef.internals || [])
     .filter((itemId) => hasFixedOmnipods(state.selectedMech) || !MOVABLE_UPGRADE_SLOT_IDS.has(Number(itemId)))
     .map((itemId) => renderFixedSlot(itemId))
@@ -6154,8 +6218,11 @@ function renderComponent(name, calc, quirkValues) {
     ? buildComp.items.findIndex((entry) => itemById(entry.item_id)?.item_type === "engine")
     : -1;
   const itemRows = buildComp.items
-    .map((entry, index) => renderLoadoutItem(name, entry, index, index === installedEngineIndex ? calc : null))
+    .map((entry, index) => index === installedEngineIndex ? "" : renderLoadoutItem(name, entry, index))
     .join("");
+  const installedEngineRow = installedEngineIndex >= 0
+    ? renderLoadoutItem(name, buildComp.items[installedEngineIndex], installedEngineIndex, calc)
+    : "";
   const emptySlots = Math.max(0, slotLimit - usage.slots - number(usage.movableUpgradeSlots));
   const emptyRows = Array.from({ length: emptySlots }, () => `<div class="critical-slot empty-slot">-</div>`).join("");
   return `
@@ -6171,11 +6238,11 @@ function renderComponent(name, calc, quirkValues) {
                 <span>${fmt(finalStructure)}</span>${durabilityQuirks.structure !== 0 ? `<span class="component-structure-detail">(<span>${fmt(structure)}</span><span>${durabilityQuirks.structure > 0 ? "+" : "-"}</span><span class="component-structure-bonus">${fmt(Math.abs(durabilityQuirks.structure))}</span>)</span>` : ""}
               </strong>
             </div>
-            <div class="hardpoint-line component-hardpoint-line${hps ? "" : " empty"}">${hps}</div>
+            ${hardpointDisplay}
             ${usage.warnings.length ? `<div class="warnings">${usage.warnings.join(" / ")}</div>` : ""}
           </div>
         </div>
-        <div class="component-items">${internalRows}${fixedEngineRows}${fixedEquipmentRows}${itemRows}${structureRows}${armorRows}${emptyRows}${sideEngineRows}</div>
+        <div class="component-items">${internalRows}${fixedEquipmentRows}${itemRows}${structureRows}${armorRows}${emptyRows}${sideEngineRows}${fixedEngineRows}${installedEngineRow}</div>
     </article>
   `;
 }
@@ -6265,7 +6332,7 @@ function renderEngineHeatSinkBay(engine, calc) {
     `<span class="engine-heat-sink-box empty-engine-heat-sink" aria-label="${t("common.empty")}"></span>`
   )).join("");
   return `
-    <div class="engine-inline-heat-sinks" data-engine-heat-sink-drop style="--engine-heat-sink-columns:${Math.min(3, capacity)}" aria-label="${t("build.engineHeatSinks")} ${used}/${capacity}">
+    <div class="engine-inline-heat-sinks" data-engine-heat-sink-drop style="--engine-heat-sink-columns:3" aria-label="${t("build.engineHeatSinks")} ${used}/${capacity}">
       ${fixedBoxes}${installedBoxes}${emptyBoxes}
     </div>
   `;
@@ -6278,6 +6345,8 @@ function renderLoadoutItem(component, entry, index, engineBayCalc = null) {
   const mountType = item.item_type === "ammo" ? ammoHardpointType(item) : equipmentHardpointType(item);
   const ammoClass = item.item_type === "ammo" ? " ammo" : "";
   if (item.item_type === "engine" && engineBayCalc) {
+    const higherEngine = adjacentEngineRating(item, 1);
+    const lowerEngine = adjacentEngineRating(item, -1);
     return `
       <div class="slot-item engine engine-main-slot" data-loadout-item="${component}:${index}" data-engine-heat-sink-engine style="--slot-span:${slots}" aria-label="${escapeHtml(item.display_name)} / ${slots} slots / ${fmt(itemTons(item))} tons">
         <span class="slot-item-mark">E</span>
@@ -6286,6 +6355,10 @@ function renderLoadoutItem(component, entry, index, engineBayCalc = null) {
           ${renderEngineHeatSinkBay(item, engineBayCalc)}
         </div>
         <span class="slot-item-slots">${slots}S</span>
+      </div>
+      <div class="engine-rating-controls" aria-label="Engine rating controls">
+        <button type="button" data-engine-rating-component="${component}" data-engine-rating-index="${index}" data-engine-rating-delta="-1" ${lowerEngine ? "" : "disabled"} aria-label="Decrease engine rating">−</button>
+        <button type="button" data-engine-rating-component="${component}" data-engine-rating-index="${index}" data-engine-rating-delta="1" ${higherEngine ? "" : "disabled"} aria-label="Increase engine rating">+</button>
       </div>
     `;
   }
@@ -6825,6 +6898,30 @@ function weaponTooltipTargetHeat(item) {
   return tooltipNumber(targetHeat, 2, isRofDamageWeapon(item) ? "/s" : "");
 }
 
+function weaponTooltipStatistics(item, quirks = []) {
+  const stats = item?.stats || {};
+  const damage = Math.max(0, weaponDirectDamage(item));
+  const baseHeat = Math.max(0, itemHeat(item));
+  const finalHeat = Math.max(0, simulationWeaponHeat(item, quirks));
+  const hasCooldown = number(stats.cooldown) > 0;
+  const baseExpectedCooldown = weaponExpectedCooldown(item, []);
+  const finalExpectedCooldown = weaponExpectedCooldown(item, quirks);
+  const baseCycle = baseExpectedCooldown ?? simulationWeaponTiming(item, []).cooldown;
+  const finalCycle = finalExpectedCooldown ?? simulationWeaponTiming(item, quirks).cooldown;
+  const rows = [];
+
+  if (hasCooldown && damage > 0 && baseCycle > 0 && finalCycle > 0) {
+    rows.push(["DPS", tooltipQuirkValue(damage / baseCycle, damage / finalCycle, 2)]);
+  }
+  if (baseHeat > 0 && damage > 0) {
+    rows.push(["HPD", tooltipQuirkValue(damage / baseHeat, damage / finalHeat, 2)]);
+  }
+  if (hasCooldown && baseHeat > 0 && baseCycle > 0 && finalCycle > 0) {
+    rows.push(["HPS", tooltipQuirkValue(baseHeat / baseCycle, finalHeat / finalCycle, 2)]);
+  }
+  return rows;
+}
+
 function isUltraAutoCannon(item) {
   return Array.from(simulationItemKeys(item)).some((key) => key.includes("ultraautocannon"));
 }
@@ -6965,6 +7062,7 @@ function equipmentTooltipGroups(item) {
       ]);
     }
     groups.push(weaponDetailRows);
+    groups.push(weaponTooltipStatistics(item, quirks));
   } else if (isHeatSink(item)) {
     const dissipationBonus = quirkIncrease(quirks, "heatdissipation_multiplier");
     groups.push([
@@ -7103,6 +7201,52 @@ function hideEquipmentTooltip() {
   if (tooltip) tooltip.hidden = true;
 }
 
+function reflowInstalledEquipment() {
+  if (!state.currentBuild || !state.selectedMech) return [];
+  const pending = [];
+  for (const component of COMPONENT_ORDER) {
+    const buildComponent = state.currentBuild.components?.[component];
+    if (!buildComponent) continue;
+    const retained = [];
+    for (const entry of buildComponent.items || []) {
+      const item = itemById(entry.item_id);
+      if (item?.item_type === "engine") retained.push(entry);
+      else if (item) pending.push({ entry, item, preferredComponent: component });
+    }
+    buildComponent.items = retained;
+  }
+
+  const displaced = [];
+  for (const candidate of pending) {
+    if (!dropValidation(candidate.item, candidate.preferredComponent)) {
+      state.currentBuild.components[candidate.preferredComponent].items.push(candidate.entry);
+    } else {
+      displaced.push(candidate);
+    }
+  }
+
+  const dropped = [];
+  for (const candidate of displaced) {
+    const calc = calculateBuild();
+    const destination = COMPONENT_ORDER
+      .filter((component) => component !== candidate.preferredComponent)
+      .filter((component) => !dropValidation(candidate.item, component))
+      .map((component, order) => {
+        const definition = effectiveComponentDefinition(state.selectedMech, state.currentBuild, component);
+        const usage = calc.componentUsage[component] || { slots: 0 };
+        return {
+          component,
+          order,
+          freeAfterInstall: number(definition.slots) - number(usage.slots) - effectiveItemSlots(candidate.item),
+        };
+      })
+      .sort((a, b) => a.freeAfterInstall - b.freeAfterInstall || a.order - b.order)[0]?.component;
+    if (destination) state.currentBuild.components[destination].items.push(candidate.entry);
+    else dropped.push(candidate.entry);
+  }
+  return dropped;
+}
+
 function installWarehouseItemInComponent(item, component) {
   const warning = dropValidation(item, component);
   if (warning) return false;
@@ -7114,6 +7258,7 @@ function installWarehouseItemInComponent(item, component) {
   }
   state.currentBuild.components[component].items.push(buildEntryForItem(item));
   normalizeEngineHeatSinks(state.selectedMech, state.currentBuild);
+  if (item.item_type === "engine") reflowInstalledEquipment();
   renderVariant();
   return true;
 }
@@ -7149,6 +7294,7 @@ function removeInstalledItem(component, index) {
   const [removed] = items.splice(index, 1);
   if (itemById(removed.item_id)?.item_type === "engine") {
     normalizeEngineHeatSinks(state.selectedMech, state.currentBuild);
+    reflowInstalledEquipment();
   }
   hideEquipmentTooltip();
   renderVariant();
@@ -7465,6 +7611,7 @@ function startEquipmentPointerDrag(session) {
 
 function beginEquipmentPointerDrag(event) {
   if (equipmentPointerDrag || !event.isPrimary || event.button !== 0) return;
+  if (event.target.closest("button, input, select, textarea")) return;
   const dragSource = equipmentPointerDragPayload(event.target);
   if (!dragSource) return;
   const sourceRect = dragSource.sourceElement.getBoundingClientRect();
@@ -7595,6 +7742,49 @@ function adjustArmorAllocation(button) {
   return true;
 }
 
+function setArmorAllocation(input) {
+  if (!state.currentBuild) return false;
+  const component = input.dataset.armorComponent;
+  const side = input.dataset.armorSide;
+  const buildComponent = state.currentBuild.components?.[component];
+  if (!buildComponent || !["front", "rear"].includes(side)) return false;
+
+  state.currentBuild.rearArmor ||= {};
+  const componentDefinition = effectiveComponentDefinition(state.selectedMech, state.currentBuild, component);
+  const capacity = componentArmorCapacity(component, componentDefinition);
+  const pairedValue = side === "rear"
+    ? number(buildComponent.armor)
+    : number(state.currentBuild.rearArmor[component]);
+  const max = Math.max(0, capacity - pairedValue);
+  const quirkBonus = number(Number(input.dataset.armorQuirk));
+  const requestedFinalValue = Number(input.value);
+  const requestedBaseValue = Number.isFinite(requestedFinalValue)
+    ? Math.round(requestedFinalValue - quirkBonus)
+    : 0;
+  const value = Math.min(max, Math.max(0, requestedBaseValue));
+
+  if (side === "rear") state.currentBuild.rearArmor[component] = value;
+  else buildComponent.armor = value;
+  renderVariant();
+  return true;
+}
+
+function changeEngineRating(button) {
+  if (!state.currentBuild) return false;
+  const component = button.dataset.engineRatingComponent;
+  const index = Number(button.dataset.engineRatingIndex);
+  const direction = Number(button.dataset.engineRatingDelta);
+  const entry = state.currentBuild.components?.[component]?.items?.[index];
+  const engine = itemById(entry?.item_id);
+  const replacement = adjacentEngineRating(engine, direction);
+  if (!entry || !replacement) return false;
+  entry.item_id = replacement.id;
+  normalizeEngineHeatSinks(state.selectedMech, state.currentBuild);
+  reflowInstalledEquipment();
+  renderVariant();
+  return true;
+}
+
 let armorHoldDelay = null;
 let armorHoldInterval = null;
 let armorClickReset = null;
@@ -7657,6 +7847,7 @@ function installDraggedItem(component) {
     state.currentBuild.components[component].items.push(buildEntryForItem(item));
   }
   normalizeEngineHeatSinks(state.selectedMech, state.currentBuild);
+  if (item.item_type === "engine") reflowInstalledEquipment();
   clearDragState();
   renderVariant();
 }
@@ -7699,6 +7890,7 @@ function removeDraggedItem() {
     const [removed] = items.splice(payload.index, 1);
     if (itemById(removed.item_id)?.item_type === "engine") {
       normalizeEngineHeatSinks(state.selectedMech, state.currentBuild);
+      reflowInstalledEquipment();
     }
   } else {
     return;
@@ -8200,6 +8392,14 @@ function bindEvents() {
       renderEquipmentList();
       return;
     }
+    const omnipodRow = event.target.closest("[data-omnipod]");
+    if (omnipodRow) {
+      if (replaceOmnipod(omnipodRow.dataset.omnipodComponent, omnipodRow.dataset.omnipod)) {
+        renderVariant();
+        renderEquipmentList();
+      }
+      return;
+    }
     const button = event.target.closest("[data-item]");
     if (!button) return;
     selectItem(button.dataset.item);
@@ -8211,6 +8411,12 @@ function bindEvents() {
     selectUpgrade(button.dataset.upgradeCategory, button.dataset.upgradeValue);
   });
   $("components").addEventListener("click", (event) => {
+    const engineRatingButton = event.target.closest("[data-engine-rating-delta]");
+    if (engineRatingButton) {
+      event.preventDefault();
+      changeEngineRating(engineRatingButton);
+      return;
+    }
     const engineSinkRow = event.target.closest("[data-engine-heat-sink-item]");
     if (engineSinkRow) {
       if (event.detail <= 0 || event.detail % 2 !== 0) return;
@@ -8227,7 +8433,7 @@ function bindEvents() {
       removeInstalledItem(component, Number(indexText));
       return;
     }
-    const button = event.target.closest("[data-armor-component]");
+    const button = event.target.closest("[data-armor-delta]");
     if (!button || button.disabled) return;
     if (suppressArmorClick) {
       event.preventDefault();
@@ -8236,6 +8442,12 @@ function bindEvents() {
     adjustArmorAllocation(button);
   });
   $("components").addEventListener("keydown", (event) => {
+    const armorInput = event.target.closest("[data-armor-input]");
+    if (armorInput && event.key === "Enter") {
+      event.preventDefault();
+      armorInput.blur();
+      return;
+    }
     if (!["Enter", " "].includes(event.key)) return;
     const engineSinkRow = event.target.closest("[data-engine-heat-sink-item]");
     if (!engineSinkRow) return;
@@ -8243,10 +8455,14 @@ function bindEvents() {
     removeInstalledEngineHeatSink(Number(engineSinkRow.dataset.engineHeatSinkItem));
   });
   $("components").addEventListener("pointerdown", (event) => {
-    const button = event.target.closest("[data-armor-component]");
+    const button = event.target.closest("[data-armor-delta]");
     if (!button || button.disabled || event.button !== 0) return;
     event.preventDefault();
     startArmorHold(button);
+  });
+  $("components").addEventListener("change", (event) => {
+    const input = event.target.closest("[data-armor-input]");
+    if (input) setArmorAllocation(input);
   });
   document.addEventListener("pointerup", stopArmorHold);
   document.addEventListener("pointercancel", stopArmorHold);
@@ -8291,7 +8507,7 @@ function bindEvents() {
     if (!component || payload?.source !== "omnipod") return;
     event.preventDefault();
     if (payload.component === component.dataset.componentDrop) {
-      state.currentBuild.components[payload.component].omnipod = Number(payload.podId);
+      replaceOmnipod(payload.component, payload.podId);
       clearDragState();
       renderVariant();
       renderEquipmentList();

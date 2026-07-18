@@ -3806,7 +3806,7 @@ body.simulation-open {
 
 .component-armor-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   align-items: center;
   min-height: 2.12rem;
   padding: 0.12rem 0.35rem;
@@ -3840,10 +3840,31 @@ body.simulation-open {
 }
 
 .component-armor-value {
+  width: 2.65rem;
+  min-width: 0;
+  height: 1.62rem;
+  padding: 0.05rem 0.28rem;
+  border: 1px solid #48575e;
+  border-radius: 2px;
+  background: #111719;
   color: #e5c84e;
+  font-family: inherit;
   font-size: 1.1rem;
+  font-weight: 800;
   line-height: 1;
   text-align: right;
+  appearance: textfield;
+}
+
+.component-armor-value::-webkit-inner-spin-button,
+.component-armor-value::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.component-armor-value:focus {
+  border-color: #e5c84e;
+  outline: 1px solid rgba(229, 200, 78, 0.35);
 }
 
 .component-armor-stepper {
@@ -3958,6 +3979,67 @@ body.simulation-open {
 
 .component-hardpoint-line.empty {
   visibility: hidden;
+}
+
+.component-omnipod-card {
+  margin: 0.42rem -0.2rem 0;
+  padding: 0.28rem;
+  border: 1px solid #5088b4;
+  border-radius: 3px;
+  background: linear-gradient(145deg, #172a36, #101b22);
+  box-shadow: inset 0 0 0 1px rgba(112, 181, 232, 0.12);
+}
+
+.component-omnipod-card-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.12rem 0.35rem;
+  align-items: center;
+}
+
+.component-omnipod-card-head > span:first-child {
+  color: #75b9ea;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.component-omnipod-card-head strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #d8efff;
+  font-size: 0.68rem;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.component-omnipod-card.fixed {
+  border-color: #59646a;
+  background: linear-gradient(145deg, #252b2e, #171c1f);
+  box-shadow: inset 0 0 0 1px rgba(192, 204, 210, 0.07);
+}
+
+.component-omnipod-card.fixed .component-omnipod-card-head > span:first-child,
+.component-omnipod-card.fixed .component-omnipod-card-head strong {
+  color: #879399;
+}
+
+.component-omnipod-card.fixed .hardpoint-chip {
+  border-color: #4d565b;
+  background: #151a1d;
+  filter: grayscale(0.72);
+}
+
+.component-omnipod-hardpoints {
+  gap: 0.2rem;
+  margin-top: 0.26rem;
+}
+
+.component-omnipod-hardpoints .hardpoint-chip {
+  border-color: #49697b;
+  background: #0a1217;
+  box-shadow: inset 0 0 0 1px rgba(112, 181, 232, 0.08);
 }
 
 .component-items {
@@ -4124,6 +4206,51 @@ body.pointer-drag-active * {
   padding: 0.5rem 0.15rem;
 }
 
+.engine-rating-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  min-height: 1.5rem;
+  margin-top: 2px;
+}
+
+.engine-rating-controls button {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 1.5rem;
+  padding: 0;
+  border-color: #81b8d7;
+  border-radius: 2px;
+  background: #1d5778;
+  color: #eaf8ff;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.engine-rating-controls button:disabled {
+  border-color: #42677b;
+  background: #24485c;
+  color: #668a9c;
+  cursor: default;
+}
+
+.engine-main-slot .engine-slot-content {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  padding-inline: 2.6rem;
+}
+
+.engine-main-slot .slot-item-mark,
+.engine-main-slot .slot-item-slots {
+  z-index: 1;
+  grid-row: 1;
+}
+
+.engine-main-slot .slot-item-mark { grid-column: 1; }
+.engine-main-slot .slot-item-slots { grid-column: 3; }
+
 .engine-slot-content > strong,
 .engine-slot-name {
   min-width: 0;
@@ -4162,6 +4289,7 @@ body.pointer-drag-active * {
   display: grid;
   grid-template-columns: repeat(var(--engine-heat-sink-columns, 3), 3.3rem);
   align-items: flex-start;
+  justify-self: center;
   gap: 0.38rem;
   width: max-content;
   max-width: 100%;
