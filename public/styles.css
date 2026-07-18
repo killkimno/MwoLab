@@ -4159,8 +4159,8 @@ body.pointer-drag-active * {
 }
 
 .engine-inline-heat-sinks {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(var(--engine-heat-sink-columns, 3), 3.3rem);
   align-items: flex-start;
   gap: 0.38rem;
   width: max-content;

@@ -6265,7 +6265,7 @@ function renderEngineHeatSinkBay(engine, calc) {
     `<span class="engine-heat-sink-box empty-engine-heat-sink" aria-label="${t("common.empty")}"></span>`
   )).join("");
   return `
-    <div class="engine-inline-heat-sinks" data-engine-heat-sink-drop aria-label="${t("build.engineHeatSinks")} ${used}/${capacity}">
+    <div class="engine-inline-heat-sinks" data-engine-heat-sink-drop style="--engine-heat-sink-columns:${Math.min(3, capacity)}" aria-label="${t("build.engineHeatSinks")} ${used}/${capacity}">
       ${fixedBoxes}${installedBoxes}${emptyBoxes}
     </div>
   `;
