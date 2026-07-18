@@ -66,6 +66,13 @@ const TEXT = {
     "status.fileProtocol": "file://에서는 로컬 데이터를 불러올 수 없습니다. 로컬 프리뷰는 public 폴더를 http://로 서빙하세요.",
     "status.loadPathFailed": "{path} 파일을 불러올 수 없습니다",
     "status.buildSaved": "빌드를 로컬에 저장했습니다",
+    "mechlab.tools": "TOOL",
+    "ui.open": "UI",
+    "ui.valueDisplayTitle": "수치 표기",
+    "ui.finalOnly": "최종 결과만 표시",
+    "ui.quirkValues": "쿼크 수치 표시",
+    "ui.allValues": "모든 수치 표시",
+    "ui.close": "닫기",
     "loadout.import": "IMPORT",
     "loadout.export": "EXPORT",
     "loadout.close": "로드아웃 코드 창 닫기",
@@ -361,6 +368,13 @@ const TEXT = {
     "status.fileProtocol": "Local data cannot be loaded from file://. Serve the public folder over http:// for local preview.",
     "status.loadPathFailed": "Could not load {path}",
     "status.buildSaved": "Build saved locally",
+    "mechlab.tools": "TOOL",
+    "ui.open": "UI",
+    "ui.valueDisplayTitle": "Value display",
+    "ui.finalOnly": "Final result only",
+    "ui.quirkValues": "Show quirk value",
+    "ui.allValues": "Show all values",
+    "ui.close": "Close",
     "loadout.import": "IMPORT",
     "loadout.export": "EXPORT",
     "loadout.close": "Close loadout code dialog",
@@ -929,6 +943,18 @@ const DIRECT_SPREAD_QUIRKS = new Set([
   "ballistic_spread_multiplier",
 ]);
 
+const QUIRK_VALUE_DISPLAY_STORAGE_KEY = "mwolab:quirk-value-display";
+const QUIRK_VALUE_DISPLAY_MODES = new Set(["final", "quirk", "all"]);
+
+function savedQuirkValueDisplayMode() {
+  try {
+    const saved = localStorage.getItem(QUIRK_VALUE_DISPLAY_STORAGE_KEY);
+    return QUIRK_VALUE_DISPLAY_MODES.has(saved) ? saved : "final";
+  } catch {
+    return "final";
+  }
+}
+
 const state = {
   language: activeLanguage,
   index: null,
@@ -940,6 +966,7 @@ const state = {
   mechlabBrowseMode: true,
   mechlabCompactListOpen: false,
   infoApplyQuirks: true,
+  quirkValueDisplayMode: savedQuirkValueDisplayMode(),
   compareMode: false,
   compareMechIds: [],
   compareBaselineMechId: null,
@@ -6505,6 +6532,41 @@ function closeBuildActionsDialog() {
   $("open-build-actions")?.focus();
 }
 
+function renderUiSettingsDialog() {
+  document.querySelectorAll('[name="quirk-value-display"]').forEach((input) => {
+    input.checked = input.value === state.quirkValueDisplayMode;
+    input.closest(".ui-display-option")?.classList.toggle("active", input.checked);
+  });
+}
+
+function openUiSettingsDialog() {
+  renderUiSettingsDialog();
+  $("ui-settings-overlay").hidden = false;
+  document.body.classList.add("ui-settings-open");
+  requestAnimationFrame(() => {
+    document.querySelector('[name="quirk-value-display"]:checked')?.focus();
+  });
+}
+
+function closeUiSettingsDialog() {
+  if ($("ui-settings-overlay").hidden) return;
+  $("ui-settings-overlay").hidden = true;
+  document.body.classList.remove("ui-settings-open");
+  $("open-ui-settings")?.focus();
+}
+
+function setQuirkValueDisplayMode(mode) {
+  if (!QUIRK_VALUE_DISPLAY_MODES.has(mode)) return;
+  state.quirkValueDisplayMode = mode;
+  try {
+    localStorage.setItem(QUIRK_VALUE_DISPLAY_STORAGE_KEY, mode);
+  } catch {
+    // Keep the selected mode for this session when storage is unavailable.
+  }
+  renderUiSettingsDialog();
+  if (activeEquipmentTooltipTarget) showEquipmentTooltip(activeEquipmentTooltipTarget);
+}
+
 function stripBuildArmor() {
   for (const component of Object.values(state.currentBuild.components || {})) {
     component.armor = 0;
@@ -6659,6 +6721,12 @@ function tooltipFinalQuirkValue(base, final, digits = 2, unit = "") {
 function tooltipValueHtml(value) {
   if (!value || typeof value !== "object") return escapeHtml(value);
   if (typeof value.html === "string") return value.html;
+  if (state.quirkValueDisplayMode === "final") {
+    return `<span class="equipment-tooltip-final quirk-applied">${escapeHtml(value.final)}</span>`;
+  }
+  if (state.quirkValueDisplayMode === "quirk") {
+    return `<span class="equipment-tooltip-final quirk-applied">${escapeHtml(value.final)}</span><span class="equipment-tooltip-quirk-detail">(<span class="equipment-tooltip-quirk-value">${escapeHtml(`${value.operator}${value.quirk}`)}</span>)</span>`;
+  }
   return `<span class="equipment-tooltip-final quirk-applied">${escapeHtml(value.final)}</span><span class="equipment-tooltip-quirk-detail">(<span class="equipment-tooltip-base">${escapeHtml(value.base)}</span> <span class="equipment-tooltip-operator">${escapeHtml(value.operator)}</span> <span class="equipment-tooltip-quirk-value">${escapeHtml(value.quirk)}</span>)</span>`;
 }
 
@@ -7756,6 +7824,13 @@ function bindEvents() {
     renderSimulationGroupStatus();
   });
   document.addEventListener("keydown", (event) => {
+    if (!$("ui-settings-overlay").hidden) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeUiSettingsDialog();
+      }
+      return;
+    }
     if (!$("build-actions-overlay").hidden) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -7858,6 +7933,17 @@ function bindEvents() {
   $("close-mechlab-compact-list").addEventListener("click", closeMechlabCompactList);
   $("mechlab-compact-search").addEventListener("input", renderMechlabCompactList);
   $("open-build-actions").addEventListener("click", openBuildActionsDialog);
+  $("open-ui-settings").addEventListener("click", openUiSettingsDialog);
+  $("close-ui-settings-x").addEventListener("click", closeUiSettingsDialog);
+  $("close-ui-settings").addEventListener("click", closeUiSettingsDialog);
+  $("ui-settings-overlay").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) closeUiSettingsDialog();
+  });
+  document.querySelectorAll('[name="quirk-value-display"]').forEach((input) => {
+    input.addEventListener("change", () => {
+      if (input.checked) setQuirkValueDisplayMode(input.value);
+    });
+  });
   $("close-build-actions-x").addEventListener("click", closeBuildActionsDialog);
   $("close-build-actions").addEventListener("click", closeBuildActionsDialog);
   $("build-actions-overlay").addEventListener("click", (event) => {

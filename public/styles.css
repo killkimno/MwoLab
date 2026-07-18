@@ -2141,7 +2141,8 @@ body.loadout-code-open {
   overflow: hidden;
 }
 
-body.build-actions-open {
+body.build-actions-open,
+body.ui-settings-open {
   overflow: hidden;
 }
 
@@ -2216,6 +2217,62 @@ body.build-actions-open {
 .build-actions-cancel {
   justify-self: end;
   min-width: 6rem;
+}
+
+.ui-settings-dialog {
+  width: min(28rem, calc(100vw - 2rem));
+}
+
+.ui-display-options {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.ui-display-option {
+  position: relative;
+  cursor: pointer;
+}
+
+.ui-display-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ui-display-option span {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.8rem 0.65rem 2.35rem;
+  border: 1px solid #385864;
+  border-radius: 4px;
+  background: #14252b;
+  color: #d7e7eb;
+  font-weight: 800;
+}
+
+.ui-display-option span::before {
+  position: absolute;
+  left: 0.8rem;
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 2px solid #66838d;
+  border-radius: 50%;
+  content: "";
+}
+
+.ui-display-option:hover span,
+.ui-display-option.active span,
+.ui-display-option input:focus-visible + span {
+  border-color: #52b9df;
+  background: #1b3944;
+  color: #fff;
+}
+
+.ui-display-option.active span::before {
+  border-color: var(--green);
+  background: var(--green);
+  box-shadow: inset 0 0 0 2px #14252b, 0 0 0.35rem #46d98b88;
 }
 
 .loadout-code-overlay {
