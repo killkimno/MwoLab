@@ -7611,7 +7611,7 @@ function startEquipmentPointerDrag(session) {
 
 function beginEquipmentPointerDrag(event) {
   if (equipmentPointerDrag || !event.isPrimary || event.button !== 0) return;
-  if (event.target.closest("button, input, select, textarea")) return;
+  if (event.target.closest("input, select, textarea, [data-engine-rating-delta], [data-armor-delta]")) return;
   const dragSource = equipmentPointerDragPayload(event.target);
   if (!dragSource) return;
   const sourceRect = dragSource.sourceElement.getBoundingClientRect();
