@@ -776,6 +776,10 @@ const ENGINE_SIDE_COMPONENTS = new Set(["left_torso", "right_torso"]);
 const FIXED_ARMOR_SLOT_ID = 1912;
 const FIXED_STRUCTURE_SLOT_ID = 1913;
 const MOVABLE_UPGRADE_SLOT_IDS = new Set([FIXED_ARMOR_SLOT_ID, FIXED_STRUCTURE_SLOT_ID]);
+const EXCLUDED_EQUIPMENT_NAMES = new Set([
+  "dropshiplargepulselaser",
+  "fakemachinegun",
+]);
 const ARMOR_CONTAINER_SLOT_COUNTS = new Map([
   [2801, 14],
   [2802, 7],
@@ -1097,6 +1101,23 @@ function mechIconSrc(mech) {
 
 function itemById(id) {
   return state.equipment?.items?.[String(id)] || null;
+}
+
+function excludeUnusedEquipment(equipment) {
+  if (!equipment?.items) return equipment;
+  const excludedIds = new Set(
+    Object.entries(equipment.items)
+      .filter(([, item]) => EXCLUDED_EQUIPMENT_NAMES.has(String(item?.name || "").toLowerCase()))
+      .map(([id]) => String(id)),
+  );
+  excludedIds.forEach((id) => delete equipment.items[id]);
+  Object.values(equipment.families || {}).forEach((ids) => {
+    if (!Array.isArray(ids)) return;
+    for (let index = ids.length - 1; index >= 0; index -= 1) {
+      if (excludedIds.has(String(ids[index]))) ids.splice(index, 1);
+    }
+  });
+  return equipment;
 }
 
 function loadoutInstalledEngine(build = state.currentBuild) {
@@ -8548,7 +8569,7 @@ async function init() {
       loadJson(state.index.files.omnipods),
     ]);
     state.mechs = mechs.filter((mech) => mech.definition && mech.definition.components);
-    state.equipment = equipment;
+    state.equipment = excludeUnusedEquipment(equipment);
     state.loadouts = loadouts;
     state.omnipods = omnipods;
     $("data-status").textContent = t("status.loadedData", { count: state.index.counts.mechs });
