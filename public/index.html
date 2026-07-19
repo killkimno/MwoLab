@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>MwoLab</title>
-    <link rel="stylesheet" href="styles.css?v=20260719-04">
+    <link rel="stylesheet" href="styles.css?v=20260719-12">
   </head>
   <body>
     <div id="app">
@@ -15,6 +15,7 @@
 
       <nav class="main-tabs" aria-label="Main tabs">
         <button class="tab-button active" type="button" data-main-tab="mechlab" aria-controls="tab-mechlab" data-i18n="tabs.mechlab">멕랩</button>
+        <button class="tab-button" type="button" data-main-tab="equipment-info" aria-controls="tab-equipment-info" data-i18n="tabs.equipmentInfo">무장 정보</button>
         <button class="tab-button" type="button" data-main-tab="info" aria-controls="tab-info" data-i18n="tabs.info">정보</button>
         <button class="tab-button" type="button" data-main-tab="compare" aria-controls="tab-compare" data-i18n="tabs.compare">비교하기</button>
         <button class="tab-button" type="button" data-main-tab="stats" aria-controls="tab-stats" data-i18n="tabs.stats">통계</button>
@@ -137,6 +138,17 @@
             </section>
           </div>
         </div>
+
+        <section id="tab-equipment-info" class="tab-panel equipment-info-panel" hidden>
+          <div class="stats-toolbar" role="tablist" aria-label="무장 정보 카테고리" data-i18n-aria-label="equipmentInfo.category">
+            <div class="stats-toolbar-group">
+              <button class="stats-button active" type="button" role="tab" aria-selected="true" data-equipment-info-view="weapons" data-i18n="equipmentInfo.weapons">무기</button>
+              <button class="stats-button" type="button" role="tab" aria-selected="false" data-equipment-info-view="modules" data-i18n="equipmentInfo.modules">모듈</button>
+              <button class="stats-button" type="button" role="tab" aria-selected="false" data-equipment-info-view="ghostheat" data-i18n="equipmentInfo.ghostHeat">고스트 힛</button>
+            </div>
+          </div>
+          <div id="equipment-info-content" class="equipment-info-content"></div>
+        </section>
 
         <section id="tab-stats" class="tab-panel stats-panel" hidden>
           <div class="stats-toolbar" aria-label="통계 종류" data-i18n-aria-label="stats.kind">
@@ -476,6 +488,6 @@
     <div id="equipment-tooltip" class="equipment-tooltip" role="tooltip" hidden></div>
 
     <script src="mwo-codec.js"></script>
-    <script src="app.js?v=20260719-15"></script>
+    <script src="app.js?v=20260719-22"></script>
   </body>
 </html>

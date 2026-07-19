@@ -135,6 +135,7 @@ const TEXT = {
     "simulation.groupStatus": "무기 그룹 상태",
     "simulation.noWeapons": "장착된 무기가 없습니다.",
     "tabs.mechlab": "멕랩",
+    "tabs.equipmentInfo": "무장 정보",
     "tabs.info": "정보",
     "tabs.compare": "비교하기",
     "tabs.stats": "통계",
@@ -168,11 +169,42 @@ const TEXT = {
     "filters.omnipods": "옵니포드",
     "filters.equipmentCategory": "장비 카테고리",
     "equipment.section.heatsinks": "HEAT SINKS",
-    "equipment.section.targetComputers": "TARGET COMPS · BAP / CAP / ASP",
+    "equipment.section.targetComputers": "MODULES · BAP / CAP / ASP",
     "equipment.section.utility": "EQUIPMENT · MASC / ECM / JUMP JETS",
     "equipment.section.engineXl": "XL ENGINES",
     "equipment.section.engineLight": "LIGHT ENGINES",
     "equipment.section.engineStd": "STD ENGINES",
+    "equipmentInfo.category": "무장 정보 카테고리",
+    "equipmentInfo.weapons": "무기",
+    "equipmentInfo.modules": "모듈",
+    "equipmentInfo.ghostHeat": "고스트 힛",
+    "equipmentInfo.noResults": "표시할 장비가 없습니다.",
+    "equipmentInfo.comingSoon": "고스트 힛 정보는 추후 개발 예정입니다.",
+    "equipmentInfo.name": "이름",
+    "equipmentInfo.damage": "데미지",
+    "equipmentInfo.cooldown": "쿨다운",
+    "equipmentInfo.expectedCooldown": "예상 쿨다운",
+    "equipmentInfo.duration": "듀레이션",
+    "equipmentInfo.spread": "탄 퍼짐",
+    "equipmentInfo.hpd": "HPD",
+    "equipmentInfo.weaponType": "계열",
+    "equipmentInfo.spreadWeapons": "탄 퍼짐 무기",
+    "equipmentInfo.criticalWeapons": "크리티컬 무기",
+    "equipmentInfo.jamWeapons": "잼 무기",
+    "equipmentInfo.criticalChance": "크리티컬 찬스 배율",
+    "equipmentInfo.criticalDamage": "크리티컬 데미지",
+    "equipmentInfo.optimalRange": "적정 사거리",
+    "equipmentInfo.maxRange": "최대 사거리",
+    "equipmentInfo.velocity": "탄속",
+    "equipmentInfo.dps": "DPS",
+    "equipmentInfo.hps": "HPS",
+    "equipmentInfo.health": "내구도",
+    "equipmentInfo.faction": "진영",
+    "equipmentInfo.sensorRange": "센서 거리",
+    "equipmentInfo.targetingTime": "타겟팅 시간",
+    "equipmentInfo.shutdownDetection": "정지 멕 탐지",
+    "equipmentInfo.beamRange": "빔 사거리",
+    "equipmentInfo.projectileVelocity": "투사체 탄속",
     "sort.default": "기본 정렬",
     "sort.tons": "톤수 정렬",
     "weight.light": "라이트",
@@ -447,6 +479,7 @@ const TEXT = {
     "simulation.groupStatus": "Weapon group status",
     "simulation.noWeapons": "No weapons are installed.",
     "tabs.mechlab": "MechLab",
+    "tabs.equipmentInfo": "Equipment Info",
     "tabs.info": "Info",
     "tabs.compare": "Compare",
     "tabs.stats": "Stats",
@@ -480,11 +513,42 @@ const TEXT = {
     "filters.omnipods": "Omnipods",
     "filters.equipmentCategory": "Equipment category",
     "equipment.section.heatsinks": "HEAT SINKS",
-    "equipment.section.targetComputers": "TARGET COMPS · BAP / CAP / ASP",
+    "equipment.section.targetComputers": "MODULES · BAP / CAP / ASP",
     "equipment.section.utility": "EQUIPMENT · MASC / ECM / JUMP JETS",
     "equipment.section.engineXl": "XL ENGINES",
     "equipment.section.engineLight": "LIGHT ENGINES",
     "equipment.section.engineStd": "STD ENGINES",
+    "equipmentInfo.category": "Equipment information category",
+    "equipmentInfo.weapons": "Weapons",
+    "equipmentInfo.modules": "Modules",
+    "equipmentInfo.ghostHeat": "Ghost Heat",
+    "equipmentInfo.noResults": "No equipment to display.",
+    "equipmentInfo.comingSoon": "Ghost Heat information is coming later.",
+    "equipmentInfo.name": "Name",
+    "equipmentInfo.damage": "Damage",
+    "equipmentInfo.cooldown": "Cooldown",
+    "equipmentInfo.expectedCooldown": "Expected Cooldown",
+    "equipmentInfo.duration": "Duration",
+    "equipmentInfo.spread": "Spread",
+    "equipmentInfo.hpd": "HPD",
+    "equipmentInfo.weaponType": "Type",
+    "equipmentInfo.spreadWeapons": "Spread Weapons",
+    "equipmentInfo.criticalWeapons": "Critical Weapons",
+    "equipmentInfo.jamWeapons": "Jam Weapons",
+    "equipmentInfo.criticalChance": "Critical Chance Multiplier",
+    "equipmentInfo.criticalDamage": "Critical Damage",
+    "equipmentInfo.optimalRange": "Optimal Range",
+    "equipmentInfo.maxRange": "Max Range",
+    "equipmentInfo.velocity": "Velocity",
+    "equipmentInfo.dps": "DPS",
+    "equipmentInfo.hps": "HPS",
+    "equipmentInfo.health": "Health",
+    "equipmentInfo.faction": "Faction",
+    "equipmentInfo.sensorRange": "Sensor Range",
+    "equipmentInfo.targetingTime": "Targeting Time",
+    "equipmentInfo.shutdownDetection": "Shutdown Detection",
+    "equipmentInfo.beamRange": "Beam Range",
+    "equipmentInfo.projectileVelocity": "Projectile Velocity",
     "sort.default": "Default sort",
     "sort.tons": "Sort by tonnage",
     "weight.light": "Light",
@@ -1001,6 +1065,7 @@ const state = {
   activeMainTab: "mechlab",
   mechlabBrowseMode: true,
   mechlabCompactListOpen: false,
+  mechListScrollTop: 0,
   infoApplyQuirks: true,
   quirkValueDisplayMode: savedQuirkValueDisplayMode(),
   compareMode: false,
@@ -1041,6 +1106,7 @@ const state = {
   mechlabQuirkValuesCache: new Map(),
   weaponQuirkTypeCache: null,
   weaponQuirkTargetCache: null,
+  artemisSpreadMultiplierCache: null,
   ammoHardpointTypeCache: null,
   ecmOmnipodIds: null,
   fixedOmniEngineCache: new Map(),
@@ -1049,6 +1115,8 @@ const state = {
   expandedChassis: new Set(),
   selectedItemId: null,
   activeEquipmentCategory: "weapons",
+  activeEquipmentInfoView: "weapons",
+  equipmentInfoSortByTable: new Map(),
   collapsedWarehouseSections: new Set(),
   omnipodDefinitionCache: new Map(),
   currentBuild: null,
@@ -1256,6 +1324,39 @@ function isGuidanceWeapon(item) {
 
 function isArtemisWeapon(item) {
   return isGuidanceWeapon(item) && /artemis/i.test(String(item.name || ""));
+}
+
+function artemisSpreadMultiplier() {
+  if (Number.isFinite(state.artemisSpreadMultiplierCache)) {
+    return state.artemisSpreadMultiplierCache;
+  }
+  const upgrade = Object.values(state.equipment?.items || {}).find((item) => (
+    item?.item_type === "upgrade"
+    && number(item.stats?.extraSlots) > 0
+    && Number.isFinite(Number(item.stats?.missileSpread))
+  ));
+  const multiplier = Number(upgrade?.stats?.missileSpread);
+  if (Number.isFinite(multiplier) && multiplier >= 0) {
+    state.artemisSpreadMultiplierCache = multiplier;
+    return multiplier;
+  }
+  return 1;
+}
+
+function weaponSpreadValues(item, quirks = []) {
+  const base = number(item?.stats?.spread);
+  if (!(base > 0)) return null;
+  const type = equipmentHardpointType(item);
+  const reduction = quirkReduction(quirks, "all_spread_multiplier")
+    + quirkReduction(quirks, `${type}_spread_multiplier`)
+    + simulationSpecificQuirkTotal(quirks, item, "_spread_multiplier");
+  const artemisMultiplier = isArtemisWeapon(item) ? artemisSpreadMultiplier() : 1;
+  return {
+    base,
+    reduction,
+    artemisMultiplier,
+    final: base * Math.max(0, 1 - reduction) * artemisMultiplier,
+  };
 }
 
 function artemisEquipped(build = state.currentBuild) {
@@ -2268,9 +2369,10 @@ function setMainTab(tabName) {
     panel.hidden = !active;
     panel.classList.toggle("active", active);
   });
-  $("mech-browser-layout").hidden = tabName === "stats";
+  $("mech-browser-layout").hidden = ["stats", "equipment-info"].includes(tabName);
   $("summary-strip").hidden = tabName !== "mechlab";
   renderMechList();
+  renderEquipmentInfo();
   renderInfoPanel();
   renderComparePanel();
   renderStatsPanel();
@@ -4655,6 +4757,18 @@ function renderMechList() {
     .join("");
 }
 
+function rememberMechListScroll() {
+  const layout = $("mech-browser-layout");
+  if (layout?.hidden || (state.activeMainTab === "mechlab" && !state.mechlabBrowseMode)) return;
+  const list = $("mech-list");
+  if (list) state.mechListScrollTop = list.scrollTop;
+}
+
+function restoreMechListScroll() {
+  const list = $("mech-list");
+  if (list) list.scrollTop = state.mechListScrollTop;
+}
+
 function installedMechItems(itemType) {
   if (!state.selectedMech || !state.currentBuild) return [];
   const definition = effectiveDefinition(state.selectedMech, state.currentBuild);
@@ -6011,14 +6125,10 @@ function syncMechListActiveStates(activeChassis = activeChassisForList()) {
     group.querySelector("[data-chassis]")?.classList.toggle("active", active);
   });
   $("mech-list").querySelectorAll("[data-mech]").forEach((button) => {
-    const mech = mechById(button.dataset.mech);
     const selected = state.compareMode
       ? compareIds.has(String(button.dataset.mech))
       : String(selectedMechId || "") === String(button.dataset.mech);
     button.classList.toggle("active", selected);
-    if (button.classList.contains("mech-card")) {
-      button.classList.toggle("chassis-active", mech?.chassis === activeChassis);
-    }
   });
 }
 
@@ -6076,8 +6186,7 @@ function renderSmallChassisGroup(group, activeChassis) {
     <div class="chassis-group${active}${expanded ? " expanded" : ""}" data-chassis-group="${group.chassis}">
       <button class="chassis-row${active}" data-chassis="${group.chassis}" type="button" aria-expanded="${expanded}">
         <span class="row-title">
-          <span class="chassis-title"><span class="expand-indicator" aria-hidden="true">${expanded ? "-" : "+"}</span><strong>${group.label}</strong></span>
-          <span>${group.tons}t</span>
+          <span class="chassis-title small-chassis-title"><span class="expand-indicator" aria-hidden="true">${expanded ? "-" : "+"}</span><strong>${group.label}</strong><span class="chassis-ton">${group.tons}t</span></span>
         </span>
         <span class="badge-line">
           <span class="badge">${t("list.variantCount", { count: group.variants.length })}</span>
@@ -6122,27 +6231,26 @@ function renderLargeChassisGroup(group, activeChassis) {
       </button>
       ${expanded ? `
         <div class="mech-card-grid">
-          ${group.variants.map((mech) => renderMechCard(mech, activeChassis)).join("")}
+          ${group.variants.map(renderMechCard).join("")}
         </div>
       ` : ""}
     </div>
   `;
 }
 
-function renderMechCard(mech, activeChassis) {
+function renderMechCard(mech) {
   const data = mechListSummary(mech);
   const selected = state.compareMode
     ? state.compareMechIds.some((id) => String(id) === String(mech.id))
     : state.selectedMech?.id === mech.id;
   const active = selected ? " active" : "";
-  const chassisActive = mech.chassis === activeChassis ? " chassis-active" : "";
   const durabilityBoosted = state.infoApplyQuirks && Math.abs(data.combinedTotal - data.baseCombinedTotal) >= 0.0001;
   const accelerationBoosted = state.infoApplyQuirks && Math.abs(data.movement.acceleration - data.baseMovement.acceleration) >= 0.0001;
   const decelerationBoosted = state.infoApplyQuirks && Math.abs(data.movement.deceleration - data.baseMovement.deceleration) >= 0.0001;
   const turnBoosted = state.infoApplyQuirks && Math.abs(data.movement.turnSpeed - data.baseMovement.turnSpeed) >= 0.0001;
   const iconSrc = mechIconSrc(mech);
   return `
-    <button class="mech-card${active}${chassisActive}" data-mech="${mech.id}" type="button">
+    <button class="mech-card${active}" data-mech="${mech.id}" type="button">
       <span class="mech-card-media">
         <img src="${escapeHtml(iconSrc)}" alt="" loading="lazy" decoding="async">
       </span>
@@ -6157,6 +6265,361 @@ function renderMechCard(mech, activeChassis) {
       <span class="badge-line">${stockHardpointBadges(mech)}</span>
     </button>
   `;
+}
+
+function equipmentInfoValue(value, digits = 1, suffix = "") {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "-";
+  return `${formatInfoNumber(numeric, digits)}${suffix}`;
+}
+
+function equipmentInfoPercent(value, digits = 1) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && Math.abs(numeric) > 0.000001
+    ? equipmentInfoValue(numeric * 100, digits, "%")
+    : "-";
+}
+
+function equipmentInfoTable(title, columns, rows, tone = "", tableKey = tone) {
+  const savedSort = state.equipmentInfoSortByTable.get(tableKey) || { key: "index", direction: "asc" };
+  const activeSortKey = columns.some((column) => column.key === savedSort.key) ? savedSort.key : "index";
+  const direction = savedSort.direction === "desc" ? "desc" : "asc";
+  const sortedRows = [...rows].sort((left, right) => {
+    const leftValue = left.values[activeSortKey];
+    const rightValue = right.values[activeSortKey];
+    let result;
+    if (typeof leftValue === "number" || typeof rightValue === "number") {
+      const leftMissing = !Number.isFinite(leftValue);
+      const rightMissing = !Number.isFinite(rightValue);
+      if (leftMissing !== rightMissing) return leftMissing ? 1 : -1;
+      result = leftMissing ? 0 : leftValue - rightValue;
+    } else {
+      result = String(leftValue ?? "").localeCompare(String(rightValue ?? ""), undefined, { numeric: true });
+    }
+    if (!result) return left.values.index - right.values.index;
+    return direction === "desc" ? -result : result;
+  });
+  return `
+    <section class="equipment-info-group ${tone}">
+      <div class="equipment-info-group-title">
+        <h3>${escapeHtml(title)}</h3>
+        <span>${rows.length}</span>
+      </div>
+      <div class="equipment-info-table-wrap">
+        <table class="equipment-info-table">
+          <thead><tr>${columns.map((column) => {
+            const active = column.key === activeSortKey;
+            const indicator = active ? (direction === "asc" ? "▲" : "▼") : "";
+            const ariaSort = active ? (direction === "asc" ? "ascending" : "descending") : "none";
+            return `<th scope="col" aria-sort="${ariaSort}"><button class="equipment-info-sort-button${active ? " active" : ""}" type="button" data-equipment-info-table="${escapeHtml(tableKey)}" data-equipment-info-sort="${column.key}"><span>${escapeHtml(column.label)}</span><span class="equipment-info-sort-indicator" aria-hidden="true">${indicator}</span></button></th>`;
+          }).join("")}</tr></thead>
+          <tbody>${sortedRows.map((row) => `<tr>${columns.map((column, index) => `<${index === 1 ? "th scope=\"row\"" : "td"}>${escapeHtml(row.cells[column.key])}</${index === 1 ? "th" : "td"}>`).join("")}</tr>`).join("")}</tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
+function equipmentInfoWeaponTypeLabel(item) {
+  const type = equipmentHardpointType(item);
+  if (type === "ballistic") return t("stats.ballistic");
+  if (type === "energy") return t("stats.energy");
+  if (type === "missile") return t("stats.missile");
+  if (type === "ams") return "AMS";
+  return type.toUpperCase();
+}
+
+function weaponCriticalChanceValues(item) {
+  if (item?.stats?.critChanceIncrease === undefined) return [];
+  return String(item.stats.critChanceIncrease)
+    .split(",")
+    .map((value) => Number(value))
+    .filter(Number.isFinite);
+}
+
+function weaponCriticalChanceText(item) {
+  const values = weaponCriticalChanceValues(item);
+  if (!values.length) return "-";
+  return values.map((value) => Math.abs(value + 1) < 0.0001 ? "X" : equipmentInfoValue(value * 100, 2, "%")).join(" / ");
+}
+
+function equipmentInfoWeaponRow(item, index) {
+  const stats = item.stats || {};
+  const ranges = weaponTooltipRanges(item);
+  const timing = simulationWeaponTiming(item, []);
+  const damage = weaponDirectDamage(item);
+  const splashDamage = weaponSplashDamage(item) * 2;
+  const totalDamage = damage + splashDamage;
+  const heat = itemHeat(item);
+  const expectedCooldown = weaponExpectedCooldown(item, []) ?? timing.cooldown;
+  const hpd = heat > 0 ? damage / heat : Number.NaN;
+  const spread = weaponSpreadValues(item, [])?.final ?? Number.NaN;
+  const criticalChanceValues = weaponCriticalChanceValues(item);
+  const criticalChance = criticalChanceValues.find((value) => Math.abs(value) > 0.000001) ?? Number.NaN;
+  const criticalDamage = Number(stats.critDamMult);
+  const jam = ultraAutoCannonJamStats(item, []);
+  const dps = expectedCooldown > 0 ? totalDamage / expectedCooldown : Number.NaN;
+  const hps = expectedCooldown > 0 && heat > 0 ? heat / expectedCooldown : Number.NaN;
+  const name = item.display_name || item.name || "-";
+  const health = Number(stats.Health ?? stats.health);
+  return {
+    values: {
+      index,
+      name,
+      weaponType: equipmentHardpointType(item),
+      damage,
+      heat,
+      cooldown: timing.cooldown,
+      expectedCooldown,
+      duration: number(stats.duration) > 0 ? timing.duration : Number.POSITIVE_INFINITY,
+      spread,
+      optimalRange: Number(ranges.optimalRange),
+      maxRange: Number(ranges.maxRange),
+      velocity: number(stats.speed) > 0 ? number(stats.speed) : Number.POSITIVE_INFINITY,
+      dps,
+      hps,
+      hpd,
+      slots: Number(stats.slots),
+      tons: Number(stats.tons),
+      health,
+      faction: equipmentInfoFactionOrder(item),
+      criticalChance,
+      criticalDamage,
+      jamChance: jam.baseChance > 0 ? jam.baseChance : Number.NaN,
+      jamDuration: jam.baseDuration > 0 ? jam.baseDuration : Number.NaN,
+    },
+    cells: {
+      index: equipmentInfoValue(index, 0),
+      name,
+      weaponType: equipmentInfoWeaponTypeLabel(item),
+      damage: splashDamage > 0
+        ? `${equipmentInfoValue(damage, 2)} + ${equipmentInfoValue(splashDamage, 2)}`
+        : equipmentInfoValue(damage, 2),
+      heat: equipmentInfoValue(heat, 2),
+      cooldown: equipmentInfoValue(timing.cooldown, 2, "s"),
+      expectedCooldown: equipmentInfoValue(expectedCooldown, 2, "s"),
+      duration: number(stats.duration) > 0 ? equipmentInfoValue(timing.duration, 2, "s") : "-",
+      spread: Number.isFinite(spread) ? equipmentInfoValue(spread, 2) : "-",
+      optimalRange: equipmentInfoValue(ranges.optimalRange, 0, "m"),
+      maxRange: equipmentInfoValue(ranges.maxRange, 0, "m"),
+      velocity: number(stats.speed) > 0 ? equipmentInfoValue(stats.speed, 0, "m/s") : "-",
+      dps: equipmentInfoValue(dps, 2),
+      hps: equipmentInfoValue(hps, 2),
+      hpd: equipmentInfoValue(hpd, 2),
+      slots: equipmentInfoValue(stats.slots, 0),
+      tons: equipmentInfoValue(stats.tons, 1),
+      health: equipmentInfoValue(stats.Health ?? stats.health, 1),
+      faction: factionLabel(item.faction),
+      criticalChance: weaponCriticalChanceText(item),
+      criticalDamage: Number.isFinite(criticalDamage) ? equipmentInfoValue(criticalDamage, 2, "x") : "-",
+      jamChance: jam.baseChance > 0 ? equipmentInfoValue(jam.baseChance * 100, 2, "%") : "-",
+      jamDuration: jam.baseDuration > 0 ? equipmentInfoValue(jam.baseDuration, 2, "s") : "-",
+    },
+  };
+}
+
+function moduleInfoBonuses(item) {
+  let beamRange = 0;
+  let projectileVelocity = 0;
+  (item.weapon_stat_filters || []).forEach((filter) => {
+    const tag = normalizeLookupKey(filter.tag);
+    if (tag.includes("beam")) {
+      (filter.ranges || []).forEach((range) => {
+        beamRange = Math.max(beamRange, number(range.multiplier, 1) - 1);
+      });
+    }
+    if (tag.includes("projectile")) {
+      (filter.weapon_stats || []).forEach((weaponStats) => {
+        if (String(weaponStats.operation || "") === "*") {
+          projectileVelocity = Math.max(projectileVelocity, number(weaponStats.speed, 1) - 1);
+        }
+      });
+    }
+  });
+  return { beamRange, projectileVelocity };
+}
+
+function equipmentInfoFactionOrder(item) {
+  const faction = normalizeLookupKey(item?.faction);
+  if (faction === "clan") return 0;
+  if (faction === "innersphere") return 1;
+  return 2;
+}
+
+function sortEquipmentInfoItems(left, right) {
+  const factionDifference = equipmentInfoFactionOrder(left) - equipmentInfoFactionOrder(right);
+  if (factionDifference) return factionDifference;
+  return String(left.display_name).localeCompare(String(right.display_name), undefined, { numeric: true });
+}
+
+function equipmentInfoModuleRow(item, index) {
+  const stats = item.stats || {};
+  const bonuses = moduleInfoBonuses(item);
+  const name = item.display_name || item.name || "-";
+  return {
+    values: {
+      index,
+      name,
+      faction: equipmentInfoFactionOrder(item),
+      slots: Number(stats.slots),
+      tons: Number(stats.tons),
+      sensorRange: number(stats.rangeboost) || Number.POSITIVE_INFINITY,
+      targetingTime: number(stats.gaintimeboost) || Number.POSITIVE_INFINITY,
+      shutdownDetection: number(stats.mechdetectionrange) || Number.POSITIVE_INFINITY,
+      beamRange: bonuses.beamRange || Number.POSITIVE_INFINITY,
+      projectileVelocity: bonuses.projectileVelocity || Number.POSITIVE_INFINITY,
+    },
+    cells: {
+      index: equipmentInfoValue(index, 0),
+      name,
+      faction: factionLabel(item.faction),
+      slots: equipmentInfoValue(stats.slots, 0),
+      tons: equipmentInfoValue(stats.tons, 1),
+      sensorRange: equipmentInfoPercent(stats.rangeboost),
+      targetingTime: equipmentInfoPercent(stats.gaintimeboost),
+      shutdownDetection: number(stats.mechdetectionrange) > 0 ? equipmentInfoValue(stats.mechdetectionrange, 0, "m") : "-",
+      beamRange: equipmentInfoPercent(bonuses.beamRange),
+      projectileVelocity: equipmentInfoPercent(bonuses.projectileVelocity),
+    },
+  };
+}
+
+function equipmentInfoBaseWeaponColumns({ duration = false, spread = false, weaponType = false, special = [] } = {}) {
+  return [
+    { key: "index", label: "#" },
+    { key: "name", label: t("equipmentInfo.name") },
+    ...(weaponType ? [{ key: "weaponType", label: t("equipmentInfo.weaponType") }] : []),
+    ...special,
+    { key: "damage", label: t("equipmentInfo.damage") },
+    { key: "heat", label: t("common.heat") },
+    { key: "cooldown", label: t("equipmentInfo.cooldown") },
+    { key: "expectedCooldown", label: t("equipmentInfo.expectedCooldown") },
+    ...(duration ? [{ key: "duration", label: t("equipmentInfo.duration") }] : []),
+    ...(spread ? [{ key: "spread", label: t("equipmentInfo.spread") }] : []),
+    { key: "optimalRange", label: t("equipmentInfo.optimalRange") },
+    { key: "maxRange", label: t("equipmentInfo.maxRange") },
+    { key: "velocity", label: t("equipmentInfo.velocity") },
+    { key: "dps", label: t("equipmentInfo.dps") },
+    { key: "hpd", label: t("equipmentInfo.hpd") },
+    { key: "hps", label: t("equipmentInfo.hps") },
+    { key: "slots", label: t("common.slots") },
+    { key: "tons", label: t("common.tons") },
+    { key: "health", label: t("equipmentInfo.health") },
+    { key: "faction", label: t("equipmentInfo.faction") },
+  ];
+}
+
+function specialWeaponTypeOrder(item) {
+  const type = equipmentHardpointType(item);
+  return ["ballistic", "energy", "missile", "ams"].indexOf(type);
+}
+
+function sortSpecialEquipmentInfoItems(left, right) {
+  const typeDifference = specialWeaponTypeOrder(left) - specialWeaponTypeOrder(right);
+  return typeDifference || sortEquipmentInfoItems(left, right);
+}
+
+function equipmentInfoSpecialRows(items, predicate) {
+  return items
+    .filter(predicate)
+    .sort(sortSpecialEquipmentInfoItems)
+    .map((item, index) => equipmentInfoWeaponRow(item, index + 1));
+}
+
+function renderEquipmentInfoWeapons(items) {
+  const standardTables = [
+    { type: "ballistic", label: t("stats.ballistic"), columns: equipmentInfoBaseWeaponColumns() },
+    { type: "energy", label: t("stats.energy"), columns: equipmentInfoBaseWeaponColumns({ duration: true, spread: true }) },
+    { type: "missile", label: t("stats.missile"), columns: equipmentInfoBaseWeaponColumns() },
+    { type: "ams", label: "AMS", columns: equipmentInfoBaseWeaponColumns() },
+  ].map(({ type, label, columns }) => {
+    const rows = items
+      .filter((item) => equipmentHardpointType(item) === type)
+      .sort(sortEquipmentInfoItems)
+      .map((item, index) => equipmentInfoWeaponRow(item, index + 1));
+    return rows.length ? equipmentInfoTable(label, columns, rows, `equipment-info-${type}`, type) : "";
+  }).join("");
+
+  const spreadRows = equipmentInfoSpecialRows(items, (item) => (
+    ["ballistic", "missile"].includes(equipmentHardpointType(item)) && number(item.stats?.spread) > 0
+  ));
+  const criticalRows = equipmentInfoSpecialRows(items, (item) => {
+    const chance = weaponCriticalChanceValues(item).some((value) => Math.abs(value) > 0.000001);
+    const damage = Number(item.stats?.critDamMult);
+    return chance || (Number.isFinite(damage) && Math.abs(damage - 1) > 0.0001);
+  });
+  const jamRows = equipmentInfoSpecialRows(items, (item) => (
+    number(item.stats?.JammingChance) > 0 || number(item.stats?.JammedTime) > 0
+  ));
+  const specialTables = [
+    equipmentInfoTable(t("equipmentInfo.spreadWeapons"), equipmentInfoBaseWeaponColumns({
+      weaponType: true,
+      special: [{ key: "spread", label: t("equipmentInfo.spread") }],
+    }), spreadRows, "equipment-info-special equipment-info-spread-weapons", "special-spread"),
+    equipmentInfoTable(t("equipmentInfo.criticalWeapons"), equipmentInfoBaseWeaponColumns({
+      weaponType: true,
+      special: [
+        { key: "criticalChance", label: t("equipmentInfo.criticalChance") },
+        { key: "criticalDamage", label: t("equipmentInfo.criticalDamage") },
+      ],
+    }), criticalRows, "equipment-info-special equipment-info-critical-weapons", "special-critical"),
+    equipmentInfoTable(t("equipmentInfo.jamWeapons"), equipmentInfoBaseWeaponColumns({
+      weaponType: true,
+      special: [
+        { key: "jamChance", label: t("stats.jamChance") },
+        { key: "jamDuration", label: t("stats.jamDuration") },
+      ],
+    }), jamRows, "equipment-info-special equipment-info-jam-weapons", "special-jam"),
+  ].filter((table, index) => [spreadRows, criticalRows, jamRows][index].length).join("");
+  return standardTables + specialTables;
+}
+
+function renderEquipmentInfoModules(items) {
+  const rows = items
+    .filter(isTargetComputerEquipment)
+    .sort(sortEquipmentInfoItems)
+    .map((item, index) => equipmentInfoModuleRow(item, index + 1));
+  if (!rows.length) return "";
+  return equipmentInfoTable(t("equipmentInfo.modules"), [
+    { key: "index", label: "#" },
+    { key: "name", label: t("equipmentInfo.name") },
+    { key: "faction", label: t("equipmentInfo.faction") },
+    { key: "slots", label: t("common.slots") },
+    { key: "tons", label: t("common.tons") },
+    { key: "sensorRange", label: t("equipmentInfo.sensorRange") },
+    { key: "targetingTime", label: t("equipmentInfo.targetingTime") },
+    { key: "shutdownDetection", label: t("equipmentInfo.shutdownDetection") },
+    { key: "beamRange", label: t("equipmentInfo.beamRange") },
+    { key: "projectileVelocity", label: t("equipmentInfo.projectileVelocity") },
+  ], rows, "equipment-info-modules");
+}
+
+function renderEquipmentInfo() {
+  const content = $("equipment-info-content");
+  if (!content) return;
+  document.querySelectorAll("[data-equipment-info-view]").forEach((button) => {
+    const active = button.dataset.equipmentInfoView === state.activeEquipmentInfoView;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  if (state.activeEquipmentInfoView === "ghostheat") {
+    content.innerHTML = `
+      <div class="equipment-info-coming-soon">
+        <span>GHOST HEAT</span>
+        <strong>${t("equipmentInfo.comingSoon")}</strong>
+      </div>
+    `;
+    return;
+  }
+  const items = Object.values(state.equipment?.items || {});
+  if (!items.length) {
+    content.innerHTML = "";
+    return;
+  }
+  const html = state.activeEquipmentInfoView === "modules"
+    ? renderEquipmentInfoModules(items)
+    : renderEquipmentInfoWeapons(items.filter((item) => item.item_type === "weapon"));
+  content.innerHTML = html || `<div class="empty equipment-info-empty">${t("equipmentInfo.noResults")}</div>`;
 }
 
 function isTargetComputerEquipment(item) {
@@ -6872,6 +7335,7 @@ function renderSelectionPrompt() {
 function renderAll() {
   renderMechList();
   renderEquipmentList();
+  renderEquipmentInfo();
   renderInfoPanel();
   renderComparePanel();
   renderStatsPanel();
@@ -6884,6 +7348,8 @@ function renderAll() {
 
 function selectMech(id, { historyMode = "push" } = {}) {
   const nextMech = mechById(id) || state.mechs[0];
+  const wasMechlabBrowsing = state.activeMainTab === "mechlab" && state.mechlabBrowseMode;
+  if (wasMechlabBrowsing) rememberMechListScroll();
   const preserveCurrentBuild = historyMode === "none"
     && String(state.selectedMech?.id || "") === String(nextMech?.id || "")
     && state.currentBuild;
@@ -6906,8 +7372,19 @@ function selectMech(id, { historyMode = "push" } = {}) {
   if (historyMode !== "none" && state.selectedMech) {
     updateMechNavigation("mech", state.selectedMech.id, historyMode);
   }
-  renderAll();
-  if (state.activeMainTab === "mechlab") document.querySelector(".tab-content").scrollTop = 0;
+  if (wasMechlabBrowsing) {
+    renderMechList();
+  } else {
+    syncMechListActiveStates();
+    renderMechlabCompactList();
+  }
+  renderEquipmentList();
+  renderInfoPanel();
+  renderVariant();
+  if (state.activeMainTab === "mechlab") {
+    document.querySelector(".tab-content").scrollTop = 0;
+    requestAnimationFrame(updateMechlabScale);
+  }
 }
 
 function applyMechNavigationFromLocation() {
@@ -6922,6 +7399,7 @@ function applyMechNavigationFromLocation() {
   state.mechlabBrowseMode = true;
   state.mechlabCompactListOpen = false;
   renderAll();
+  restoreMechListScroll();
   $("mech-search").focus();
 }
 
@@ -7061,6 +7539,7 @@ function showFullMechlabList() {
   if (!alreadyBrowsing) updateMechNavigation("list");
   renderMechList();
   renderMechlabCompactList();
+  restoreMechListScroll();
   $("mech-search").focus();
 }
 
@@ -7212,7 +7691,8 @@ function toggleCompareMech(id) {
     return;
   }
   if (state.selectedChassis) state.expandedChassis.add(state.selectedChassis);
-  renderAll();
+  syncMechListActiveStates();
+  renderComparePanel();
 }
 
 function removeCompareMech(id) {
@@ -7225,7 +7705,8 @@ function removeCompareMech(id) {
   if (!state.compareMechIds.length) {
     state.selectedChassis = "";
   }
-  renderAll();
+  syncMechListActiveStates();
+  renderComparePanel();
 }
 
 function clearCompareMechs() {
@@ -7234,7 +7715,8 @@ function clearCompareMechs() {
   if (state.compareMode) {
     state.selectedChassis = "";
   }
-  renderAll();
+  syncMechListActiveStates();
+  renderComparePanel();
 }
 
 function toggleCompareBaseline(id) {
@@ -7368,13 +7850,9 @@ function weaponTooltipRanges(item) {
 }
 
 function weaponTooltipSpread(item, quirks) {
-  const spread = number(item?.stats?.spread);
-  if (!(spread > 0)) return null;
-  const type = equipmentHardpointType(item);
-  const reduction = quirkReduction(quirks, "all_spread_multiplier")
-    + quirkReduction(quirks, `${type}_spread_multiplier`)
-    + simulationSpecificQuirkTotal(quirks, item, "_spread_multiplier");
-  return tooltipQuirkValue(spread, spread * Math.max(0, 1 - reduction), 2);
+  const spread = weaponSpreadValues(item, quirks);
+  if (!spread) return null;
+  return tooltipQuirkValue(spread.base, spread.final, 2);
 }
 
 function weaponTooltipCriticalChance(item, targetComputer = targetComputerWeaponModifiers(item)) {
@@ -7424,7 +7902,8 @@ function weaponTooltipTargetHeat(item) {
 
 function weaponTooltipStatistics(item, quirks = []) {
   const stats = item?.stats || {};
-  const damage = Math.max(0, weaponDirectDamage(item));
+  const directDamage = Math.max(0, weaponDirectDamage(item));
+  const totalDamage = Math.max(0, weaponTotalDamage(item));
   const baseHeat = Math.max(0, itemHeat(item));
   const finalHeat = Math.max(0, simulationWeaponHeat(item, quirks));
   const hasCooldown = number(stats.cooldown) > 0;
@@ -7434,11 +7913,11 @@ function weaponTooltipStatistics(item, quirks = []) {
   const finalCycle = finalExpectedCooldown ?? simulationWeaponTiming(item, quirks).cooldown;
   const rows = [];
 
-  if (hasCooldown && damage > 0 && baseCycle > 0 && finalCycle > 0) {
-    rows.push(["DPS", tooltipQuirkValue(damage / baseCycle, damage / finalCycle, 2)]);
+  if (hasCooldown && totalDamage > 0 && baseCycle > 0 && finalCycle > 0) {
+    rows.push(["DPS", tooltipQuirkValue(totalDamage / baseCycle, totalDamage / finalCycle, 2)]);
   }
-  if (baseHeat > 0 && damage > 0) {
-    rows.push(["HPD", tooltipQuirkValue(damage / baseHeat, damage / finalHeat, 2)]);
+  if (baseHeat > 0 && directDamage > 0) {
+    rows.push(["HPD", tooltipQuirkValue(directDamage / baseHeat, directDamage / finalHeat, 2)]);
   }
   if (hasCooldown && baseHeat > 0 && baseCycle > 0 && finalCycle > 0) {
     rows.push(["HPS", tooltipQuirkValue(baseHeat / baseCycle, finalHeat / finalCycle, 2)]);
@@ -8702,12 +9181,32 @@ function bindEvents() {
   document.querySelectorAll("[data-main-tab]").forEach((button) => {
     button.addEventListener("click", () => {
       if (button.dataset.mainTab === "mechlab") {
+        rememberMechListScroll();
         if (state.activeMainTab !== "mechlab") setMainTab("mechlab");
         showFullMechlabList();
         return;
       }
       setMainTab(button.dataset.mainTab);
     });
+  });
+  document.querySelectorAll("[data-equipment-info-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.activeEquipmentInfoView = button.dataset.equipmentInfoView;
+      renderEquipmentInfo();
+      $("equipment-info-content").scrollTo({ top: 0, left: 0 });
+    });
+  });
+  $("equipment-info-content").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-equipment-info-sort]");
+    if (!button) return;
+    const tableKey = button.dataset.equipmentInfoTable;
+    const sortKey = button.dataset.equipmentInfoSort;
+    const current = state.equipmentInfoSortByTable.get(tableKey) || { key: "index", direction: "asc" };
+    state.equipmentInfoSortByTable.set(tableKey, {
+      key: sortKey,
+      direction: current.key === sortKey && current.direction === "asc" ? "desc" : "asc",
+    });
+    renderEquipmentInfo();
   });
   $("mech-search").addEventListener("input", renderMechList);
   document.querySelectorAll("[data-open-mech-filter]").forEach((button) => {
@@ -8990,6 +9489,7 @@ function bindEvents() {
       }
     }
   });
+  $("mech-list").addEventListener("scroll", rememberMechListScroll, { passive: true });
   $("mechlab-compact-list").addEventListener("click", (event) => {
     const chassis = event.target.closest("[data-chassis]");
     if (chassis) {

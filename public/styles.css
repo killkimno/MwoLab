@@ -213,6 +213,219 @@ h3 {
   display: none;
 }
 
+.equipment-info-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.equipment-info-content {
+  display: grid;
+  grid-auto-rows: max-content;
+  gap: 1rem;
+  align-content: start;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 1rem 2rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.equipment-info-content > :first-child {
+  margin-top: 1rem;
+}
+
+.equipment-info-group {
+  --equipment-info-accent: var(--blue);
+  width: 86rem;
+  max-width: 86rem;
+  min-width: 86rem;
+  margin-inline: 0;
+  overflow: visible;
+  border: 1px solid #2b3e45;
+  border-radius: 5px;
+  background: #11181b;
+}
+
+.equipment-info-ballistic { --equipment-info-accent: var(--purple); }
+.equipment-info-energy { --equipment-info-accent: var(--yellow); }
+.equipment-info-missile { --equipment-info-accent: var(--missile); }
+.equipment-info-ams { --equipment-info-accent: var(--green); }
+.equipment-info-spread-weapons { --equipment-info-accent: #d28bff; }
+.equipment-info-critical-weapons { --equipment-info-accent: #ff9b42; }
+.equipment-info-jam-weapons { --equipment-info-accent: var(--red); }
+.equipment-info-modules {
+  --equipment-info-accent: var(--purple);
+  width: 68rem;
+  max-width: 68rem;
+  min-width: 68rem;
+}
+
+.equipment-info-group-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.6rem;
+  padding: 0.6rem 0.8rem;
+  border-left: 4px solid var(--equipment-info-accent);
+  border-bottom: 1px solid #2b3e45;
+  background: #1a2428;
+}
+
+.equipment-info-group-title h3 {
+  margin: 0;
+  color: var(--equipment-info-accent);
+  letter-spacing: 0.08rem;
+}
+
+.equipment-info-group-title span {
+  min-width: 2rem;
+  padding: 0.18rem 0.4rem;
+  border-radius: 999px;
+  background: #0c1214;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.equipment-info-table-wrap {
+  overflow: visible;
+}
+
+.equipment-info-table {
+  width: 100%;
+  min-width: 86rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.equipment-info-modules .equipment-info-table {
+  min-width: 68rem;
+}
+
+.equipment-info-table th,
+.equipment-info-table td {
+  padding: 0.52rem 0.65rem;
+  border-right: 1px solid #24343a;
+  border-bottom: 1px solid #24343a;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.equipment-info-table th:first-child,
+.equipment-info-table td:first-child {
+  width: 3.25rem;
+  text-align: center;
+}
+
+.equipment-info-table th:nth-child(2),
+.equipment-info-table td:nth-child(2) {
+  text-align: left;
+}
+
+.equipment-info-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding: 0;
+  background: #0d1416;
+  box-shadow: 0 1px 0 #34505a;
+  color: #afbec3;
+  font-size: 0.78rem;
+  letter-spacing: 0.025rem;
+  text-transform: uppercase;
+}
+
+.equipment-info-sort-button {
+  display: flex;
+  gap: 0.32rem;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  min-height: 2.55rem;
+  padding: 0.52rem 0.65rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  font-weight: 800;
+  text-transform: inherit;
+}
+
+.equipment-info-table th:first-child .equipment-info-sort-button {
+  justify-content: center;
+}
+
+.equipment-info-table th:nth-child(2) .equipment-info-sort-button {
+  justify-content: flex-start;
+}
+
+.equipment-info-sort-button:hover,
+.equipment-info-sort-button:focus-visible,
+.equipment-info-sort-button.active {
+  background: #1c3038;
+  color: var(--text);
+}
+
+.equipment-info-sort-indicator {
+  display: inline-block;
+  width: 0.75rem;
+  color: var(--yellow);
+  font-size: 0.65rem;
+  text-align: center;
+}
+
+.equipment-info-table tbody th {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.equipment-info-table tbody tr:hover th,
+.equipment-info-table tbody tr:hover td {
+  background: #1b2b31;
+}
+
+.equipment-info-coming-soon {
+  display: grid;
+  place-items: center;
+  gap: 0.65rem;
+  min-height: 18rem;
+  border: 1px dashed #425962;
+  border-radius: 6px;
+  background: #11191c;
+  color: var(--muted);
+  text-align: center;
+}
+
+.equipment-info-coming-soon span {
+  color: var(--yellow);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.18rem;
+}
+
+.equipment-info-coming-soon strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.equipment-info-empty {
+  min-height: 12rem;
+  display: grid;
+  place-items: center;
+}
+
 #tab-mechlab {
   height: 100%;
   min-height: 0;
@@ -438,6 +651,24 @@ h3 {
   min-width: 0;
 }
 
+.small-chassis-title {
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 10rem) 3rem;
+  width: 100%;
+}
+
+.small-chassis-title strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.small-chassis-title .chassis-ton {
+  color: var(--text);
+  font-weight: 800;
+  text-align: left;
+}
+
 .expand-indicator {
   display: inline-grid;
   place-items: center;
@@ -550,8 +781,8 @@ h3 {
 .large-chassis-row .chassis-title strong {
   position: absolute;
   top: 50%;
-  left: 50%;
-  width: 38%;
+  left: 2.45rem;
+  width: 11.5rem;
   overflow: hidden;
   color: var(--blue);
   font-size: 0.95rem;
@@ -559,7 +790,7 @@ h3 {
   text-align: left;
   text-overflow: ellipsis;
   text-transform: uppercase;
-  transform: translate(-50%, -50%);
+  transform: translateY(-50%);
   white-space: nowrap;
 }
 
@@ -573,9 +804,10 @@ h3 {
 .large-chassis-ton {
   position: absolute;
   top: 50%;
-  left: 75%;
-  transform: translate(-50%, -50%);
-  text-align: center;
+  left: 14.5rem;
+  width: 3.5rem;
+  transform: translateY(-50%);
+  text-align: left;
 }
 
 .mech-card-grid {
@@ -602,10 +834,6 @@ h3 {
 .mech-card.active {
   border-color: var(--blue);
   background: #1c2b32;
-}
-
-.mech-card.chassis-active {
-  box-shadow: inset 3px 0 0 #41616d;
 }
 
 .mech-card.active {
