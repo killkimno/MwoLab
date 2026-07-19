@@ -118,13 +118,30 @@ def parse_item(element, family, localization):
         "icon": "",
         "stats": {},
         "ranges": [],
+        "weapon_stat_filters": [],
     }
 
     for child in element:
         if child.tag.endswith("Stats") or child.tag == "ModuleStats":
             item["stats"].update(attrs(child))
+            if child.tag == "TargetingComputerStats":
+                for filter_node in child.findall("WeaponStatsFilter"):
+                    compatible_weapons = [
+                        name.strip()
+                        for name in filter_node.attrib.get("compatibleWeapons", "").split(",")
+                        if name.strip()
+                    ]
+                    item["weapon_stat_filters"].append({
+                        "tag": filter_node.attrib.get("tag", ""),
+                        "compatible_weapons": compatible_weapons,
+                        "weapon_stats": [attrs(node) for node in filter_node.findall("WeaponStats")],
+                        "ranges": [attrs(node) for node in filter_node.findall("Range")],
+                    })
         elif child.tag == "Ranges":
             item["ranges"] = [attrs(range_node) for range_node in child.findall("Range")]
+
+    if not item["weapon_stat_filters"]:
+        item.pop("weapon_stat_filters")
 
     if family == "engines":
         item["item_type"] = "engine"
@@ -581,6 +598,11 @@ def main(argv=None):
         action="store_true",
         help="Enrich existing mech and omnipod JSON with model hardpoint weapon-slot counts.",
     )
+    parser.add_argument(
+        "--equipment-only",
+        action="store_true",
+        help="Refresh equipment.json without regenerating mech, loadout, or omnipod data.",
+    )
     args = parser.parse_args(argv)
 
     game_dir = Path(args.game_dir)
@@ -602,6 +624,13 @@ def main(argv=None):
         return 0
 
     localization = parse_localization(game_dir)
+
+    if args.equipment_only:
+        with zipfile.ZipFile(game_data_path) as game_data:
+            items_by_id, by_family = parse_items(game_data, localization)
+        write_json(out_dir / "equipment.json", {"items": items_by_id, "families": by_family})
+        print(f"Extracted {len(items_by_id)} items.")
+        return 0
 
     definitions, omnipod_details = parse_mech_definitions(game_dir, localization)
 

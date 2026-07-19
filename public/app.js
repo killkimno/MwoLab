@@ -294,6 +294,8 @@ const TEXT = {
     "build.noAutoInstallLocation": "장착 가능한 부위가 없습니다",
     "build.noEngineHeatSinkSlots": "이 엔진에는 추가 히트싱크 슬롯이 없습니다",
     "build.heatSinkMismatch": "{item}은(는) 현재 히트싱크 업그레이드와 호환되지 않습니다",
+    "build.jumpJetFull": "점프젯 장착 한도를 초과합니다 ({used}/{limit})",
+    "build.equipmentGroupFull": "{group} 장착 한도를 초과합니다 ({used}/{limit})",
     "build.artemisRequired": "{item}은(는) 아르테미스 업그레이드가 필요합니다",
     "build.standardGuidanceRequired": "{item}은(는) 스탠다드 유도 장치에서만 사용할 수 있습니다",
     "build.structureSlotsUnavailable": "엔도스틸 슬롯 {count}칸을 배치할 공간이 부족합니다",
@@ -604,6 +606,8 @@ const TEXT = {
     "build.noAutoInstallLocation": "No component can install this item",
     "build.noEngineHeatSinkSlots": "This engine has no additional heat sink slots",
     "build.heatSinkMismatch": "{item} is incompatible with the current heat sink upgrade",
+    "build.jumpJetFull": "Jump jet limit exceeded ({used}/{limit})",
+    "build.equipmentGroupFull": "{group} limit exceeded ({used}/{limit})",
     "build.artemisRequired": "{item} requires the Artemis upgrade",
     "build.standardGuidanceRequired": "{item} can only be used with Standard guidance",
     "build.structureSlotsUnavailable": "Not enough room for {count} Endo Steel slots",
@@ -917,6 +921,17 @@ const SIMULATION_TIMED_DURATION_MS = 16_000;
 const SIMULATION_GROUP_FIRE_INDICATOR_MS = 250;
 const SIMULATION_CONTINUOUS_HIT_EFFECT_INTERVAL_MS = 120;
 const SIMULATION_MOVEMENT_HEAT_PER_SECOND = 0.3;
+const MECH_BASE_SENSOR_RANGE = 800;
+const TARGET_COMPUTER_SENSOR_RANGE_BONUSES = Object.freeze({
+  1: 0.0225,
+  2: 0.0325,
+  3: 0.0425,
+  4: 0.0525,
+  5: 0.06,
+  6: 0.0675,
+  7: 0.075,
+  8: 0.07875,
+});
 const SIMULATION_MAP_COOLING_MODIFIERS = Object.freeze({
   low: 0.15,
   normal: 0,
@@ -1435,6 +1450,87 @@ function normalizeEngineHeatSinks(mech, build, { fillFromCentre = false } = {}) 
 
 function isEcm(item) {
   return item?.ctype === "CGECMStats";
+}
+
+function isAmsWeapon(item) {
+  return item?.item_type === "weapon"
+    && (item?.ctype === "WeaponAMS" || equipmentHardpointType(item) === "ams");
+}
+
+function isHitscanWeapon(item) {
+  return item?.item_type === "weapon"
+    && !String(item?.stats?.projectileclass || "").trim();
+}
+
+function equipmentLimitGroup(item) {
+  if (!isTargetComputerEquipment(item)) return "";
+  const key = normalizeLookupKey(`${item?.name || ""} ${item?.display_name || ""}`);
+  if (key.includes("activeprobe") || key.includes("beagleprobe")) return "active-probe";
+  return "target-computer";
+}
+
+function isAdvancedSensorPackage(item) {
+  const key = normalizeLookupKey(`${item?.name || ""} ${item?.display_name || ""}`);
+  return key.includes("advancedsensorpackage") || key === "ccc";
+}
+
+function equipmentLimitGroupLabel(group) {
+  return group === "active-probe" ? "ACTIVE PROBE" : "TARGET COMPUTER";
+}
+
+function installedEquipmentLimitGroupItems(group) {
+  return installedMechItems("module").filter((item) => equipmentLimitGroup(item) === group);
+}
+
+function equipmentLimitGroupMaximum(group, candidate = null) {
+  const limits = [candidate, ...installedEquipmentLimitGroupItems(group)]
+    .filter((item) => equipmentLimitGroup(item) === group)
+    .map((item) => number(item.stats?.amountAllowed))
+    .filter((limit) => limit > 0);
+  return limits.length ? Math.min(...limits) : Number.POSITIVE_INFINITY;
+}
+
+function maximumJumpJets(mech = state.selectedMech, build = state.currentBuild) {
+  if (!mech || !build) return 0;
+  const slotBonus = effectiveQuirks(mech, build).reduce((sum, quirk) => (
+    String(quirk.name || "").toLowerCase() === "jumpjetslots_additive"
+      ? sum + Math.max(0, number(quirk.value))
+      : sum
+  ), 0);
+  return Math.max(0, number(currentDefinition(mech).stats?.MaxJumpJets) + slotBonus);
+}
+
+function targetEquipmentSensorRangeBonus(item) {
+  const group = equipmentLimitGroup(item);
+  if (group === "active-probe") return Math.max(0, number(item.stats?.rangeboost));
+  if (group !== "target-computer") return 0;
+  if (isAdvancedSensorPackage(item)) return 0.1;
+  const mark = Math.max(0, Math.trunc(number(item.stats?.slots)));
+  return number(TARGET_COMPUTER_SENSOR_RANGE_BONUSES[mark]);
+}
+
+function installedSensorEquipmentBonus() {
+  return installedMechItems("module").reduce(
+    (sum, item) => sum + targetEquipmentSensorRangeBonus(item),
+    0,
+  );
+}
+
+function mechSensorRange(quirks, mech = state.selectedMech, build = state.currentBuild) {
+  if (!mech || !build) return 0;
+  const baseRange = number(currentDefinition(mech).stats?.SensorRange, MECH_BASE_SENSOR_RANGE);
+  const additive = quirks.reduce((sum, quirk) => (
+    String(quirk.name || "").toLowerCase() === "sensorrange_additive"
+      ? sum + number(quirk.value)
+      : sum
+  ), 0);
+  const multiplier = quirks.reduce((sum, quirk) => (
+    String(quirk.name || "").toLowerCase() === "sensorrange_multiplier"
+      ? sum + number(quirk.value)
+      : sum
+  ), 0);
+  const mechAndQuirkRange = baseRange * (1 + multiplier) + additive;
+  return Math.max(0, mechAndQuirkRange * (1 + installedSensorEquipmentBonus()));
 }
 
 function componentHasEcm(component) {
@@ -2959,7 +3055,7 @@ function familyVelocitySummaryMax(quirks, type) {
 function additionalSensorSummaryMax(quirks) {
   return quirks.reduce((sum, quirk) => {
     const name = String(quirk.name || "").toLowerCase();
-    return name.includes("sensorrange") && name.endsWith("_additive")
+    return name === "sensorrange_additive"
       ? sum + Math.max(0, number(quirk.value))
       : sum;
   }, 0);
@@ -4221,7 +4317,7 @@ function calculateBuild() {
       heat += itemHeat(item);
       const mountType = equipmentHardpointType(item);
       if (mountType) usage.hardpoints[mountType] = (usage.hardpoints[mountType] || 0) + 1;
-      if (item.item_type === "weapon") {
+      if (item.item_type === "weapon" && !isAmsWeapon(item)) {
         alpha += weaponTotalDamage(item);
       }
       if (item.item_type === "ammo") ammo += number(item.stats?.numShots);
@@ -4253,7 +4349,7 @@ function calculateBuild() {
         const type = mountType;
         usage.hardpoints[type] = (usage.hardpoints[type] || 0) + 1;
       }
-      if (item.item_type === "weapon") {
+      if (item.item_type === "weapon" && !isAmsWeapon(item)) {
         alpha += weaponTotalDamage(item);
       }
       if (item.item_type === "ammo") {
@@ -4329,6 +4425,23 @@ function calculateBuild() {
       warnings.push(`${COMPONENT_NAMES[name] || name}: ${warning}`);
     }
   }
+
+  const installedJumpJetCount = installedMechItems("jumpjet").length;
+  const jumpJetLimit = maximumJumpJets(mech, state.currentBuild);
+  if (installedJumpJetCount > jumpJetLimit) {
+    warnings.push(t("build.jumpJetFull", { used: installedJumpJetCount, limit: jumpJetLimit }));
+  }
+  ["target-computer", "active-probe"].forEach((group) => {
+    const installed = installedEquipmentLimitGroupItems(group);
+    const limit = equipmentLimitGroupMaximum(group);
+    if (installed.length > limit) {
+      warnings.push(t("build.equipmentGroupFull", {
+        group: equipmentLimitGroupLabel(group),
+        used: installed.length,
+        limit,
+      }));
+    }
+  });
 
   armor += Object.values(state.currentBuild.rearArmor || {}).reduce((sum, value) => sum + number(value), 0);
   const armorUpgradeId = state.currentBuild.upgrades?.armor?.ItemID;
@@ -4685,12 +4798,7 @@ function renderMechSummary(calc = null) {
   const structure = structureInfoRows(quirkValues, mech).reduce((sum, row) => sum + number(row.total), 0);
   const jumpJets = installedMechItems("jumpjet");
   const jumpJetCount = jumpJets.length;
-  const jumpJetSlotBonus = quirks.reduce((sum, quirk) => (
-    String(quirk.name || "").toLowerCase() === "jumpjetslots_additive"
-      ? sum + number(quirk.value)
-      : sum
-  ), 0);
-  const maxJumpJets = number(currentDefinition(mech).stats?.MaxJumpJets) + Math.max(0, jumpJetSlotBonus);
+  const maxJumpJets = maximumJumpJets(mech, state.currentBuild);
   const jumpJetBurnMultiplier = 1 + quirkIncrease(quirks, "jumpjets_burntime_multiplier");
   const jumpJetInitialMultiplier = 1 + quirkIncrease(quirks, "jumpjets_initialthrust_multiplier");
   const jumpJetVerticalLift = jumpJets.reduce((sum, item) => sum + number(item.stats?.boost_z), 0);
@@ -4702,6 +4810,7 @@ function renderMechSummary(calc = null) {
   const jumpJetHeight = jumpJetCount > 0
     ? (7.5 * jumpJetVerticalLift + jumpJetDuration * 0.75 * jumpJetInitialThrust) / mechMaxTons
     : 0;
+  const sensorRange = mechSensorRange(quirks, mech, state.currentBuild);
   const tonsOver = calc.totalTons > calc.maxTons + 0.0001;
   const slotsOver = calc.currentSlotUsage > calc.totalSlotCapacity;
   const alphaHeatPercent = heatSystem.maxHeat > 0 ? alphaHeat / heatSystem.maxHeat * 100 : 0;
@@ -4718,6 +4827,7 @@ function renderMechSummary(calc = null) {
       ["DECELERATION", fmt(movement.deceleration)],
       ["ARMOR", `${fmt(calc.armor, 0)} / ${fmt(maxArmor, 0)}`],
       ["STRUCTURE", fmt(structure, 0)],
+      ["SENSOR", `${fmt(sensorRange, 0)}m`],
       ["JUMP JETS", `${jumpJetCount} / ${fmt(maxJumpJets, 0)} (${fmt(jumpJetHeight, 1)}m)`],
     ])}
     ${mechSummarySection("HEAT", [
@@ -4760,8 +4870,20 @@ function simulationItemKeys(item) {
   ].map(normalizeLookupKey).filter(Boolean));
 }
 
-function simulationSpecificQuirkTotal(quirks, item, suffix, direction = "reduction") {
+function isSimulationContinuousDamagePerSecondWeapon(item) {
+  return Array.from(simulationItemKeys(item))
+    .some((key) => key.includes("beamlaser"));
+}
+
+function simulationSpecificQuirkMatchesItem(prefix, item) {
   const keys = simulationItemKeys(item);
+  if (keys.has(prefix)) return true;
+  return isAmsWeapon(item)
+    && prefix.endsWith("antimissilesystem")
+    && Array.from(keys).some((key) => key.endsWith(prefix));
+}
+
+function simulationSpecificQuirkTotal(quirks, item, suffix, direction = "reduction") {
   return quirks.reduce((sum, quirk) => {
     const name = String(quirk.name || "").toLowerCase();
     if (!name.endsWith(suffix)) return sum;
@@ -4772,15 +4894,53 @@ function simulationSpecificQuirkTotal(quirks, item, suffix, direction = "reducti
     if (suffix === "_velocity_multiplier" && DIRECT_VELOCITY_QUIRKS.has(name)) return sum;
     if (suffix === "_spread_multiplier" && DIRECT_SPREAD_QUIRKS.has(name)) return sum;
     const prefix = normalizeLookupKey(name.slice(0, -suffix.length));
-    if (!prefix || !keys.has(prefix)) return sum;
+    if (!prefix || !simulationSpecificQuirkMatchesItem(prefix, item)) return sum;
     const value = number(quirk.value);
     return sum + (direction === "reduction" ? Math.max(0, -value) : Math.max(0, value));
   }, 0);
 }
 
+function targetComputerFilterMatchesWeapon(filter, item) {
+  const weaponKey = normalizeLookupKey(item?.name);
+  return weaponKey && (filter?.compatible_weapons || [])
+    .some((name) => normalizeLookupKey(name) === weaponKey);
+}
+
+function targetComputerWeaponModifiers(item, modules = installedMechItems("module")) {
+  const result = {
+    rangeBonus: 0,
+    speedBonus: 0,
+    criticalChance: [0, 0, 0],
+  };
+  modules.forEach((module) => {
+    (module.weapon_stat_filters || []).forEach((filter) => {
+      if (!targetComputerFilterMatchesWeapon(filter, item)) return;
+      (filter.ranges || []).forEach((range) => {
+        const multiplier = number(range.multiplier, 1);
+        if (multiplier > 0) result.rangeBonus += multiplier - 1;
+      });
+      (filter.weapon_stats || []).forEach((weaponStats) => {
+        const operation = String(weaponStats.operation || "");
+        if (operation === "*" && number(weaponStats.speed) > 0) {
+          result.speedBonus += number(weaponStats.speed, 1) - 1;
+        }
+        if (operation === "+" && weaponStats.critChanceIncrease !== undefined) {
+          String(weaponStats.critChanceIncrease).split(",").forEach((value, index) => {
+            if (index < result.criticalChance.length) result.criticalChance[index] += number(Number(value));
+          });
+        }
+      });
+    });
+  });
+  return result;
+}
+
 function simulationWeaponTiming(item, quirks) {
   const stats = item?.stats || {};
   const type = equipmentHardpointType(item);
+  if (isSimulationContinuousDamagePerSecondWeapon(item)) {
+    return { duration: 0, cooldown: 0, cycle: 1 };
+  }
   const rof = number(stats.rof);
   if (rof > 0) {
     const rofBonus = simulationSpecificQuirkTotal(quirks, item, "_rof_multiplier", "increase");
@@ -4856,14 +5016,17 @@ function simulationWeaponHeat(item, quirks) {
 }
 
 function simulationWeaponRangeBonus(item, quirks) {
+  if (isAmsWeapon(item)) {
+    return simulationSpecificQuirkTotal(quirks, item, "_range_multiplier", "increase");
+  }
   const type = equipmentHardpointType(item);
   return quirkIncrease(quirks, "all_range_multiplier")
     + quirkIncrease(quirks, `${type}_range_multiplier`)
     + simulationSpecificQuirkTotal(quirks, item, "_range_multiplier", "increase");
 }
 
-function simulationWeaponRangeProfile(item, rangeBonus = 0) {
-  const multiplier = Math.max(0, 1 + number(rangeBonus));
+function simulationWeaponRangeProfile(item, rangeBonus = 0, equipmentBonus = 0) {
+  const multiplier = Math.max(0, 1 + number(rangeBonus) + number(equipmentBonus));
   const sourceRanges = (item?.ranges || [])
     .map((range) => ({
       start: number(range.start),
@@ -4954,10 +5117,15 @@ function simulationHeatSystemFromSink(sink, heatSinkCount, heatDissipation = 0) 
   const maxHeat = 30
     + engineCapacityCount * engineCapacity
     + externalCapacityCount * externalCapacity;
+  const engineCooling = number(sink?.stats?.engineCooling);
+  const externalCooling = number(sink?.stats?.cooling);
   return {
     heatSinkCount,
     maxHeat,
-    coolingRate: heatSinkCount * number(sink?.stats?.cooling) * (1 + heatDissipation),
+    coolingRate: (
+      engineCapacityCount * engineCooling
+      + externalCapacityCount * externalCooling
+    ) * (1 + heatDissipation),
   };
 }
 
@@ -4984,9 +5152,10 @@ function collectSimulationWeapons() {
     const fixed = definition.components?.[component]?.fixed || [];
     fixed.forEach((itemId, index) => {
       const item = itemById(itemId);
-      if (item?.item_type !== "weapon") return;
+      if (item?.item_type !== "weapon" || isAmsWeapon(item)) return;
       const timing = simulationWeaponTiming(item, quirks);
       const expectedCooldown = weaponExpectedCooldown(item, quirks);
+      const targetComputer = targetComputerWeaponModifiers(item);
       weapons.push({
         key: `${state.selectedMech.id}:fixed:${component}:${index}:${item.id}`,
         item,
@@ -4995,7 +5164,8 @@ function collectSimulationWeapons() {
         splashDamage: weaponSplashDamage(item),
         damage: weaponTotalDamage(item),
         heat: simulationWeaponHeat(item, quirks),
-        continuous: isSimulationMachineGun(item),
+        continuous: isSimulationMachineGun(item)
+          || isSimulationContinuousDamagePerSecondWeapon(item),
         chargeTime: Math.max(0, number(item.stats?.chargeTime)),
         firingTime: weaponFiringTime(item),
         shotCount: Math.max(1, Math.trunc(number(item.stats?.numFiring, 1))),
@@ -5003,7 +5173,11 @@ function collectSimulationWeapons() {
         shotDelay: Math.max(0, number(item.stats?.volleydelay)),
         ultra: isUltraAutoCannon(item),
         jam: ultraAutoCannonJamStats(item, quirks),
-        rangeProfile: simulationWeaponRangeProfile(item, simulationWeaponRangeBonus(item, quirks)),
+        rangeProfile: simulationWeaponRangeProfile(
+          item,
+          simulationWeaponRangeBonus(item, quirks),
+          targetComputer.rangeBonus,
+        ),
         ...timing,
         cycle: expectedCooldown ?? timing.cycle,
         entry: null,
@@ -5012,9 +5186,10 @@ function collectSimulationWeapons() {
 
     (state.currentBuild.components?.[component]?.items || []).forEach((entry, index) => {
       const item = itemById(entry.item_id);
-      if (item?.item_type !== "weapon") return;
+      if (item?.item_type !== "weapon" || isAmsWeapon(item)) return;
       const timing = simulationWeaponTiming(item, quirks);
       const expectedCooldown = weaponExpectedCooldown(item, quirks);
+      const targetComputer = targetComputerWeaponModifiers(item);
       weapons.push({
         key: `${state.selectedMech.id}:installed:${component}:${index}:${item.id}`,
         item,
@@ -5023,7 +5198,8 @@ function collectSimulationWeapons() {
         splashDamage: weaponSplashDamage(item),
         damage: weaponTotalDamage(item),
         heat: simulationWeaponHeat(item, quirks),
-        continuous: isSimulationMachineGun(item),
+        continuous: isSimulationMachineGun(item)
+          || isSimulationContinuousDamagePerSecondWeapon(item),
         chargeTime: Math.max(0, number(item.stats?.chargeTime)),
         firingTime: weaponFiringTime(item),
         shotCount: Math.max(1, Math.trunc(number(item.stats?.numFiring, 1))),
@@ -5031,7 +5207,11 @@ function collectSimulationWeapons() {
         shotDelay: Math.max(0, number(item.stats?.volleydelay)),
         ultra: isUltraAutoCannon(item),
         jam: ultraAutoCannonJamStats(item, quirks),
-        rangeProfile: simulationWeaponRangeProfile(item, simulationWeaponRangeBonus(item, quirks)),
+        rangeProfile: simulationWeaponRangeProfile(
+          item,
+          simulationWeaponRangeBonus(item, quirks),
+          targetComputer.rangeBonus,
+        ),
         ...timing,
         cycle: expectedCooldown ?? timing.cycle,
         entry,
@@ -6206,7 +6386,16 @@ function upgradeOptionLabel(category, item) {
 
 function activeUpgradeValue(category) {
   if (category === "guidance") return state.currentBuild?.upgrades?.artemis?.Equipped ? "1" : "0";
-  return String(state.currentBuild?.upgrades?.[category]?.ItemID || "");
+  const itemId = state.currentBuild?.upgrades?.[category]?.ItemID;
+  if (category !== "armor") return String(itemId || "");
+  const selectedArmor = itemById(itemId);
+  const standardArmor = upgradeItems("armor").find((item) => (
+    upgradeOptionLabel("armor", item) === "STANDARD"
+  ));
+  if (!selectedArmor || upgradeOptionLabel("armor", selectedArmor) === "STANDARD") {
+    return String(standardArmor?.id || itemId || "");
+  }
+  return String(itemId || "");
 }
 
 function renderUpgradeControls() {
@@ -7138,7 +7327,17 @@ function weaponDamagePerSecond(item, quirks = []) {
   };
 }
 
+function amsDamagePerSecond(item, quirks = []) {
+  const base = Math.max(0, number(item?.stats?.damage));
+  const additive = simulationSpecificQuirkTotal(quirks, item, "_damage_additive", "increase");
+  return { base, final: base + additive };
+}
+
 function weaponDamageTooltipValue(item, quirks = []) {
+  if (isAmsWeapon(item)) {
+    const damagePerSecond = amsDamagePerSecond(item, quirks);
+    return tooltipQuirkValue(damagePerSecond.base, damagePerSecond.final, 1, "/s");
+  }
   if (isRofDamageWeapon(item)) {
     const damagePerSecond = weaponDamagePerSecond(item, quirks);
     return tooltipQuirkValue(damagePerSecond.base, damagePerSecond.final, 1, "/s");
@@ -7178,12 +7377,20 @@ function weaponTooltipSpread(item, quirks) {
   return tooltipQuirkValue(spread, spread * Math.max(0, 1 - reduction), 2);
 }
 
-function weaponTooltipCriticalChance(item) {
-  const chances = String(item?.stats?.critChanceIncrease ?? "")
+function weaponTooltipCriticalChance(item, targetComputer = targetComputerWeaponModifiers(item)) {
+  const baseChances = String(item?.stats?.critChanceIncrease ?? "")
     .split(",")
     .map((value) => Number(value));
+  const additions = targetComputer.criticalChance || [];
+  const size = Math.max(baseChances.length, additions.length);
+  const chances = Array.from({ length: size }, (_, index) => {
+    const baseChance = Number.isFinite(baseChances[index]) ? baseChances[index] : 0;
+    return Math.abs(baseChance + 1) < 0.0001
+      ? -1
+      : baseChance + number(additions[index]);
+  });
   if (!chances.some((value) => Number.isFinite(value) && value !== 0)) return null;
-  const values = chances.map((chance) => {
+  const formatValues = (source) => source.map((chance) => {
     if (!Number.isFinite(chance) || chance === 0) return null;
     if (Math.abs(chance + 1) < 0.0001) {
       return '<span class="equipment-tooltip-negative">X</span>';
@@ -7191,9 +7398,12 @@ function weaponTooltipCriticalChance(item) {
     const text = escapeHtml(tooltipNumber(chance * 100, 1, "%"));
     return chance < 0 ? `<span class="equipment-tooltip-negative">${text}</span>` : text;
   });
-  while (values.length && values.at(-1) === null) values.pop();
+  const finalValues = formatValues(chances);
+  while (finalValues.length && finalValues.at(-1) === null) finalValues.pop();
+  const hasTargetBonus = additions.some((value) => Math.abs(number(value)) >= 0.0001);
+  if (!hasTargetBonus) return { html: finalValues.map((value) => value ?? "-").join(" / ") };
   return {
-    html: values.map((value) => value ?? "-").join(" / "),
+    html: `<span class="equipment-tooltip-final quirk-applied">${finalValues.map((value) => value ?? "-").join(" / ")}</span>`,
   };
 }
 
@@ -7285,6 +7495,36 @@ function engineTooltipMaxSpeed(engine) {
   return number(definition?.movement?.MaxMovementSpeed) * number(engine?.stats?.rating) / tons;
 }
 
+function targetComputerTooltipRows(item) {
+  const rows = [];
+  const advancedSensorPackage = isAdvancedSensorPackage(item);
+  (item?.weapon_stat_filters || []).forEach((filter) => {
+    const scope = advancedSensorPackage && String(filter.tag || "").toLowerCase() === "beamweapons"
+      ? "TAG"
+      : String(filter.tag || "WEAPONS").replace(/Weapons$/i, "").toUpperCase();
+    (filter.ranges || []).forEach((range) => {
+      const multiplier = number(range.multiplier, 1);
+      if (Math.abs(multiplier - 1) >= 0.0001) {
+        rows.push([`${scope} RANGE`, tooltipNumber((multiplier - 1) * 100, 1, "%")]);
+      }
+    });
+    (filter.weapon_stats || []).forEach((weaponStats) => {
+      const operation = String(weaponStats.operation || "");
+      if (operation === "*" && number(weaponStats.speed) > 0) {
+        rows.push([`${scope} VELOCITY`, tooltipNumber((number(weaponStats.speed) - 1) * 100, 1, "%")]);
+      }
+      if (operation === "+" && weaponStats.critChanceIncrease !== undefined) {
+        const values = String(weaponStats.critChanceIncrease)
+          .split(",")
+          .map((value) => tooltipNumber(number(Number(value)) * 100, 2, "%"))
+          .join(" / ");
+        rows.push([`${scope} CRITICAL CHANCE`, values]);
+      }
+    });
+  });
+  return rows;
+}
+
 function equipmentTooltipGroups(item) {
   const stats = item?.stats || {};
   const quirks = effectiveQuirks(state.selectedMech, state.currentBuild);
@@ -7297,23 +7537,31 @@ function equipmentTooltipGroups(item) {
   if (item.item_type === "weapon") {
     const ranges = weaponTooltipRanges(item);
     const type = equipmentHardpointType(item);
+    const baseTiming = simulationWeaponTiming(item, []);
     const timing = simulationWeaponTiming(item, quirks);
     const baseExpectedCooldown = weaponExpectedCooldown(item, []);
     const expectedCooldown = weaponExpectedCooldown(item, quirks);
     const heat = simulationWeaponHeat(item, quirks);
     const rangeBonus = simulationWeaponRangeBonus(item, quirks);
+    const targetComputer = targetComputerWeaponModifiers(item);
+    const finalRangeMultiplier = Math.max(0, 1 + rangeBonus + targetComputer.rangeBonus);
     const velocityBonus = quirkIncrease(quirks, "all_velocity_multiplier")
       + quirkIncrease(quirks, `${type}_velocity_multiplier`)
       + simulationSpecificQuirkTotal(quirks, item, "_velocity_multiplier", "increase");
     const timingRows = [
       ["DAMAGE", weaponDamageTooltipValue(item, quirks)],
       ["HEAT", tooltipQuirkValue(itemHeat(item), heat, 2)],
-      ["COOLDOWN", tooltipQuirkValue(stats.cooldown, timing.cooldown, 2, " s")],
     ];
-    if (baseExpectedCooldown !== null && expectedCooldown !== null) timingRows.push([
-      "EXPECTED COOLDOWN",
-      tooltipFinalQuirkValue(baseExpectedCooldown, expectedCooldown, 1, " s"),
-    ]);
+    if (number(stats.cooldown) > 0) {
+      timingRows.push([
+        "COOLDOWN",
+        tooltipQuirkValue(baseTiming.cooldown, timing.cooldown, 2, " s"),
+      ]);
+      if (baseExpectedCooldown !== null && expectedCooldown !== null) timingRows.push([
+        "EXPECTED COOLDOWN",
+        tooltipFinalQuirkValue(baseExpectedCooldown, expectedCooldown, 1, " s"),
+      ]);
+    }
     groups.push(timingRows);
     if (number(stats.duration) > 0) groups.push([
       ["DURATION", tooltipQuirkValue(stats.duration, timing.duration, 2, " s")],
@@ -7325,15 +7573,31 @@ function equipmentTooltipGroups(item) {
     ]);
     if (Number.isFinite(ranges.optimalRange)) rangeRows.push([
       "OPTIMAL RANGE",
-      tooltipQuirkValue(ranges.optimalRange, ranges.optimalRange * (1 + rangeBonus), 0, " m"),
+      targetComputer.rangeBonus !== 0
+        ? tooltipFinalQuirkValue(ranges.optimalRange, ranges.optimalRange * finalRangeMultiplier, 0, " m")
+        : tooltipQuirkValue(ranges.optimalRange, ranges.optimalRange * finalRangeMultiplier, 0, " m"),
     ]);
     if (Number.isFinite(ranges.maxRange)) rangeRows.push([
       "MAX RANGE",
-      tooltipQuirkValue(ranges.maxRange, ranges.maxRange * (1 + rangeBonus), 0, " m"),
+      targetComputer.rangeBonus !== 0
+        ? tooltipFinalQuirkValue(ranges.maxRange, ranges.maxRange * finalRangeMultiplier, 0, " m")
+        : tooltipQuirkValue(ranges.maxRange, ranges.maxRange * finalRangeMultiplier, 0, " m"),
     ]);
-    if (number(stats.speed) > 0) rangeRows.push([
+    if (number(stats.speed) > 0 && !isHitscanWeapon(item)) rangeRows.push([
       "VELOCITY",
-      tooltipQuirkValue(stats.speed, number(stats.speed) * (1 + velocityBonus), 1, " m/s"),
+      targetComputer.speedBonus !== 0
+        ? tooltipFinalQuirkValue(
+          stats.speed,
+          number(stats.speed) * (1 + velocityBonus + targetComputer.speedBonus),
+          1,
+          " m/s",
+        )
+        : tooltipQuirkValue(
+          stats.speed,
+          number(stats.speed) * (1 + velocityBonus),
+          1,
+          " m/s",
+        ),
     ]);
     groups.push(rangeRows);
     const firingShots = Math.max(1, Math.trunc(number(stats.numFiring, 1)));
@@ -7347,14 +7611,14 @@ function equipmentTooltipGroups(item) {
     }
     if (ammoInfoRows.length) groups.push(ammoInfoRows);
     const weaponDetailRows = [];
-    atmTooltipDamageBands(item, rangeBonus).forEach((band, index) => {
+    atmTooltipDamageBands(item, finalRangeMultiplier - 1).forEach((band, index) => {
       weaponDetailRows.push([
         `DAMAGE BAND ${index + 1}`,
         `${tooltipNumber(band.damage, 1)} (${band.start}~${band.end} m)`,
       ]);
     });
     const spread = weaponTooltipSpread(item, quirks);
-    const criticalChance = weaponTooltipCriticalChance(item);
+    const criticalChance = weaponTooltipCriticalChance(item, targetComputer);
     const criticalDamage = weaponTooltipCriticalDamage(item);
     const targetHeat = weaponTooltipTargetHeat(item);
     if (spread) weaponDetailRows.push(["SPREAD", spread]);
@@ -7411,6 +7675,29 @@ function equipmentTooltipGroups(item) {
       ["SPEED BOOST", tooltipNumber(number(stats.BoostSpeed) * 100, 1, "%")],
       ["ACCEL BOOST", tooltipNumber(number(stats.BoostAccel) * 100, 1, "%")],
       ["TURN BOOST", tooltipNumber(number(stats.BoostTurn) * 100, 1, "%")],
+    ]);
+  } else if (equipmentLimitGroup(item) === "target-computer") {
+    const advancedSensorPackage = isAdvancedSensorPackage(item);
+    if (advancedSensorPackage) groups.push([
+      ["ZOOM LEVEL 1 BOOST", tooltipNumber(100, 0, "%")],
+      ["ZOOM LEVEL 2 BOOST", tooltipNumber(200, 0, "%")],
+      ["ADV. ZOOM BOOST", tooltipNumber(260, 0, "%")],
+      ["SENSOR RANGE", tooltipNumber(targetEquipmentSensorRangeBonus(item) * 100, 1, "%")],
+      ["TARGETING GAIN TIME BOOST", tooltipNumber(42.5, 1, "%")],
+      ...targetComputerTooltipRows(item),
+    ]);
+    groups.push([
+      ["HEALTH", tooltipNumber(stats.health, 1)],
+      ["MAX EQUIPPED", tooltipNumber(stats.amountAllowed, 0)],
+      ["SENSOR RANGE", advancedSensorPackage ? "-" : tooltipNumber(targetEquipmentSensorRangeBonus(item) * 100, 2, "%")],
+    ]);
+    if (!advancedSensorPackage) groups.push(targetComputerTooltipRows(item));
+  } else if (equipmentLimitGroup(item) === "active-probe") {
+    groups.push([
+      ["DETECTION RANGE", tooltipNumber(stats.mechdetectionrange, 0, " m")],
+      ["SENSOR RANGE", tooltipNumber(number(stats.rangeboost) * 100, 1, "%")],
+      ["INFO GAIN TIME", tooltipNumber(number(stats.gaintimeboost) * 100, 1, "%")],
+      ["MAX EQUIPPED", tooltipNumber(stats.amountAllowed, 0)],
     ]);
   } else {
     const detailRows = [];
@@ -7666,6 +7953,28 @@ function dropValidation(item, component, source = null) {
   const guidanceWarning = guidanceMismatch(item);
   if (guidanceWarning) return guidanceWarning;
   if (!equipmentMatchesSelectedMechCapabilities(item)) return t("build.noAutoInstallLocation");
+  const movingInstalledItem = source?.source === "component";
+  if (item.item_type === "jumpjet") {
+    const limit = maximumJumpJets();
+    const current = installedMechItems("jumpjet").length;
+    const next = current - (movingInstalledItem ? 1 : 0) + 1;
+    if (next > limit) return t("build.jumpJetFull", { used: next, limit });
+  }
+  const limitGroup = equipmentLimitGroup(item);
+  if (limitGroup) {
+    const limit = equipmentLimitGroupMaximum(limitGroup, item);
+    const current = installedEquipmentLimitGroupItems(limitGroup).length;
+    const movingSameGroup = movingInstalledItem
+      && equipmentLimitGroup(itemById(source.itemId)) === limitGroup;
+    const next = current - (movingSameGroup ? 1 : 0) + 1;
+    if (next > limit) {
+      return t("build.equipmentGroupFull", {
+        group: equipmentLimitGroupLabel(limitGroup),
+        used: next,
+        limit,
+      });
+    }
+  }
   if (source?.component === component) return null;
   const compDef = effectiveComponentDefinition(state.selectedMech, state.currentBuild, component);
   const calc = calculateBuild();
