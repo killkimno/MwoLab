@@ -8,6 +8,7 @@ let mechlabScaleObserver = null;
 let mechlabScaleFrame = 0;
 let mechNavigationReady = false;
 let mechFilterTrigger = null;
+const LOCAL_BUILDS_STORAGE_KEY = "mwolab:local-builds:v1";
 
 function normalizeLanguage(value) {
   const language = String(value || "").trim().toLowerCase();
@@ -67,6 +68,25 @@ const TEXT = {
     "status.fileProtocol": "file://에서는 로컬 데이터를 불러올 수 없습니다. 로컬 프리뷰는 public 폴더를 http://로 서빙하세요.",
     "status.loadPathFailed": "{path} 파일을 불러올 수 없습니다",
     "status.buildSaved": "빌드를 로컬에 저장했습니다",
+    "localBuild.save": "저장",
+    "localBuild.load": "불러오기",
+    "localBuild.saveTitle": "LOCAL SAVE",
+    "localBuild.loadTitle": "LOCAL LOAD",
+    "localBuild.saveDescription": "현재 피팅의 저장 이름을 입력하세요. 기존 저장 목록도 아래에서 확인할 수 있습니다.",
+    "localBuild.loadDescription": "저장된 피팅을 선택하세요. 현재 멕과 같은 항목이 먼저 표시됩니다.",
+    "localBuild.nameLabel": "저장 이름",
+    "localBuild.namePlaceholder": "저장 이름 입력",
+    "localBuild.empty": "저장된 피팅이 없습니다.",
+    "localBuild.currentMech": "현재 멕",
+    "localBuild.nameRequired": "저장 이름을 입력하세요.",
+    "localBuild.saved": "{mech} | {name} 저장 완료",
+    "localBuild.loaded": "{mech} | {name} 불러오기 완료",
+    "localBuild.storageFailed": "브라우저 로컬 저장소에 저장할 수 없습니다.",
+    "localBuild.invalid": "저장된 피팅 데이터를 불러올 수 없습니다.",
+    "localBuild.manage": "관리",
+    "localBuild.saveMode": "저장 모드",
+    "localBuild.delete": "삭제",
+    "localBuild.deleted": "{mech} | {name} 삭제 완료",
     "mechlab.tools": "TOOL",
     "ui.open": "UI",
     "ui.valueDisplayTitle": "수치 표기",
@@ -205,6 +225,27 @@ const TEXT = {
     "equipmentInfo.shutdownDetection": "정지 멕 탐지",
     "equipmentInfo.beamRange": "빔 사거리",
     "equipmentInfo.projectileVelocity": "투사체 탄속",
+    "equipmentInfo.targetComputers": "타겟 컴퓨터",
+    "equipmentInfo.activeProbes": "액티브 프로브",
+    "equipmentInfo.masc": "MASC / 슈퍼차저",
+    "equipmentInfo.tonsRange": "적용 톤수",
+    "equipmentInfo.speedBoost": "속도 부스트",
+    "equipmentInfo.accelerationBoost": "가속 부스트",
+    "equipmentInfo.decelerationBoost": "감속 부스트",
+    "equipmentInfo.turnBoost": "회전 부스트",
+    "equipmentInfo.ecm": "ECM",
+    "equipmentInfo.ecmRange": "ECM 범위",
+    "equipmentInfo.enemyTargetingReduction": "적 타겟팅 속도 감소",
+    "equipmentInfo.enemyLockOnReduction": "적 락온 속도 감소",
+    "equipmentInfo.jumpJets": "점프젯",
+    "equipmentInfo.initialThrust": "초기 추력",
+    "equipmentInfo.verticalThrust": "수직 추력",
+    "equipmentInfo.forwardThrust": "전방 추력",
+    "equipmentInfo.heatSinks": "히트싱크",
+    "equipmentInfo.heatCapacity": "열용량",
+    "equipmentInfo.heatDissipation": "냉각/초",
+    "equipmentInfo.engineHeatCapacity": "엔진 열용량",
+    "equipmentInfo.engineHeatDissipation": "엔진 냉각/초",
     "sort.default": "기본 정렬",
     "sort.tons": "톤수 정렬",
     "weight.light": "라이트",
@@ -411,6 +452,25 @@ const TEXT = {
     "status.fileProtocol": "Local data cannot be loaded from file://. Serve the public folder over http:// for local preview.",
     "status.loadPathFailed": "Could not load {path}",
     "status.buildSaved": "Build saved locally",
+    "localBuild.save": "Save",
+    "localBuild.load": "Load",
+    "localBuild.saveTitle": "LOCAL SAVE",
+    "localBuild.loadTitle": "LOCAL LOAD",
+    "localBuild.saveDescription": "Name the current fitting. Your existing local saves are listed below.",
+    "localBuild.loadDescription": "Choose a saved fitting. Saves for the current mech are shown first.",
+    "localBuild.nameLabel": "Save name",
+    "localBuild.namePlaceholder": "Enter a save name",
+    "localBuild.empty": "No locally saved fittings.",
+    "localBuild.currentMech": "Current mech",
+    "localBuild.nameRequired": "Enter a save name.",
+    "localBuild.saved": "Saved {mech} | {name}",
+    "localBuild.loaded": "Loaded {mech} | {name}",
+    "localBuild.storageFailed": "Could not write to browser local storage.",
+    "localBuild.invalid": "The saved fitting data could not be loaded.",
+    "localBuild.manage": "Manage",
+    "localBuild.saveMode": "Save mode",
+    "localBuild.delete": "Delete",
+    "localBuild.deleted": "Deleted {mech} | {name}",
     "mechlab.tools": "TOOL",
     "ui.open": "UI",
     "ui.valueDisplayTitle": "Value display",
@@ -549,6 +609,27 @@ const TEXT = {
     "equipmentInfo.shutdownDetection": "Shutdown Detection",
     "equipmentInfo.beamRange": "Beam Range",
     "equipmentInfo.projectileVelocity": "Projectile Velocity",
+    "equipmentInfo.targetComputers": "Target Computers",
+    "equipmentInfo.activeProbes": "Active Probes",
+    "equipmentInfo.masc": "MASC / Supercharger",
+    "equipmentInfo.tonsRange": "Tonnage Range",
+    "equipmentInfo.speedBoost": "Speed Boost",
+    "equipmentInfo.accelerationBoost": "Acceleration Boost",
+    "equipmentInfo.decelerationBoost": "Deceleration Boost",
+    "equipmentInfo.turnBoost": "Turn Boost",
+    "equipmentInfo.ecm": "ECM",
+    "equipmentInfo.ecmRange": "ECM Range",
+    "equipmentInfo.enemyTargetingReduction": "Enemy Targeting Speed Reduction",
+    "equipmentInfo.enemyLockOnReduction": "Enemy Lock-on Speed Reduction",
+    "equipmentInfo.jumpJets": "Jump Jets",
+    "equipmentInfo.initialThrust": "Initial Thrust",
+    "equipmentInfo.verticalThrust": "Vertical Thrust",
+    "equipmentInfo.forwardThrust": "Forward Thrust",
+    "equipmentInfo.heatSinks": "Heat Sinks",
+    "equipmentInfo.heatCapacity": "Heat Capacity",
+    "equipmentInfo.heatDissipation": "Dissipation/s",
+    "equipmentInfo.engineHeatCapacity": "Engine Heat Capacity",
+    "equipmentInfo.engineHeatDissipation": "Engine Dissipation/s",
     "sort.default": "Default sort",
     "sort.tons": "Sort by tonnage",
     "weight.light": "Light",
@@ -1122,6 +1203,8 @@ const state = {
   omnipodDefinitionCache: new Map(),
   currentBuild: null,
   loadoutCodeMode: "import",
+  localBuildMode: "save",
+  localBuildManaging: false,
   activeDrag: null,
   simulation: {
     open: false,
@@ -1422,6 +1505,15 @@ function activeWeaponAmmoType(weapon, build = state.currentBuild) {
     || (artemisEquipped(build) && isGuidanceWeapon(weapon))
   );
   return usesArtemisAmmo ? artemisAmmoType : String(weapon.stats?.ammoType || "");
+}
+
+function weaponAmmoPerTrigger(weapon) {
+  if (!activeWeaponAmmoType(weapon)) return 0;
+  const sourceAmmoPerShot = Math.max(0, number(weapon.stats?.ammoPerShot));
+  const sequentialShots = Math.max(0, number(weapon.stats?.numFiring));
+  // Sequential projectiles consume one round each (C-AC, UAC, HAG, etc.).
+  // LB-X pellets use numPerShot instead, so they correctly remain one consumed round.
+  return Math.max(1, Math.trunc(Math.max(sourceAmmoPerShot, sequentialShots)));
 }
 
 function guidanceUpgrade(build = state.currentBuild) {
@@ -2254,15 +2346,78 @@ function savedKey(mech) {
 }
 
 function loadBuild(mech) {
-  const saved = localStorage.getItem(savedKey(mech));
-  if (saved) {
+  return buildFromLoadout(mech);
+}
+
+function readLocalBuilds() {
+  let records = [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem(LOCAL_BUILDS_STORAGE_KEY) || "[]");
+    if (Array.isArray(parsed)) {
+      records = parsed.filter((record) => (
+        record
+        && typeof record.id === "string"
+        && record.mechId !== undefined
+        && typeof record.saveName === "string"
+        && record.build
+      ));
+    }
+  } catch {
+    records = [];
+  }
+
+  let migrated = false;
+  state.mechs.forEach((mech) => {
+    const legacyId = `legacy:${mech.id}`;
+    if (records.some((record) => record.id === legacyId)) return;
     try {
-      return applyFixedOmnipods(mech, JSON.parse(saved));
+      const legacyBuild = JSON.parse(localStorage.getItem(savedKey(mech)) || "null");
+      if (!legacyBuild) return;
+      records.push({
+        id: legacyId,
+        mechId: mech.id,
+        mechName: mech.display_name || mech.name,
+        saveName: "LEGACY SAVE",
+        build: legacyBuild,
+        updatedAt: 0,
+      });
+      migrated = true;
     } catch {
-      localStorage.removeItem(savedKey(mech));
+      // Ignore an invalid legacy entry without removing the user's original data.
+    }
+  });
+  if (migrated) {
+    try {
+      localStorage.setItem(LOCAL_BUILDS_STORAGE_KEY, JSON.stringify(records));
+    } catch {
+      // The legacy entries remain available under their original keys.
     }
   }
-  return buildFromLoadout(mech);
+  return records;
+}
+
+function writeLocalBuilds(records) {
+  try {
+    localStorage.setItem(LOCAL_BUILDS_STORAGE_KEY, JSON.stringify(records));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function sortedLocalBuilds() {
+  const currentMechId = String(state.selectedMech?.id || "");
+  return readLocalBuilds().sort((left, right) => {
+    const leftCurrent = String(left.mechId) === currentMechId ? 1 : 0;
+    const rightCurrent = String(right.mechId) === currentMechId ? 1 : 0;
+    return rightCurrent - leftCurrent
+      || Number(right.updatedAt || 0) - Number(left.updatedAt || 0)
+      || String(left.saveName).localeCompare(
+        String(right.saveName),
+        activeLanguage === "kr" ? "ko" : activeLanguage,
+        { numeric: true },
+      );
+  });
 }
 
 function currentDefinition(mech = state.selectedMech) {
@@ -4877,7 +5032,7 @@ function mechSummaryAmmoGroups(weapons) {
   return Array.from(groups.values())
     .map((group) => {
       const roundsPerVolley = group.weapons.reduce(
-        (sum, weapon) => sum + Math.max(0, number(weapon.item.stats?.ammoPerShot)),
+        (sum, weapon) => sum + weaponAmmoPerTrigger(weapon.item),
         0,
       );
       const volleys = roundsPerVolley > 0 ? Math.floor(group.rounds / roundsPerVolley) : 0;
@@ -5022,6 +5177,10 @@ function renderMechlabActionPanel() {
       <div class="loadout-code-actions">
         <button id="import-loadout-code" type="button" data-mechlab-action="import">${t("loadout.import")}</button>
         <button id="export-loadout-code" type="button" data-mechlab-action="export">${t("loadout.export")}</button>
+      </div>
+      <div class="loadout-code-actions local-build-actions">
+        <button id="local-save-build" type="button" data-mechlab-action="local-save">LOCAL SAVE</button>
+        <button id="local-load-build" type="button" data-mechlab-action="local-load">LOCAL LOAD</button>
       </div>
     </section>
   `;
@@ -6483,6 +6642,7 @@ function equipmentInfoWeaponRow(item, index) {
 function moduleInfoBonuses(item) {
   let beamRange = 0;
   let projectileVelocity = 0;
+  const criticalChance = [];
   (item.weapon_stat_filters || []).forEach((filter) => {
     const tag = normalizeLookupKey(filter.tag);
     if (tag.includes("beam")) {
@@ -6497,8 +6657,28 @@ function moduleInfoBonuses(item) {
         }
       });
     }
+    (filter.weapon_stats || []).forEach((weaponStats) => {
+      if (String(weaponStats.operation || "") !== "+" || weaponStats.critChanceIncrease === undefined) return;
+      String(weaponStats.critChanceIncrease).split(",").forEach((value, index) => {
+        criticalChance[index] = Math.max(criticalChance[index] || 0, number(Number(value)));
+      });
+    });
   });
-  return { beamRange, projectileVelocity };
+  return { beamRange, projectileVelocity, criticalChance };
+}
+
+function equipmentInfoPercentList(values, digits = 2) {
+  return values.some((value) => Math.abs(number(value)) > 0.000001)
+    ? values.map((value) => equipmentInfoValue(number(value) * 100, digits, "%")).join(" / ")
+    : "-";
+}
+
+function equipmentInfoModuleSensorRangeBonus(item) {
+  const standardBonus = targetEquipmentSensorRangeBonus(item);
+  if (standardBonus > 0 || equipmentLimitGroup(item) === "active-probe") return standardBonus;
+  if (!isEquipmentInfoTargetComputer(item)) return 0;
+  const mark = Math.max(0, Math.trunc(number(item.stats?.slots)));
+  return number(TARGET_COMPUTER_SENSOR_RANGE_BONUSES[mark]);
 }
 
 function equipmentInfoFactionOrder(item) {
@@ -6517,6 +6697,7 @@ function sortEquipmentInfoItems(left, right) {
 function equipmentInfoModuleRow(item, index) {
   const stats = item.stats || {};
   const bonuses = moduleInfoBonuses(item);
+  const sensorRange = equipmentInfoModuleSensorRangeBonus(item);
   const name = item.display_name || item.name || "-";
   return {
     values: {
@@ -6525,11 +6706,12 @@ function equipmentInfoModuleRow(item, index) {
       faction: equipmentInfoFactionOrder(item),
       slots: Number(stats.slots),
       tons: Number(stats.tons),
-      sensorRange: number(stats.rangeboost) || Number.POSITIVE_INFINITY,
+      sensorRange: sensorRange || Number.POSITIVE_INFINITY,
       targetingTime: number(stats.gaintimeboost) || Number.POSITIVE_INFINITY,
       shutdownDetection: number(stats.mechdetectionrange) || Number.POSITIVE_INFINITY,
       beamRange: bonuses.beamRange || Number.POSITIVE_INFINITY,
       projectileVelocity: bonuses.projectileVelocity || Number.POSITIVE_INFINITY,
+      criticalChance: bonuses.criticalChance[0] || Number.POSITIVE_INFINITY,
     },
     cells: {
       index: equipmentInfoValue(index, 0),
@@ -6537,11 +6719,142 @@ function equipmentInfoModuleRow(item, index) {
       faction: factionLabel(item.faction),
       slots: equipmentInfoValue(stats.slots, 0),
       tons: equipmentInfoValue(stats.tons, 1),
-      sensorRange: equipmentInfoPercent(stats.rangeboost),
+      sensorRange: equipmentInfoPercent(sensorRange),
       targetingTime: equipmentInfoPercent(stats.gaintimeboost),
       shutdownDetection: number(stats.mechdetectionrange) > 0 ? equipmentInfoValue(stats.mechdetectionrange, 0, "m") : "-",
       beamRange: equipmentInfoPercent(bonuses.beamRange),
       projectileVelocity: equipmentInfoPercent(bonuses.projectileVelocity),
+      criticalChance: equipmentInfoPercentList(bonuses.criticalChance),
+    },
+  };
+}
+
+function equipmentInfoMascRow(item, index) {
+  const stats = item.stats || {};
+  const name = item.display_name || item.name || "-";
+  const tonsMin = Number(stats.TonsMin);
+  const tonsMax = Number(stats.TonsMax);
+  return {
+    values: {
+      index,
+      name,
+      faction: equipmentInfoFactionOrder(item),
+      slots: Number(stats.slots),
+      tons: Number(stats.tons),
+      tonsRange: Number.isFinite(tonsMin) ? tonsMin : Number.POSITIVE_INFINITY,
+      speedBoost: number(stats.BoostSpeed) || Number.POSITIVE_INFINITY,
+      accelerationBoost: number(stats.BoostAccel) || Number.POSITIVE_INFINITY,
+      decelerationBoost: number(stats.BoostDecel) || Number.POSITIVE_INFINITY,
+      turnBoost: number(stats.BoostTurn) || Number.POSITIVE_INFINITY,
+    },
+    cells: {
+      index: equipmentInfoValue(index, 0),
+      name,
+      faction: factionLabel(item.faction),
+      slots: equipmentInfoValue(stats.slots, 0),
+      tons: equipmentInfoValue(stats.tons, 1),
+      tonsRange: Number.isFinite(tonsMin) && Number.isFinite(tonsMax)
+        ? `${equipmentInfoValue(tonsMin, 0)}–${equipmentInfoValue(tonsMax, 0)}t`
+        : "-",
+      speedBoost: equipmentInfoPercent(stats.BoostSpeed),
+      accelerationBoost: equipmentInfoPercent(stats.BoostAccel),
+      decelerationBoost: equipmentInfoPercent(stats.BoostDecel),
+      turnBoost: equipmentInfoPercent(stats.BoostTurn),
+    },
+  };
+}
+
+function equipmentInfoEcmRow(item, index) {
+  const stats = item.stats || {};
+  const targetingReduction = Math.max(0, 1 - number(stats.targetingfactor, 1));
+  const lockOnReduction = Math.max(0, 1 - number(stats.weaponlockfactor, 1));
+  const name = item.display_name || item.name || "-";
+  return {
+    values: {
+      index,
+      name,
+      faction: equipmentInfoFactionOrder(item),
+      slots: Number(stats.slots),
+      tons: Number(stats.tons),
+      ecmRange: Number(stats.range),
+      targetingReduction,
+      lockOnReduction,
+    },
+    cells: {
+      index: equipmentInfoValue(index, 0),
+      name,
+      faction: factionLabel(item.faction),
+      slots: equipmentInfoValue(stats.slots, 0),
+      tons: equipmentInfoValue(stats.tons, 1),
+      ecmRange: equipmentInfoValue(stats.range, 0, "m"),
+      targetingReduction: equipmentInfoPercent(targetingReduction),
+      lockOnReduction: equipmentInfoPercent(lockOnReduction),
+    },
+  };
+}
+
+function equipmentInfoJumpJetRow(item, index) {
+  const stats = item.stats || {};
+  const tonsMin = Number(stats.minTons);
+  const tonsMax = Number(stats.maxTons);
+  const name = item.display_name || item.name || "-";
+  return {
+    values: {
+      index,
+      name,
+      slots: Number(stats.slots),
+      tons: Number(stats.tons),
+      tonsRange: Number.isFinite(tonsMin) ? tonsMin : Number.POSITIVE_INFINITY,
+      duration: Number(stats.duration),
+      cooldown: Number(stats.cooldown),
+      initialThrust: Number(stats.boost_instant),
+      verticalThrust: Number(stats.boost_z),
+      forwardThrust: Number(stats.boost_fwd),
+    },
+    cells: {
+      index: equipmentInfoValue(index, 0),
+      name,
+      slots: equipmentInfoValue(stats.slots, 0),
+      tons: equipmentInfoValue(stats.tons, 1),
+      tonsRange: Number.isFinite(tonsMin) && Number.isFinite(tonsMax)
+        ? `${equipmentInfoValue(tonsMin, 0)}–${equipmentInfoValue(tonsMax, 0)}t`
+        : "-",
+      duration: equipmentInfoValue(stats.duration, 2, "s"),
+      cooldown: equipmentInfoValue(stats.cooldown, 2, "s"),
+      initialThrust: equipmentInfoValue(stats.boost_instant, 1),
+      verticalThrust: equipmentInfoValue(stats.boost_z, 1),
+      forwardThrust: equipmentInfoValue(stats.boost_fwd, 1),
+    },
+  };
+}
+
+function equipmentInfoHeatSinkRow(item, index) {
+  const stats = item.stats || {};
+  const heatCapacity = Math.abs(number(stats.heatbase));
+  const engineHeatCapacity = Math.abs(number(stats.engineHeatbase));
+  const name = item.display_name || item.name || "-";
+  return {
+    values: {
+      index,
+      name,
+      faction: equipmentInfoFactionOrder(item),
+      slots: Number(stats.slots),
+      tons: Number(stats.tons),
+      heatCapacity,
+      heatDissipation: Number(stats.cooling),
+      engineHeatCapacity,
+      engineHeatDissipation: Number(stats.engineCooling),
+    },
+    cells: {
+      index: equipmentInfoValue(index, 0),
+      name,
+      faction: factionLabel(item.faction),
+      slots: equipmentInfoValue(stats.slots, 0),
+      tons: equipmentInfoValue(stats.tons, 1),
+      heatCapacity: equipmentInfoValue(heatCapacity, 2),
+      heatDissipation: equipmentInfoValue(stats.cooling, 2),
+      engineHeatCapacity: equipmentInfoValue(engineHeatCapacity, 2),
+      engineHeatDissipation: equipmentInfoValue(stats.engineCooling, 2),
     },
   };
 }
@@ -6591,7 +6904,7 @@ function equipmentInfoSpecialRows(items, predicate) {
 function renderEquipmentInfoWeapons(items) {
   const standardTables = [
     { type: "ballistic", label: t("stats.ballistic"), columns: equipmentInfoBaseWeaponColumns() },
-    { type: "energy", label: t("stats.energy"), columns: equipmentInfoBaseWeaponColumns({ duration: true, spread: true }) },
+    { type: "energy", label: t("stats.energy"), columns: equipmentInfoBaseWeaponColumns({ duration: true }) },
     { type: "missile", label: t("stats.missile"), columns: equipmentInfoBaseWeaponColumns() },
     { type: "ams", label: "AMS", columns: equipmentInfoBaseWeaponColumns() },
   ].map(({ type, label, columns }) => {
@@ -6637,12 +6950,44 @@ function renderEquipmentInfoWeapons(items) {
 }
 
 function renderEquipmentInfoModules(items) {
-  const rows = items
-    .filter(isTargetComputerEquipment)
+  const moduleItems = items
+    .filter(isEquipmentInfoTargetComputer);
+  const targetComputerRows = moduleItems
+    .filter((item) => equipmentLimitGroup(item) !== "active-probe")
     .sort(sortEquipmentInfoItems)
     .map((item, index) => equipmentInfoModuleRow(item, index + 1));
-  if (!rows.length) return "";
-  return equipmentInfoTable(t("equipmentInfo.modules"), [
+  const activeProbeRows = moduleItems
+    .filter((item) => equipmentLimitGroup(item) === "active-probe")
+    .sort(sortEquipmentInfoItems)
+    .map((item, index) => equipmentInfoModuleRow(item, index + 1));
+  const mascRows = items
+    .filter((item) => item.item_type === "masc")
+    .sort(sortEquipmentInfoItems)
+    .map((item, index) => equipmentInfoMascRow(item, index + 1));
+  const ecmRows = items
+    .filter(isEcm)
+    .sort(sortEquipmentInfoItems)
+    .map((item, index) => equipmentInfoEcmRow(item, index + 1));
+  const jumpJetRows = items
+    .filter((item) => item.item_type === "jumpjet")
+    .sort(sortEquipmentInfoItems)
+    .map((item, index) => equipmentInfoJumpJetRow(item, index + 1));
+  const heatSinkRows = items
+    .filter((item) => item.item_type === "module" && isHeatSink(item))
+    .sort(sortEquipmentInfoItems)
+    .map((item, index) => equipmentInfoHeatSinkRow(item, index + 1));
+  const targetComputerTable = targetComputerRows.length ? equipmentInfoTable(t("equipmentInfo.targetComputers"), [
+    { key: "index", label: "#" },
+    { key: "name", label: t("equipmentInfo.name") },
+    { key: "faction", label: t("equipmentInfo.faction") },
+    { key: "slots", label: t("common.slots") },
+    { key: "tons", label: t("common.tons") },
+    { key: "sensorRange", label: t("equipmentInfo.sensorRange") },
+    { key: "beamRange", label: t("equipmentInfo.beamRange") },
+    { key: "projectileVelocity", label: t("equipmentInfo.projectileVelocity") },
+    { key: "criticalChance", label: t("equipmentInfo.criticalChance") },
+  ], targetComputerRows, "equipment-info-modules equipment-info-target-computers", "target-computers") : "";
+  const activeProbeTable = activeProbeRows.length ? equipmentInfoTable(t("equipmentInfo.activeProbes"), [
     { key: "index", label: "#" },
     { key: "name", label: t("equipmentInfo.name") },
     { key: "faction", label: t("equipmentInfo.faction") },
@@ -6651,9 +6996,53 @@ function renderEquipmentInfoModules(items) {
     { key: "sensorRange", label: t("equipmentInfo.sensorRange") },
     { key: "targetingTime", label: t("equipmentInfo.targetingTime") },
     { key: "shutdownDetection", label: t("equipmentInfo.shutdownDetection") },
-    { key: "beamRange", label: t("equipmentInfo.beamRange") },
-    { key: "projectileVelocity", label: t("equipmentInfo.projectileVelocity") },
-  ], rows, "equipment-info-modules");
+  ], activeProbeRows, "equipment-info-modules equipment-info-active-probes", "active-probes") : "";
+  const mascTable = mascRows.length ? equipmentInfoTable(t("equipmentInfo.masc"), [
+    { key: "index", label: "#" },
+    { key: "name", label: t("equipmentInfo.name") },
+    { key: "faction", label: t("equipmentInfo.faction") },
+    { key: "slots", label: t("common.slots") },
+    { key: "tons", label: t("common.tons") },
+    { key: "tonsRange", label: t("equipmentInfo.tonsRange") },
+    { key: "speedBoost", label: t("equipmentInfo.speedBoost") },
+    { key: "accelerationBoost", label: t("equipmentInfo.accelerationBoost") },
+    { key: "decelerationBoost", label: t("equipmentInfo.decelerationBoost") },
+    { key: "turnBoost", label: t("equipmentInfo.turnBoost") },
+  ], mascRows, "equipment-info-modules equipment-info-masc", "masc") : "";
+  const ecmTable = ecmRows.length ? equipmentInfoTable(t("equipmentInfo.ecm"), [
+    { key: "index", label: "#" },
+    { key: "name", label: t("equipmentInfo.name") },
+    { key: "faction", label: t("equipmentInfo.faction") },
+    { key: "slots", label: t("common.slots") },
+    { key: "tons", label: t("common.tons") },
+    { key: "ecmRange", label: t("equipmentInfo.ecmRange") },
+    { key: "targetingReduction", label: t("equipmentInfo.enemyTargetingReduction") },
+    { key: "lockOnReduction", label: t("equipmentInfo.enemyLockOnReduction") },
+  ], ecmRows, "equipment-info-modules equipment-info-ecm", "ecm") : "";
+  const jumpJetTable = jumpJetRows.length ? equipmentInfoTable(t("equipmentInfo.jumpJets"), [
+    { key: "index", label: "#" },
+    { key: "name", label: t("equipmentInfo.name") },
+    { key: "slots", label: t("common.slots") },
+    { key: "tons", label: t("common.tons") },
+    { key: "tonsRange", label: t("equipmentInfo.tonsRange") },
+    { key: "duration", label: t("equipmentInfo.duration") },
+    { key: "cooldown", label: t("equipmentInfo.cooldown") },
+    { key: "initialThrust", label: t("equipmentInfo.initialThrust") },
+    { key: "verticalThrust", label: t("equipmentInfo.verticalThrust") },
+    { key: "forwardThrust", label: t("equipmentInfo.forwardThrust") },
+  ], jumpJetRows, "equipment-info-modules equipment-info-jump-jets", "jump-jets") : "";
+  const heatSinkTable = heatSinkRows.length ? equipmentInfoTable(t("equipmentInfo.heatSinks"), [
+    { key: "index", label: "#" },
+    { key: "name", label: t("equipmentInfo.name") },
+    { key: "faction", label: t("equipmentInfo.faction") },
+    { key: "slots", label: t("common.slots") },
+    { key: "tons", label: t("common.tons") },
+    { key: "heatCapacity", label: t("equipmentInfo.heatCapacity") },
+    { key: "heatDissipation", label: t("equipmentInfo.heatDissipation") },
+    { key: "engineHeatCapacity", label: t("equipmentInfo.engineHeatCapacity") },
+    { key: "engineHeatDissipation", label: t("equipmentInfo.engineHeatDissipation") },
+  ], heatSinkRows, "equipment-info-modules equipment-info-heat-sinks", "heat-sinks") : "";
+  return targetComputerTable + activeProbeTable + ecmTable + mascTable + jumpJetTable + heatSinkTable;
 }
 
 function renderEquipmentInfo() {
@@ -6690,6 +7079,22 @@ function isTargetComputerEquipment(item) {
     || key.includes("activeprobe")
     || key.includes("advancedsensorpackage")
     || key.includes("beagleprobe");
+}
+
+function isEquipmentInfoTargetComputer(item) {
+  if (isTargetComputerEquipment(item)) return true;
+  const filters = item?.weapon_stat_filters || [];
+  const hasBeamRangeBonus = filters.some((filter) => (
+    normalizeLookupKey(filter.tag).includes("beam")
+    && (filter.ranges || []).some((range) => number(range.multiplier, 1) > 1)
+  ));
+  const hasProjectileVelocityBonus = filters.some((filter) => (
+    normalizeLookupKey(filter.tag).includes("projectile")
+    && (filter.weapon_stats || []).some((stats) => (
+      String(stats.operation || "") === "*" && number(stats.speed, 1) > 1
+    ))
+  ));
+  return item?.item_type === "module" && hasBeamRangeBonus && hasProjectileVelocityBonus;
 }
 
 function engineWarehouseSection(item) {
@@ -7531,6 +7936,187 @@ function closeLoadoutCodeDialog() {
     ? $("export-loadout-code")
     : $("import-loadout-code");
   focusTarget?.focus();
+}
+
+function setLocalBuildStatus(message = "", tone = "") {
+  const status = $("local-build-status");
+  status.textContent = message;
+  status.classList.toggle("error", tone === "error");
+  status.classList.toggle("success", tone === "success");
+}
+
+function renderLocalBuildList() {
+  const records = sortedLocalBuilds();
+  const currentMechId = String(state.selectedMech?.id || "");
+  const loading = state.localBuildMode === "load";
+  const managing = state.localBuildMode === "save" && state.localBuildManaging;
+  $("local-build-list").innerHTML = records.length ? records.map((record) => {
+    const mech = mechById(record.mechId);
+    const mechName = mech?.display_name || record.mechName || record.mechId;
+    const isCurrent = String(record.mechId) === currentMechId;
+    const content = `
+      <span class="local-build-record-name"><strong>${escapeHtml(mechName)}</strong><i aria-hidden="true">|</i><span>${escapeHtml(record.saveName)}</span></span>
+      <span class="local-build-record-actions">
+        ${isCurrent ? `<small>${t("localBuild.currentMech")}</small>` : ""}
+        ${managing ? `<button class="local-build-delete-button" type="button" data-local-build-delete="${escapeHtml(record.id)}">${t("localBuild.delete")}</button>` : ""}
+      </span>
+    `;
+    if (loading) {
+      return `<button class="local-build-record${isCurrent ? " current" : ""}" type="button" role="option" data-local-build-load="${escapeHtml(record.id)}">${content}</button>`;
+    }
+    if (managing) {
+      return `<div class="local-build-record${isCurrent ? " current" : ""}" role="option">${content}</div>`;
+    }
+    return isCurrent
+      ? `<button class="local-build-record current" type="button" role="option" data-local-build-select="${escapeHtml(record.id)}">${content}</button>`
+      : `<div class="local-build-record" role="option" aria-disabled="true">${content}</div>`;
+  }).join("") : `<div class="local-build-empty">${t("localBuild.empty")}</div>`;
+}
+
+function updateLocalBuildManageMode() {
+  const saving = state.localBuildMode === "save";
+  const managing = saving && state.localBuildManaging;
+  $("toggle-local-build-manage").hidden = !saving;
+  $("toggle-local-build-manage").textContent = t(managing ? "localBuild.saveMode" : "localBuild.manage");
+  $("local-build-name").disabled = managing;
+  $("confirm-local-build-save").disabled = managing;
+  $("local-build-save-form").classList.toggle("managing", managing);
+  renderLocalBuildList();
+}
+
+function openLocalBuildDialog(mode) {
+  if (!state.selectedMech || !state.currentBuild) return;
+  state.localBuildMode = mode === "load" ? "load" : "save";
+  state.localBuildManaging = false;
+  const saving = state.localBuildMode === "save";
+  $("local-build-title").textContent = t(saving ? "localBuild.saveTitle" : "localBuild.loadTitle");
+  $("local-build-description").textContent = t(
+    saving ? "localBuild.saveDescription" : "localBuild.loadDescription",
+  );
+  $("local-build-save-form").hidden = !saving;
+  $("local-build-name").value = "";
+  setLocalBuildStatus();
+  updateLocalBuildManageMode();
+  $("local-build-overlay").hidden = false;
+  document.body.classList.add("local-build-open");
+  requestAnimationFrame(() => {
+    if (saving) $("local-build-name").focus();
+    else $("local-build-list").querySelector("button")?.focus();
+  });
+}
+
+function selectLocalBuildForSave(recordId) {
+  if (state.localBuildMode !== "save" || state.localBuildManaging) return;
+  const record = readLocalBuilds().find((entry) => entry.id === recordId);
+  if (!record || String(record.mechId) !== String(state.selectedMech?.id || "")) return;
+  $("local-build-name").value = record.saveName;
+  setLocalBuildStatus();
+  $("local-build-name").focus();
+  $("local-build-name").select();
+}
+
+function toggleLocalBuildManageMode() {
+  if (state.localBuildMode !== "save") return;
+  state.localBuildManaging = !state.localBuildManaging;
+  setLocalBuildStatus();
+  updateLocalBuildManageMode();
+  if (!state.localBuildManaging) $("local-build-name").focus();
+}
+
+function deleteNamedLocalBuild(recordId) {
+  if (state.localBuildMode !== "save" || !state.localBuildManaging) return;
+  const records = readLocalBuilds();
+  const record = records.find((entry) => entry.id === recordId);
+  if (!record) return;
+  if (!writeLocalBuilds(records.filter((entry) => entry.id !== recordId))) {
+    setLocalBuildStatus(t("localBuild.storageFailed"), "error");
+    return;
+  }
+  if (record.id.startsWith("legacy:")) {
+    const mech = mechById(record.mechId);
+    if (mech) {
+      try {
+        localStorage.removeItem(savedKey(mech));
+      } catch {
+        // The named record is already deleted; leave an inaccessible legacy key untouched.
+      }
+    }
+  }
+  renderLocalBuildList();
+  setLocalBuildStatus(t("localBuild.deleted", {
+    mech: record.mechName || mechById(record.mechId)?.display_name || record.mechId,
+    name: record.saveName,
+  }), "success");
+}
+
+function closeLocalBuildDialog() {
+  if ($("local-build-overlay").hidden) return;
+  $("local-build-overlay").hidden = true;
+  document.body.classList.remove("local-build-open");
+  const focusTarget = state.localBuildMode === "load" ? $("local-load-build") : $("local-save-build");
+  focusTarget?.focus();
+}
+
+function saveNamedLocalBuild() {
+  if (!state.selectedMech || !state.currentBuild || state.localBuildManaging) return;
+  const saveName = $("local-build-name").value.trim();
+  if (!saveName) {
+    setLocalBuildStatus(t("localBuild.nameRequired"), "error");
+    $("local-build-name").focus();
+    return;
+  }
+  const records = readLocalBuilds();
+  const mechId = String(state.selectedMech.id);
+  const existing = records.find((record) => (
+    String(record.mechId) === mechId
+    && record.saveName.trim().toLocaleLowerCase() === saveName.toLocaleLowerCase()
+  ));
+  const record = existing || {
+    id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
+  };
+  Object.assign(record, {
+    mechId: state.selectedMech.id,
+    mechName: state.selectedMech.display_name || state.selectedMech.name,
+    saveName,
+    build: JSON.parse(JSON.stringify(state.currentBuild)),
+    updatedAt: Date.now(),
+  });
+  if (!existing) records.push(record);
+  if (!writeLocalBuilds(records)) {
+    setLocalBuildStatus(t("localBuild.storageFailed"), "error");
+    return;
+  }
+  renderLocalBuildList();
+  setLocalBuildStatus(t("localBuild.saved", { mech: record.mechName, name: record.saveName }), "success");
+  $("data-status").textContent = t("localBuild.saved", { mech: record.mechName, name: record.saveName });
+}
+
+function loadNamedLocalBuild(recordId) {
+  const record = readLocalBuilds().find((entry) => entry.id === recordId);
+  const mech = record ? mechById(record.mechId) : null;
+  if (!record || !mech || !record.build) {
+    setLocalBuildStatus(t("localBuild.invalid"), "error");
+    return;
+  }
+  try {
+    state.selectedMech = mech;
+    state.selectedChassis = mech.chassis || "";
+    state.selectedItemId = null;
+    if (state.selectedChassis) state.expandedChassis.add(state.selectedChassis);
+    state.currentBuild = applyFixedOmnipods(mech, JSON.parse(JSON.stringify(record.build)));
+    state.mechlabBrowseMode = false;
+    state.mechlabCompactListOpen = false;
+    updateMechNavigation("mech", mech.id);
+    closeLocalBuildDialog();
+    renderAll();
+    $("data-status").textContent = t("localBuild.loaded", {
+      mech: mech.display_name || record.mechName,
+      name: record.saveName,
+    });
+    document.querySelector(".tab-content").scrollTop = 0;
+  } catch {
+    setLocalBuildStatus(t("localBuild.invalid"), "error");
+  }
 }
 
 function applyImportedMwoCode() {
@@ -9098,6 +9684,31 @@ function bindEvents() {
   $("loadout-code-overlay").addEventListener("mousedown", (event) => {
     if (event.target === $("loadout-code-overlay")) closeLoadoutCodeDialog();
   });
+  $("close-local-build").addEventListener("click", closeLocalBuildDialog);
+  $("confirm-local-build-save").addEventListener("click", saveNamedLocalBuild);
+  $("toggle-local-build-manage").addEventListener("click", toggleLocalBuildManageMode);
+  $("local-build-name").addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    saveNamedLocalBuild();
+  });
+  $("local-build-list").addEventListener("click", (event) => {
+    const deleteButton = event.target.closest("[data-local-build-delete]");
+    if (deleteButton) {
+      deleteNamedLocalBuild(deleteButton.dataset.localBuildDelete);
+      return;
+    }
+    const saveSlot = event.target.closest("[data-local-build-select]");
+    if (saveSlot) {
+      selectLocalBuildForSave(saveSlot.dataset.localBuildSelect);
+      return;
+    }
+    const loadSlot = event.target.closest("[data-local-build-load]");
+    if (loadSlot) loadNamedLocalBuild(loadSlot.dataset.localBuildLoad);
+  });
+  $("local-build-overlay").addEventListener("mousedown", (event) => {
+    if (event.target === $("local-build-overlay")) closeLocalBuildDialog();
+  });
   $("close-simulation").addEventListener("click", closeSimulation);
   $("reset-simulation").addEventListener("click", resetSimulationRun);
   $("simulation-scenario-options").addEventListener("change", (event) => {
@@ -9187,6 +9798,13 @@ function bindEvents() {
     renderSimulationGroupStatus();
   });
   document.addEventListener("keydown", (event) => {
+    if (!$("local-build-overlay").hidden) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeLocalBuildDialog();
+      }
+      return;
+    }
     if (!$("mech-filter-overlay").hidden) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -9624,6 +10242,8 @@ function bindEvents() {
       if (action === "simulation") openSimulation();
       else if (action === "import") openLoadoutCodeDialog("import");
       else if (action === "export") openLoadoutCodeDialog("export");
+      else if (action === "local-save") openLocalBuildDialog("save");
+      else if (action === "local-load") openLocalBuildDialog("load");
       else if (action === "tools") openBuildActionsDialog();
       return;
     }
@@ -9730,11 +10350,6 @@ function bindEvents() {
     }
   });
   document.addEventListener("dragend", clearDragState);
-  $("save-build").addEventListener("click", () => {
-    if (!state.selectedMech || !state.currentBuild) return;
-    localStorage.setItem(savedKey(state.selectedMech), JSON.stringify(state.currentBuild));
-    $("data-status").textContent = t("status.buildSaved");
-  });
 }
 
 async function loadJson(path) {

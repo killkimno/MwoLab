@@ -2565,7 +2565,22 @@ h3 {
   opacity: 0.4;
 }
 
+.local-build-actions button {
+  border-color: #6b7850;
+  background: #292d1b;
+  color: #eef3c7;
+}
+
+.local-build-actions button:hover {
+  border-color: var(--yellow);
+  background: #383c20;
+}
+
 body.loadout-code-open {
+  overflow: hidden;
+}
+
+body.local-build-open {
   overflow: hidden;
 }
 
@@ -2852,6 +2867,168 @@ body.ui-settings-open {
 
 .loadout-code-dialog-actions button {
   min-width: 7rem;
+}
+
+.local-build-dialog {
+  width: min(38rem, calc(100vw - 2rem));
+}
+
+.local-build-save-form {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.local-build-save-form[hidden] {
+  display: none;
+}
+
+.local-build-save-form > label {
+  color: #9fb2b9;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.local-build-save-form > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+}
+
+#local-build-name {
+  min-width: 0;
+  border: 1px solid #38525c;
+  border-radius: 3px;
+  background: #071013;
+  color: #d9edf4;
+}
+
+#local-build-name:focus {
+  border-color: var(--yellow);
+  outline: 1px solid var(--yellow);
+}
+
+.local-build-save-form.managing {
+  opacity: 0.5;
+}
+
+#local-build-name:disabled,
+#confirm-local-build-save:disabled {
+  cursor: not-allowed;
+}
+
+.local-build-list {
+  display: grid;
+  max-height: min(25rem, 48vh);
+  gap: 0.3rem;
+  overflow-y: auto;
+  padding: 0.15rem;
+}
+
+.local-build-record {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 2.75rem;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #33474f;
+  border-radius: 3px;
+  background: #111b1f;
+  color: #d5e2e6;
+  text-align: left;
+}
+
+button.local-build-record:hover,
+button.local-build-record:focus-visible {
+  border-color: #66b3cf;
+  background: #18313a;
+}
+
+.local-build-record.current {
+  border-left: 3px solid var(--yellow);
+  background: #222719;
+}
+
+.local-build-record-name {
+  display: flex;
+  min-width: 0;
+  gap: 0.55rem;
+  align-items: baseline;
+}
+
+.local-build-record-name strong,
+.local-build-record-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.local-build-record-name strong {
+  flex: 0 1 auto;
+  color: #e5edf0;
+}
+
+.local-build-record-name i {
+  color: #67808a;
+  font-style: normal;
+}
+
+.local-build-record-name span {
+  flex: 1 1 auto;
+  color: #b8c8ce;
+}
+
+.local-build-record-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
+.local-build-record-actions small {
+  color: var(--yellow);
+  font-size: 0.68rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.local-build-delete-button {
+  min-height: 1.85rem;
+  padding: 0.25rem 0.6rem;
+  border-color: #7b3d38;
+  background: #351b19;
+  color: #ffaaa2;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.local-build-delete-button:hover,
+.local-build-delete-button:focus-visible {
+  border-color: #e6665b;
+  background: #54231f;
+  color: #fff;
+}
+
+.local-build-manage-button {
+  width: 100%;
+  min-height: 2.35rem;
+  border-color: #66747a;
+  background: #252d30;
+  color: #dbe4e7;
+  font-weight: 800;
+}
+
+.local-build-manage-button:hover {
+  border-color: #90abb5;
+  background: #344147;
+}
+
+.local-build-empty {
+  padding: 1.4rem 0.75rem;
+  border: 1px dashed #38505a;
+  color: var(--muted);
+  text-align: center;
 }
 
 body.simulation-open {
