@@ -6339,7 +6339,7 @@ function weaponCriticalChanceValues(item) {
 
 function weaponCriticalChanceText(item) {
   const values = weaponCriticalChanceValues(item);
-  if (!values.length) return "-";
+  if (!values.some((value) => Math.abs(value) > 0.000001)) return "-";
   return values.map((value) => Math.abs(value + 1) < 0.0001 ? "X" : equipmentInfoValue(value * 100, 2, "%")).join(" / ");
 }
 
@@ -6347,8 +6347,14 @@ function equipmentInfoWeaponRow(item, index) {
   const stats = item.stats || {};
   const ranges = weaponTooltipRanges(item);
   const timing = simulationWeaponTiming(item, []);
-  const damage = weaponDirectDamage(item);
-  const splashDamage = weaponSplashDamage(item) * 2;
+  const damageRate = weaponDamageRate(item, []);
+  const usesPerSecondStats = Boolean(damageRate);
+  const directDamage = weaponDirectDamage(item);
+  const damage = usesPerSecondStats ? damageRate.base : directDamage;
+  const damageRateMultiplier = usesPerSecondStats && directDamage > 0
+    ? damage / directDamage
+    : 1;
+  const splashDamage = weaponSplashDamage(item) * 2 * damageRateMultiplier;
   const totalDamage = damage + splashDamage;
   const heat = itemHeat(item);
   const expectedCooldown = weaponExpectedCooldown(item, []) ?? timing.cooldown;
@@ -6358,8 +6364,13 @@ function equipmentInfoWeaponRow(item, index) {
   const criticalChance = criticalChanceValues.find((value) => Math.abs(value) > 0.000001) ?? Number.NaN;
   const criticalDamage = Number(stats.critDamMult);
   const jam = ultraAutoCannonJamStats(item, []);
-  const dps = expectedCooldown > 0 ? totalDamage / expectedCooldown : Number.NaN;
-  const hps = expectedCooldown > 0 && heat > 0 ? heat / expectedCooldown : Number.NaN;
+  const dps = usesPerSecondStats
+    ? totalDamage
+    : (expectedCooldown > 0 ? totalDamage / expectedCooldown : Number.NaN);
+  const hps = usesPerSecondStats
+    ? heat
+    : (expectedCooldown > 0 && heat > 0 ? heat / expectedCooldown : Number.NaN);
+  const perSecondUnit = usesPerSecondStats ? "/s" : "";
   const name = item.display_name || item.name || "-";
   const health = Number(stats.Health ?? stats.health);
   return {
@@ -6393,9 +6404,9 @@ function equipmentInfoWeaponRow(item, index) {
       name,
       weaponType: equipmentInfoWeaponTypeLabel(item),
       damage: splashDamage > 0
-        ? `${equipmentInfoValue(damage, 2)} + ${equipmentInfoValue(splashDamage, 2)}`
-        : equipmentInfoValue(damage, 2),
-      heat: equipmentInfoValue(heat, 2),
+        ? `${equipmentInfoValue(damage, 2, perSecondUnit)} + ${equipmentInfoValue(splashDamage, 2, perSecondUnit)}`
+        : equipmentInfoValue(damage, 2, perSecondUnit),
+      heat: equipmentInfoValue(heat, 2, perSecondUnit),
       cooldown: equipmentInfoValue(timing.cooldown, 2, "s"),
       expectedCooldown: equipmentInfoValue(expectedCooldown, 2, "s"),
       duration: number(stats.duration) > 0 ? equipmentInfoValue(timing.duration, 2, "s") : "-",
@@ -7815,15 +7826,15 @@ function amsDamagePerSecond(item, quirks = []) {
   return { base, final: base + additive };
 }
 
+function weaponDamageRate(item, quirks = []) {
+  if (isAmsWeapon(item)) return amsDamagePerSecond(item, quirks);
+  if (isRofDamageWeapon(item)) return weaponDamagePerSecond(item, quirks);
+  return null;
+}
+
 function weaponDamageTooltipValue(item, quirks = []) {
-  if (isAmsWeapon(item)) {
-    const damagePerSecond = amsDamagePerSecond(item, quirks);
-    return tooltipQuirkValue(damagePerSecond.base, damagePerSecond.final, 1, "/s");
-  }
-  if (isRofDamageWeapon(item)) {
-    const damagePerSecond = weaponDamagePerSecond(item, quirks);
-    return tooltipQuirkValue(damagePerSecond.base, damagePerSecond.final, 1, "/s");
-  }
+  const damageRate = weaponDamageRate(item, quirks);
+  if (damageRate) return tooltipQuirkValue(damageRate.base, damageRate.final, 1, "/s");
   const directDamage = tooltipNumber(weaponDirectDamage(item), 1);
   const totalSplashDamage = weaponSplashDamage(item) * 2;
   if (!(totalSplashDamage > 0)) return directDamage;
@@ -7906,12 +7917,30 @@ function weaponTooltipStatistics(item, quirks = []) {
   const totalDamage = Math.max(0, weaponTotalDamage(item));
   const baseHeat = Math.max(0, itemHeat(item));
   const finalHeat = Math.max(0, simulationWeaponHeat(item, quirks));
+  const damageRate = weaponDamageRate(item, quirks);
   const hasCooldown = number(stats.cooldown) > 0;
   const baseExpectedCooldown = weaponExpectedCooldown(item, []);
   const finalExpectedCooldown = weaponExpectedCooldown(item, quirks);
   const baseCycle = baseExpectedCooldown ?? simulationWeaponTiming(item, []).cooldown;
   const finalCycle = finalExpectedCooldown ?? simulationWeaponTiming(item, quirks).cooldown;
   const rows = [];
+
+  if (damageRate) {
+    if (damageRate.base > 0) {
+      rows.push(["DPS", tooltipQuirkValue(damageRate.base, damageRate.final, 2)]);
+    }
+    if (baseHeat > 0 && damageRate.base > 0) {
+      rows.push(["HPD", tooltipQuirkValue(
+        damageRate.base / baseHeat,
+        damageRate.final / finalHeat,
+        2,
+      )]);
+    }
+    if (baseHeat > 0) {
+      rows.push(["HPS", tooltipQuirkValue(baseHeat, finalHeat, 2)]);
+    }
+    return rows;
+  }
 
   if (hasCooldown && totalDamage > 0 && baseCycle > 0 && finalCycle > 0) {
     rows.push(["DPS", tooltipQuirkValue(totalDamage / baseCycle, totalDamage / finalCycle, 2)]);
@@ -8029,7 +8058,12 @@ function equipmentTooltipGroups(item) {
       + simulationSpecificQuirkTotal(quirks, item, "_velocity_multiplier", "increase");
     const timingRows = [
       ["DAMAGE", weaponDamageTooltipValue(item, quirks)],
-      ["HEAT", tooltipQuirkValue(itemHeat(item), heat, 2)],
+      ["HEAT", tooltipQuirkValue(
+        itemHeat(item),
+        heat,
+        2,
+        weaponDamageRate(item, quirks) ? "/s" : "",
+      )],
     ];
     if (number(stats.cooldown) > 0) {
       timingRows.push([

@@ -244,8 +244,8 @@ h3 {
 
 .equipment-info-group {
   --equipment-info-accent: var(--blue);
-  width: 86rem;
-  max-width: 86rem;
+  width: max-content;
+  max-width: none;
   min-width: 86rem;
   margin-inline: 0;
   overflow: visible;
@@ -263,8 +263,8 @@ h3 {
 .equipment-info-jam-weapons { --equipment-info-accent: var(--red); }
 .equipment-info-modules {
   --equipment-info-accent: var(--purple);
-  width: 68rem;
-  max-width: 68rem;
+  width: max-content;
+  max-width: none;
   min-width: 68rem;
 }
 
@@ -301,7 +301,7 @@ h3 {
 }
 
 .equipment-info-table {
-  width: 100%;
+  width: max-content;
   min-width: 86rem;
   border-collapse: separate;
   border-spacing: 0;
@@ -384,6 +384,10 @@ h3 {
   color: var(--yellow);
   font-size: 0.65rem;
   text-align: center;
+}
+
+.equipment-info-sort-indicator:empty {
+  display: none;
 }
 
 .equipment-info-table tbody th {
