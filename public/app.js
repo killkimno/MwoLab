@@ -1106,6 +1106,7 @@ const state = {
   mechlabQuirkValuesCache: new Map(),
   weaponQuirkTypeCache: null,
   weaponQuirkTargetCache: null,
+  alwaysAppliedWeaponModuleBonusCache: new Map(),
   artemisSpreadMultiplierCache: null,
   ammoHardpointTypeCache: null,
   ecmOmnipodIds: null,
@@ -1166,7 +1167,9 @@ function number(value, fallback = 0) {
 
 function fmt(value, digits = 1) {
   const numeric = number(value);
-  return Number.isInteger(numeric) ? `${numeric}` : numeric.toFixed(digits);
+  return Number.isInteger(numeric)
+    ? `${numeric}`
+    : numeric.toFixed(digits).replace(/(?:\.0+|(\.\d*?)0+)$/, "$1");
 }
 
 function weaponProjectilesPerFiring(item) {
@@ -1174,14 +1177,62 @@ function weaponProjectilesPerFiring(item) {
   return Math.max(1, Math.trunc(number(item?.stats?.numPerShot, 1)));
 }
 
-function weaponDirectDamage(item) {
+function weaponBaseDirectDamage(item) {
   return number(item?.stats?.damage)
     * number(item?.stats?.numFiring, 1)
     * weaponProjectilesPerFiring(item);
 }
 
+function alwaysAppliedWeaponModuleBonus(item) {
+  if (item?.item_type !== "weapon") return { damage: 0, heat: 0 };
+  const cacheKey = String(item.id ?? item.name ?? "");
+  const cached = state.alwaysAppliedWeaponModuleBonusCache.get(cacheKey);
+  if (cached) return cached;
+
+  const weaponKey = normalizeLookupKey(item.name);
+  const matchingModules = Object.values(state.equipment?.items || {}).filter((module) => (
+    module?.item_type === "module"
+    && number(module.stats?.amountAllowed) === 2
+    && (module.weapon_stat_filters || []).some((filter) => (
+      (filter.compatible_weapons || []).some((name) => normalizeLookupKey(name) === weaponKey)
+      && (filter.weapon_stats || []).some((stats) => (
+        String(stats.operation || "") === "+"
+        && (number(stats.damage) !== 0 || number(stats.heat) !== 0)
+      ))
+    ))
+  ));
+  const module = matchingModules.find((candidate) => (
+    normalizeFactionKey(candidate.faction) === normalizeFactionKey(item.faction)
+  )) || matchingModules[0];
+  const count = Math.max(0, Math.trunc(number(module?.stats?.amountAllowed)));
+  const bonus = { damage: 0, heat: 0 };
+  (module?.weapon_stat_filters || []).forEach((filter) => {
+    if (!(filter.compatible_weapons || []).some((name) => normalizeLookupKey(name) === weaponKey)) return;
+    (filter.weapon_stats || []).forEach((stats) => {
+      if (String(stats.operation || "") !== "+") return;
+      bonus.damage += number(stats.damage) * count;
+      bonus.heat += number(stats.heat) * count;
+    });
+  });
+  state.alwaysAppliedWeaponModuleBonusCache.set(cacheKey, bonus);
+  return bonus;
+}
+
+function weaponBonusDirectDamage(item) {
+  return alwaysAppliedWeaponModuleBonus(item).damage
+    * number(item?.stats?.numFiring, 1)
+    * weaponProjectilesPerFiring(item);
+}
+
+function weaponDirectDamage(item) {
+  return weaponBaseDirectDamage(item) + weaponBonusDirectDamage(item);
+}
+
 function weaponSplashDamage(item) {
-  return weaponDirectDamage(item) * Math.max(0, number(item?.stats?.splashPercent));
+  const splashPercent = Math.max(0, number(item?.stats?.splashPercent));
+  // The capacitor bonus is total splash; this helper returns the value for one side.
+  return weaponBaseDirectDamage(item) * splashPercent
+    + weaponBonusDirectDamage(item) * splashPercent / 2;
 }
 
 function weaponTotalDamage(item, includeSplash = true) {
@@ -1453,7 +1504,7 @@ function itemTons(item) {
 }
 
 function itemHeat(item) {
-  return number(item?.stats?.heat);
+  return number(item?.stats?.heat) + alwaysAppliedWeaponModuleBonus(item).heat;
 }
 
 function engineIncludedHeatSinkCount(engine) {
@@ -6378,7 +6429,7 @@ function equipmentInfoWeaponRow(item, index) {
       index,
       name,
       weaponType: equipmentHardpointType(item),
-      damage,
+      damage: totalDamage,
       heat,
       cooldown: timing.cooldown,
       expectedCooldown,
