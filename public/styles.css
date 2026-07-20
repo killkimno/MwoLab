@@ -4338,6 +4338,11 @@ body.simulation-open {
   color: #4cb5f5;
 }
 
+.quirk-tone-global,
+.quirk-tone-global .quirk-value {
+  color: #4cb5f5;
+}
+
 .quirk-tone-energy,
 .quirk-tone-energy .quirk-value {
   color: #f0e51e;
@@ -4345,12 +4350,41 @@ body.simulation-open {
 
 .quirk-tone-missile,
 .quirk-tone-missile .quirk-value {
-  color: #3b8c95;
+  color: #45da86;
+}
+
+.quirk-tone-ballistic,
+.quirk-tone-ballistic .quirk-value {
+  color: #cb78f5;
+}
+
+.quirk-tone-other,
+.quirk-tone-other .quirk-value {
+  color: #ff9b42;
 }
 
 .quirk-tone-armor,
 .quirk-tone-armor .quirk-value {
   color: #f3f4ee;
+}
+
+.quirk-tone-structure,
+.quirk-tone-structure .quirk-value {
+  color: #b8c8ce;
+}
+
+.quirk-tone-ammo,
+.quirk-tone-ammo .quirk-value {
+  color: #ff9b42;
+}
+
+.quirk.inactive,
+.quirk.inactive .quirk-value,
+.mech-summary-quirk.inactive,
+.mech-summary-quirk.inactive strong,
+.omnipod-tooltip-quirk.inactive,
+.omnipod-tooltip-quirk.inactive strong {
+  color: #596267 !important;
 }
 
 .components-panel,
@@ -5477,6 +5511,97 @@ body.pointer-drag-active * {
   color: #aab9be;
   font-size: 0.792rem;
   line-height: 1.4;
+}
+
+.omnipod-tooltip-card {
+  min-width: min(19rem, calc(100vw - 1rem));
+}
+
+.omnipod-tooltip-section {
+  border-top: 1px solid #263840;
+  padding: 0.55rem 0.65rem;
+}
+
+.omnipod-tooltip-section-title {
+  color: #70b8cf;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.35rem;
+}
+
+.omnipod-tooltip-so8-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.omnipod-tooltip-so8-title strong {
+  color: #596267;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+}
+
+.omnipod-tooltip-so8-title strong.active {
+  color: #45da86;
+}
+
+.omnipod-tooltip-rows {
+  display: grid;
+  gap: 1px;
+}
+
+.omnipod-tooltip-hardpoints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  min-height: 1.55rem;
+}
+
+.omnipod-tooltip-hardpoints .hardpoint-chip {
+  min-height: 1.55rem;
+  border-color: #49697b;
+  background: #0a1217;
+  box-shadow: inset 0 0 0 1px rgba(112, 181, 232, 0.08);
+}
+
+.omnipod-tooltip-hardpoints .hardpoint-icon {
+  height: 1.55rem;
+}
+
+.omnipod-tooltip-quirk {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  min-height: 1.45rem;
+  background: #111719;
+  padding: 0.18rem 0.35rem;
+  font-size: 0.75rem;
+}
+
+.omnipod-tooltip-quirk:nth-child(even) {
+  background: #192125;
+}
+
+.omnipod-tooltip-quirk span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.omnipod-tooltip-quirk strong {
+  color: currentColor;
+  white-space: nowrap;
+}
+
+.omnipod-tooltip-empty {
+  color: #596267;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.25rem 0.35rem;
 }
 
 .equipment-panel .item-row {

@@ -266,6 +266,7 @@ const TEXT = {
     "info.selectMechHint": "왼쪽 목록에서 카테고리를 펼친 뒤 멕을 선택하세요.",
     "info.applyQuirks": "쿼크 적용",
     "info.quirkSummary": "쿼크 서머리",
+    "info.ammoQuirks": "탄약 쿼크",
     "info.noSpecialQuirks": "특수 쿼크 없음",
     "info.specialQuirks": "특수 쿼크",
     "info.cooldown": "쿨 다운",
@@ -650,6 +651,7 @@ const TEXT = {
     "info.selectMechHint": "Expand a category in the left list, then choose a mech.",
     "info.applyQuirks": "Apply quirks",
     "info.quirkSummary": "Quirk Summary",
+    "info.ammoQuirks": "AMMO QUIRKS",
     "info.noSpecialQuirks": "No special quirks",
     "info.specialQuirks": "Special quirks",
     "info.cooldown": "Cooldown",
@@ -2630,7 +2632,7 @@ function setupMechlabAutoScale() {
   scheduleMechlabScaleUpdate();
 }
 
-function addQuirk(collector, quirk, source) {
+function addQuirk(collector, quirk, source, details = {}) {
   if (!quirk?.name) return;
   const key = quirk.name;
   if (!collector.has(key)) {
@@ -2639,17 +2641,27 @@ function addQuirk(collector, quirk, source) {
       display_name: quirk.display_name || quirk.name,
       value: 0,
       sources: new Set(),
+      contributions: [],
     });
   }
   const entry = collector.get(key);
   entry.value += number(quirk.value);
   if (source) entry.sources.add(source);
+  entry.contributions.push({
+    name: quirk.name,
+    display_name: quirk.display_name || quirk.name,
+    value: number(quirk.value),
+    source,
+    ...details,
+  });
 }
 
 function effectiveQuirks(mech = state.selectedMech, build = state.currentBuild) {
   const collector = new Map();
   const definition = currentDefinition(mech);
-  (definition.quirks || []).forEach((quirk) => addQuirk(collector, quirk, "Variant"));
+  (definition.quirks || []).forEach((quirk) => addQuirk(collector, quirk, "Variant", {
+    sourceKind: "variant",
+  }));
 
   const setCounts = {};
   const setBonuses = {};
@@ -2658,7 +2670,16 @@ function effectiveQuirks(mech = state.selectedMech, build = state.currentBuild) 
     if (!podId) continue;
     const pod = state.omnipods[String(podId)];
     if (!pod) continue;
-    (pod.quirks || []).forEach((quirk) => addQuirk(collector, quirk, COMPONENT_NAMES[component] || "Omnipod"));
+    (pod.quirks || []).forEach((quirk) => addQuirk(
+      collector,
+      quirk,
+      COMPONENT_NAMES[component] || "Omnipod",
+      {
+        sourceKind: component === "centre_torso" ? "fixedCt" : "omnipod",
+        component,
+        podId: pod.id,
+      },
+    ));
     if (pod.set) {
       setCounts[pod.set] = (setCounts[pod.set] || 0) + 1;
       setBonuses[pod.set] = pod.set_bonuses || [];
@@ -2668,7 +2689,16 @@ function effectiveQuirks(mech = state.selectedMech, build = state.currentBuild) 
   for (const [setName, count] of Object.entries(setCounts)) {
     for (const bonus of setBonuses[setName] || []) {
       if (count >= number(bonus.piece_count)) {
-        (bonus.quirks || []).forEach((quirk) => addQuirk(collector, quirk, `${setName.toUpperCase()} ${bonus.piece_count}pc`));
+        (bonus.quirks || []).forEach((quirk) => addQuirk(
+          collector,
+          quirk,
+          `${setName.toUpperCase()} ${bonus.piece_count}pc`,
+          {
+            sourceKind: "setBonus",
+            setName,
+            pieceCount: number(bonus.piece_count),
+          },
+        ));
       }
     }
   }
@@ -2956,12 +2986,202 @@ function quirkSectionTitle(quirk) {
   return match ? `SET OF ${match[1]}` : "QUIRKS";
 }
 
+const GLOBAL_HEAT_QUIRK_NAMES = new Set([
+  "all_heat_multiplier",
+  "heatdissipation_multiplier",
+  "maxheat_multiplier",
+]);
+
+const GLOBAL_WEAPON_QUIRK_PATTERN = /^all_(?:cooldown|jamchance|range|spread|velocity)_/;
+
+function isAmmoQuirk(quirk) {
+  const name = String(quirk?.name || "").toLowerCase();
+  const displayName = String(quirk?.display_name || "").toLowerCase();
+  return name.startsWith("ammocapacity_") || displayName.includes("ammo capacity");
+}
+
+function quirkWeaponType(quirk) {
+  const name = String(quirk?.name || "").toLowerCase();
+  if (GLOBAL_WEAPON_QUIRK_PATTERN.test(name)) return "all";
+  if (name.startsWith("energy_")) return "energy";
+  if (name.startsWith("missile_")) return "missile";
+  if (name.startsWith("ballistic_")) return "ballistic";
+
+  const normalizedName = normalizeLookupKey(name);
+  const match = weaponQuirkTargets().quirkPrefixes
+    .find((entry) => normalizedName.startsWith(entry.prefix));
+  if (match) return match.type;
+
+  if (/^(?:laser|erlaser|nonpulselaser|pulselaser|ppcfamily|tag)/.test(normalizedName)) return "energy";
+  if (/^(?:atm|lrm|mrm|narcbeacon|rocketlauncher|srm|streaksrm)/.test(normalizedName)) return "missile";
+  if (/^(?:autocannon|gauss|lbxautocannon|machinegun|rotaryautocannon|ultraautocannon)/.test(normalizedName)) return "ballistic";
+  if (normalizedName.startsWith("antimissilesystem") || normalizedName.startsWith("clanantimissilesystem")) return "all";
+  return null;
+}
+
+function quirkDisplayCategory(quirk) {
+  const name = String(quirk?.name || "").toLowerCase();
+  if (isAmmoQuirk(quirk)) return "ammo";
+  if (GLOBAL_HEAT_QUIRK_NAMES.has(name)) return "globalHeat";
+  const weaponType = quirkWeaponType(quirk);
+  if (weaponType) return `weapon-${weaponType}`;
+  if (name.startsWith("armorresist_") || name.startsWith("increasedarmor_")) return "armor";
+  if (name.startsWith("internalresist_") || name.startsWith("increasedstructure_")) return "structure";
+  return "other";
+}
+
+const QUIRK_CATEGORY_ORDER = Object.freeze({
+  globalHeat: 0,
+  "weapon-all": 1,
+  "weapon-energy": 2,
+  "weapon-missile": 3,
+  "weapon-ballistic": 4,
+  other: 5,
+  armor: 6,
+  structure: 7,
+  ammo: 8,
+});
+
+function sortQuirksForDisplay(quirks) {
+  return quirks
+    .map((quirk, index) => ({ quirk, index }))
+    .sort((left, right) => (
+      number(QUIRK_CATEGORY_ORDER[quirkDisplayCategory(left.quirk)], 99)
+      - number(QUIRK_CATEGORY_ORDER[quirkDisplayCategory(right.quirk)], 99)
+      || left.index - right.index
+    ))
+    .map((entry) => entry.quirk);
+}
+
+function partitionDisplayQuirks(quirks) {
+  return {
+    regular: quirks.filter((quirk) => !isAmmoQuirk(quirk)),
+    ammo: quirks.filter(isAmmoQuirk),
+  };
+}
+
+function aggregateQuirkContributions(contributions) {
+  const collector = new Map();
+  contributions.forEach((contribution) => {
+    const key = String(contribution?.name || "");
+    if (!key) return;
+    if (!collector.has(key)) {
+      collector.set(key, {
+        name: key,
+        display_name: contribution.display_name || key,
+        value: 0,
+        sources: new Set(),
+      });
+    }
+    const entry = collector.get(key);
+    entry.value += number(contribution.value);
+    if (contribution.source) entry.sources.add(contribution.source);
+  });
+  return Array.from(collector.values()).map((quirk) => ({
+    ...quirk,
+    value_text: quirkValueText(quirk.name, quirk.value),
+    source_text: Array.from(quirk.sources).join(", "),
+    inactive: contributions
+      .filter((contribution) => contribution.name === quirk.name)
+      .every((contribution) => contribution.inactive === true),
+  }));
+}
+
+function fixedCtOmnipod(build = state.currentBuild) {
+  return podById(build?.components?.centre_torso?.omnipod);
+}
+
+function omnipodSetPieceCount(pod, build = state.currentBuild) {
+  if (!pod?.set) return 0;
+  return Object.values(build?.components || {}).reduce((count, component) => {
+    const installedPod = podById(component?.omnipod);
+    return count + (installedPod?.set === pod.set ? 1 : 0);
+  }, 0);
+}
+
+function omnipodSetBonusQuirks(pod, pieceCount) {
+  return (pod?.set_bonuses || [])
+    .filter((bonus) => number(bonus.piece_count) === pieceCount)
+    .flatMap((bonus) => bonus.quirks || []);
+}
+
+function omnipodSetBonusInfo(pod, pieceCount, build = state.currentBuild) {
+  const installedPieces = omnipodSetPieceCount(pod, build);
+  return {
+    pieceCount,
+    installedPieces,
+    active: installedPieces >= pieceCount,
+    quirks: omnipodSetBonusQuirks(pod, pieceCount),
+  };
+}
+
+function omnipodDisplayQuirkGroups(
+  quirks,
+  mech = state.selectedMech,
+  build = state.currentBuild,
+) {
+  const groups = {
+    fixedCt: [],
+    regular: [],
+    so6: [],
+    so8: [],
+    ammo: [],
+  };
+  quirks.forEach((quirk) => {
+    const contributions = quirk.contributions?.length
+      ? quirk.contributions
+      : [{ ...quirk, sourceKind: "omnipod", source: quirk.source_text }];
+    contributions.forEach((contribution) => {
+      if (contribution.sourceKind === "setBonus") {
+        if (contribution.pieceCount === 6) {
+          if (isAmmoQuirk(contribution)) groups.ammo.push(contribution);
+          else groups.so6.push(contribution);
+        }
+        return;
+      }
+      if (isAmmoQuirk(contribution)) {
+        groups.ammo.push(contribution);
+      } else if (contribution.sourceKind === "fixedCt") {
+        groups.fixedCt.push(contribution);
+      } else {
+        groups.regular.push(contribution);
+      }
+    });
+  });
+  const ctPod = fixedCtOmnipod(build);
+  const so8Info = omnipodSetBonusInfo(ctPod, 8, build);
+  so8Info.quirks.forEach((quirk) => {
+    const contribution = {
+      ...quirk,
+      source: `${String(ctPod?.set || "").toUpperCase()} 8pc`,
+      sourceKind: "setBonus",
+      pieceCount: 8,
+      inactive: !so8Info.active,
+    };
+    if (isAmmoQuirk(contribution)) groups.ammo.push(contribution);
+    else groups.so8.push(contribution);
+  });
+  const aggregated = Object.fromEntries(
+    Object.entries(groups).map(([key, contributions]) => [key, aggregateQuirkContributions(contributions)]),
+  );
+  return {
+    ...aggregated,
+    so8Info,
+    ctPod,
+    isOmni: hasFixedOmnipods(mech),
+  };
+}
+
 function quirkToneClass(quirk) {
-  const text = `${quirk.name || ""} ${quirk.display_name || ""}`.toLowerCase();
-  if (text.includes("laser") || text.includes("energy")) return "quirk-tone-energy";
-  if (text.includes("missile") || text.includes("lrm") || text.includes("srm") || text.includes("atm") || text.includes("narc")) return "quirk-tone-missile";
-  if (text.includes("armor") || text.includes("structure") || text.includes("resist")) return "quirk-tone-armor";
-  return "quirk-tone-default";
+  const category = quirkDisplayCategory(quirk);
+  if (category === "globalHeat" || category === "weapon-all") return "quirk-tone-global";
+  if (category === "weapon-energy") return "quirk-tone-energy";
+  if (category === "weapon-missile") return "quirk-tone-missile";
+  if (category === "weapon-ballistic") return "quirk-tone-ballistic";
+  if (category === "armor") return "quirk-tone-armor";
+  if (category === "structure") return "quirk-tone-structure";
+  if (category === "ammo") return "quirk-tone-ammo";
+  return "quirk-tone-other";
 }
 
 function quirkReduction(quirks, name) {
@@ -3002,7 +3222,12 @@ function weaponQuirkTargets() {
     }
   }
 
-  state.weaponQuirkTargetCache = { aliasTypes, weapons, weaponsByKey };
+  const quirkPrefixes = Array.from(aliasTypes.entries())
+    .filter(([prefix, types]) => prefix.length >= 3 && types.size === 1)
+    .map(([prefix, types]) => ({ prefix, type: Array.from(types)[0] }))
+    .sort((left, right) => right.prefix.length - left.prefix.length);
+
+  state.weaponQuirkTargetCache = { aliasTypes, weapons, weaponsByKey, quirkPrefixes };
   return state.weaponQuirkTargetCache;
 }
 
@@ -3525,12 +3750,12 @@ function attackQuirkSummary(quirks) {
   return `${cooldownQuirkSummary(quirks)}${heatQuirkSummary(quirks)}${rangeQuirkSummary(quirks)}${velocityQuirkSummary(quirks)}${durationQuirkSummary(quirks)}${spreadQuirkSummary(quirks)}${durabilityQuirkSummary(quirks)}`;
 }
 
-function renderQuirkList(quirks, emptyText = "No quirks") {
+function renderQuirkList(quirks, emptyText = "No quirks", options = {}) {
   if (!quirks.length) return `<div class="empty">${emptyText}</div>`;
 
   const sections = [];
-  for (const quirk of quirks) {
-    const title = quirkSectionTitle(quirk);
+  for (const quirk of sortQuirksForDisplay(quirks)) {
+    const title = options.showSourceSections === false ? "QUIRKS" : quirkSectionTitle(quirk);
     let section = sections.find((entry) => entry.title === title);
     if (!section) {
       section = { title, quirks: [] };
@@ -3539,7 +3764,8 @@ function renderQuirkList(quirks, emptyText = "No quirks") {
     section.quirks.push(quirk);
   }
 
-  return `${attackQuirkSummary(quirks)}${sections
+  const summary = options.includeSummary === false ? "" : attackQuirkSummary(quirks);
+  return `${summary}${sections
     .map((section) => `
       <div class="quirk-section">
         ${section.title === "QUIRKS" ? "" : `<div class="quirk-section-title">${section.title}</div>`}
@@ -3548,7 +3774,7 @@ function renderQuirkList(quirks, emptyText = "No quirks") {
             .map((quirk) => {
               const tone = quirkToneClass(quirk);
               return `
-                <div class="quirk ${tone}" title="${quirk.source_text || quirk.name}">
+                <div class="quirk ${tone}${quirk.inactive ? " inactive" : ""}" title="${quirk.source_text || quirk.name}">
                   <span class="quirk-name">${quirk.display_name}</span>
                   <span class="quirk-value">${quirk.value_text}</span>
                 </div>
@@ -3561,15 +3787,71 @@ function renderQuirkList(quirks, emptyText = "No quirks") {
     .join("")}`;
 }
 
-function renderInfoQuirks(quirks) {
+function renderInfoQuirkCard(title, quirks, options = {}) {
+  if (!quirks.length && !options.showEmpty) return "";
   return `
     <section class="info-card info-quirks-card">
       <div class="section-title-row">
-        <h3>QUIRKS</h3>
+        <h3>${title}</h3>
       </div>
-      <div class="quirks">${renderQuirkList(quirks)}</div>
+      <div class="quirks">${renderQuirkList(quirks, "No quirks", {
+        includeSummary: options.includeSummary,
+        showSourceSections: options.showSourceSections,
+      })}</div>
     </section>
   `;
+}
+
+function renderInfoQuirkSummaryCard(quirks) {
+  const summary = attackQuirkSummary(quirks);
+  return `
+    <section class="info-card info-quirks-card info-quirk-detail-summary-card">
+      <div class="section-title-row">
+        <h3>QUIRK SUMMARY</h3>
+      </div>
+      <div class="quirks">${summary || '<div class="empty">No quirks</div>'}</div>
+    </section>
+  `;
+}
+
+function renderInfoQuirks(quirks, mech = state.selectedMech, build = state.currentBuild) {
+  if (hasFixedOmnipods(mech)) {
+    const groups = omnipodDisplayQuirkGroups(quirks, mech, build);
+    return [
+      renderInfoQuirkSummaryCard(quirks),
+      renderInfoQuirkCard("CT - FIXED QUIRKS", groups.fixedCt, {
+        includeSummary: false,
+        showSourceSections: false,
+        showEmpty: true,
+      }),
+      renderInfoQuirkCard("QUIRKS", groups.regular, {
+        includeSummary: false,
+        showSourceSections: false,
+        showEmpty: true,
+      }),
+      renderInfoQuirkCard("SO6", groups.so6, {
+        includeSummary: false,
+        showSourceSections: false,
+      }),
+      renderInfoQuirkCard("SO8", groups.so8, {
+        includeSummary: false,
+        showSourceSections: false,
+        showEmpty: true,
+      }),
+      renderInfoQuirkCard("AMMO", groups.ammo, {
+        includeSummary: false,
+        showSourceSections: false,
+      }),
+    ].join("");
+  }
+
+  const displayQuirks = partitionDisplayQuirks(quirks);
+  return `${renderInfoQuirkSummaryCard(quirks)}${renderInfoQuirkCard("QUIRKS", displayQuirks.regular, {
+    includeSummary: false,
+    showEmpty: true,
+  })}${renderInfoQuirkCard(t("info.ammoQuirks"), displayQuirks.ammo, {
+    includeSummary: false,
+  })}`;
 }
 
 function compareMechs() {
@@ -3593,6 +3875,7 @@ function infoDataForMech(mech, applyQuirks = state.infoApplyQuirks) {
 
   return {
     mech,
+    build,
     stats,
     quirks: effectiveQuirks(mech, build),
     armorRows,
@@ -4063,7 +4346,7 @@ function renderStatsInfoDetail(mech) {
       [t("info.minEngine"), formatInfoNumber(number(stats.MinEngineRating), 0)],
       [t("info.maxEngine"), formatInfoNumber(number(stats.MaxEngineRating), 0)],
     ]),
-    renderInfoQuirks(data.quirks),
+    renderInfoQuirks(data.quirks, data.mech, data.build),
   ].join("");
 }
 
@@ -5068,20 +5351,34 @@ function renderMechSummaryAmmo(weapons) {
   `;
 }
 
-function renderMechSummaryQuirks(quirks) {
-  return `
+function renderMechSummaryQuirks(quirks, mech = state.selectedMech) {
+  const renderSection = (title, entries, showEmpty = false) => entries.length || showEmpty ? `
     <section class="mech-summary-section mech-summary-quirks-section">
-      <h3>QUIRKS</h3>
+      <h3>${title}</h3>
       <div class="mech-summary-quirks">
-        ${quirks.length ? quirks.map((quirk) => `
-          <div class="mech-summary-quirk ${quirkToneClass(quirk)}" title="${escapeHtml(quirk.source_text || quirk.name)}">
+        ${entries.length ? sortQuirksForDisplay(entries).map((quirk) => `
+          <div class="mech-summary-quirk ${quirkToneClass(quirk)}${quirk.inactive ? " inactive" : ""}" title="${escapeHtml(quirk.source_text || quirk.name)}">
             <span>${escapeHtml(quirk.display_name)}</span>
             <strong>${escapeHtml(quirk.value_text)}</strong>
           </div>
         `).join("") : '<div class="empty">No quirks</div>'}
       </div>
     </section>
-  `;
+  ` : "";
+
+  if (hasFixedOmnipods(mech)) {
+    const groups = omnipodDisplayQuirkGroups(quirks);
+    return [
+      renderSection("CT - FIXED QUIRKS", groups.fixedCt, true),
+      renderSection("QUIRKS", groups.regular, true),
+      renderSection("SO6", groups.so6),
+      renderSection("SO8", groups.so8, true),
+      renderSection("AMMO", groups.ammo),
+    ].join("");
+  }
+
+  const displayQuirks = partitionDisplayQuirks(quirks);
+  return `${renderSection("QUIRKS", displayQuirks.regular, true)}${renderSection(t("info.ammoQuirks"), displayQuirks.ammo)}`;
 }
 
 function renderMechSummary(calc = null) {
@@ -5411,6 +5708,13 @@ function simulationWeaponDamage(weapon, shotCount = 1) {
   return number(damage) * Math.max(0, number(shotCount, 1)) * simulationWeaponDamageMultiplier(weapon);
 }
 
+function simulationWeaponDamagePerSecond(weapon) {
+  const damage = state.simulation.applySplashDamage
+    ? weapon.damagePerSecond
+    : weapon.directDamagePerSecond;
+  return number(damage) * simulationWeaponDamageMultiplier(weapon);
+}
+
 function isSimulationMachineGun(item) {
   return simulationItemKeys(item).has("machinegun")
     || normalizeLookupKey(item?.name).includes("machinegun");
@@ -5480,13 +5784,21 @@ function collectSimulationWeapons() {
       const timing = simulationWeaponTiming(item, quirks);
       const expectedCooldown = weaponExpectedCooldown(item, quirks);
       const targetComputer = targetComputerWeaponModifiers(item);
+      const directDamage = weaponDirectDamage(item);
+      const splashDamage = weaponSplashDamage(item);
+      const damageRate = weaponDamageRate(item, quirks);
+      const directDamagePerSecond = damageRate?.final ?? directDamage / timing.cycle;
       weapons.push({
         key: `${state.selectedMech.id}:fixed:${component}:${index}:${item.id}`,
         item,
         component,
-        directDamage: weaponDirectDamage(item),
-        splashDamage: weaponSplashDamage(item),
-        damage: weaponTotalDamage(item),
+        directDamage,
+        splashDamage,
+        damage: directDamage + splashDamage * 2,
+        directDamagePerSecond,
+        damagePerSecond: directDamagePerSecond * (
+          directDamage > 0 ? (directDamage + splashDamage * 2) / directDamage : 1
+        ),
         heat: simulationWeaponHeat(item, quirks),
         continuous: isSimulationMachineGun(item)
           || isSimulationContinuousDamagePerSecondWeapon(item),
@@ -5514,13 +5826,21 @@ function collectSimulationWeapons() {
       const timing = simulationWeaponTiming(item, quirks);
       const expectedCooldown = weaponExpectedCooldown(item, quirks);
       const targetComputer = targetComputerWeaponModifiers(item);
+      const directDamage = weaponDirectDamage(item);
+      const splashDamage = weaponSplashDamage(item);
+      const damageRate = weaponDamageRate(item, quirks);
+      const directDamagePerSecond = damageRate?.final ?? directDamage / timing.cycle;
       weapons.push({
         key: `${state.selectedMech.id}:installed:${component}:${index}:${item.id}`,
         item,
         component,
-        directDamage: weaponDirectDamage(item),
-        splashDamage: weaponSplashDamage(item),
-        damage: weaponTotalDamage(item),
+        directDamage,
+        splashDamage,
+        damage: directDamage + splashDamage * 2,
+        directDamagePerSecond,
+        damagePerSecond: directDamagePerSecond * (
+          directDamage > 0 ? (directDamage + splashDamage * 2) / directDamage : 1
+        ),
         heat: simulationWeaponHeat(item, quirks),
         continuous: isSimulationMachineGun(item)
           || isSimulationContinuousDamagePerSecondWeapon(item),
@@ -5893,6 +6213,9 @@ function renderSimulationWeaponList() {
         <span>${group}</span>
       </label>
     `).join("");
+    const displayedDamage = weapon.continuous
+      ? (state.simulation.applySplashDamage ? weapon.damagePerSecond : weapon.directDamagePerSecond)
+      : (state.simulation.applySplashDamage ? weapon.damage : weapon.directDamage);
     return `
       <div class="simulation-weapon-row">
         <div class="simulation-weapon-name ${equipmentHardpointType(weapon.item)}">
@@ -5905,7 +6228,7 @@ function renderSimulationWeaponList() {
           <i data-simulation-cooldown="${weapon.key}" style="transform:scaleX(1)"></i>
           <b data-simulation-jam hidden>JAM</b>
         </div>
-        <span>${fmt(state.simulation.applySplashDamage ? weapon.damage : weapon.directDamage, 1)}</span>
+        <span>${fmt(displayedDamage, 1)}${weapon.continuous ? "/s" : ""}</span>
         <span>${weapon.cycle.toFixed(2)}s</span>
         <div class="simulation-group-options">${groupButtons}</div>
       </div>
@@ -6162,7 +6485,7 @@ function updateSimulationContinuousDamage(now) {
     }
     const elapsed = Math.max(0, (now - lastUpdatedAt) / 1000);
     if (simulation.targetVisible) {
-      const dealtDamage = (simulationWeaponDamage(weapon) / weapon.cycle) * elapsed;
+      const dealtDamage = simulationWeaponDamagePerSecond(weapon) * elapsed;
       simulation.totalDamage += dealtDamage;
       simulation.pendingHitEffectDamage.set(
         weapon.key,
@@ -6568,7 +6891,7 @@ function equipmentInfoWeaponRow(item, index) {
   const totalDamage = damage + splashDamage;
   const heat = itemHeat(item);
   const expectedCooldown = weaponExpectedCooldown(item, []) ?? timing.cooldown;
-  const hpd = heat > 0 ? damage / heat : Number.NaN;
+  const hpd = heat > 0 ? totalDamage / heat : Number.NaN;
   const spread = weaponSpreadValues(item, [])?.final ?? Number.NaN;
   const criticalChanceValues = weaponCriticalChanceValues(item);
   const criticalChance = criticalChanceValues.find((value) => Math.abs(value) > 0.000001) ?? Number.NaN;
@@ -7494,7 +7817,7 @@ function renderOmnipodList() {
             const counts = hardpointCountsFromHardpoints(omnipodDefinition(pod).hardpoints);
             const active = String(state.currentBuild?.components?.[component]?.omnipod || "") === String(pod.id) ? " active" : "";
             return `
-              <button class="omnipod-row${active}" data-omnipod="${pod.id}" data-omnipod-component="${component}" type="button" draggable="true" title="${String(pod.set).toUpperCase()} ${String(component).replaceAll("_", " ").toUpperCase()}">
+              <button class="omnipod-row${active}" data-omnipod="${pod.id}" data-omnipod-component="${component}" type="button" draggable="true" aria-label="${String(pod.set).toUpperCase()} ${String(component).replaceAll("_", " ").toUpperCase()}">
                 <strong>${String(pod.set).toUpperCase()} ${String(component).replaceAll("_", " ").toUpperCase()}</strong>
                 ${HARDPOINT_ORDER.map((type) => `<span class="omnipod-hardpoint ${type}${number(counts[type]) === 0 ? " zero" : ""}">${number(counts[type])}</span>`).join("")}
               </button>
@@ -7588,7 +7911,7 @@ function renderComponent(name, calc, quirkValues) {
   const fixedOmnipod = Boolean(currentOmnipod && name === "centre_torso");
   const hardpointDisplay = currentOmnipod
     ? `
-      <div class="component-omnipod-card${fixedOmnipod ? " fixed" : ""}" title="${fixedOmnipod ? "Fixed omnipod" : "Drop a matching omnipod here to replace it"}">
+      <div class="component-omnipod-card${fixedOmnipod ? " fixed" : ""}" data-tooltip-omnipod="${currentOmnipod.id}">
         <div class="component-omnipod-card-head">
           <span>OMNIPOD</span>
           <strong>${escapeHtml(omnipodName)}</strong>
@@ -8469,6 +8792,18 @@ function weaponDamageRate(item, quirks = []) {
   return null;
 }
 
+function weaponTotalDamageRate(item, quirks = []) {
+  const directRate = weaponDamageRate(item, quirks);
+  if (!directRate) return null;
+  const directDamage = weaponDirectDamage(item);
+  const totalDamage = weaponTotalDamage(item);
+  const multiplier = directDamage > 0 ? totalDamage / directDamage : 1;
+  return {
+    base: directRate.base * multiplier,
+    final: directRate.final * multiplier,
+  };
+}
+
 function weaponDamageTooltipValue(item, quirks = []) {
   const damageRate = weaponDamageRate(item, quirks);
   if (damageRate) return tooltipQuirkValue(damageRate.base, damageRate.final, 1, "/s");
@@ -8550,11 +8885,10 @@ function weaponTooltipTargetHeat(item) {
 
 function weaponTooltipStatistics(item, quirks = []) {
   const stats = item?.stats || {};
-  const directDamage = Math.max(0, weaponDirectDamage(item));
   const totalDamage = Math.max(0, weaponTotalDamage(item));
   const baseHeat = Math.max(0, itemHeat(item));
   const finalHeat = Math.max(0, simulationWeaponHeat(item, quirks));
-  const damageRate = weaponDamageRate(item, quirks);
+  const damageRate = weaponTotalDamageRate(item, quirks);
   const hasCooldown = number(stats.cooldown) > 0;
   const baseExpectedCooldown = weaponExpectedCooldown(item, []);
   const finalExpectedCooldown = weaponExpectedCooldown(item, quirks);
@@ -8582,8 +8916,8 @@ function weaponTooltipStatistics(item, quirks = []) {
   if (hasCooldown && totalDamage > 0 && baseCycle > 0 && finalCycle > 0) {
     rows.push(["DPS", tooltipQuirkValue(totalDamage / baseCycle, totalDamage / finalCycle, 2)]);
   }
-  if (baseHeat > 0 && directDamage > 0) {
-    rows.push(["HPD", tooltipQuirkValue(directDamage / baseHeat, directDamage / finalHeat, 2)]);
+  if (baseHeat > 0 && totalDamage > 0) {
+    rows.push(["HPD", tooltipQuirkValue(totalDamage / baseHeat, totalDamage / finalHeat, 2)]);
   }
   if (hasCooldown && baseHeat > 0 && baseCycle > 0 && finalCycle > 0) {
     rows.push(["HPS", tooltipQuirkValue(baseHeat / baseCycle, finalHeat / finalCycle, 2)]);
@@ -8884,6 +9218,54 @@ function equipmentTooltipItem(target) {
   return null;
 }
 
+function equipmentTooltipOmnipod(target) {
+  if (!target) return null;
+  return podById(target.dataset.tooltipOmnipod || target.dataset.omnipod);
+}
+
+function omnipodTooltipQuirkRows(quirks, inactive = false) {
+  if (!quirks.length) return '<div class="omnipod-tooltip-empty">NO QUIRKS</div>';
+  return sortQuirksForDisplay(quirks).map((quirk) => `
+    <div class="omnipod-tooltip-quirk ${quirkToneClass(quirk)}${inactive ? " inactive" : ""}">
+      <span>${escapeHtml(quirk.display_name || quirk.name)}</span>
+      <strong>${escapeHtml(quirk.value_text || quirkValueText(quirk.name, quirk.value))}</strong>
+    </div>
+  `).join("");
+}
+
+function omnipodTooltipHtml(pod) {
+  const name = `${String(pod.set || "OMNIPOD").toUpperCase()} ${String(pod.component || "").replaceAll("_", " ").toUpperCase()}`.trim();
+  const hardpoints = hardpointCountsFromHardpoints(omnipodDefinition(pod).hardpoints);
+  const hardpointChips = renderHardpointBadges(hardpoints, "omnipod-tooltip-hardpoint-chip")
+    || '<div class="omnipod-tooltip-empty">NO HARDPOINTS</div>';
+  const so8 = omnipodSetBonusInfo(pod, 8);
+  const so8Quirks = aggregateQuirkContributions(so8.quirks.map((quirk) => ({
+    ...quirk,
+    source: `${String(pod.set || "").toUpperCase()} 8pc`,
+    inactive: !so8.active,
+  })));
+  return `
+    <div class="equipment-tooltip-card tooltip-equipment omnipod-tooltip-card">
+      <div class="equipment-tooltip-title">${escapeHtml(name)}</div>
+      <div class="omnipod-tooltip-section">
+        <div class="omnipod-tooltip-section-title">HARDPOINTS</div>
+        <div class="hardpoint-line omnipod-tooltip-hardpoints">${hardpointChips}</div>
+      </div>
+      <div class="omnipod-tooltip-section">
+        <div class="omnipod-tooltip-section-title">QUIRKS</div>
+        <div class="omnipod-tooltip-rows">${omnipodTooltipQuirkRows(pod.quirks || [])}</div>
+      </div>
+      <div class="omnipod-tooltip-section">
+        <div class="omnipod-tooltip-section-title omnipod-tooltip-so8-title">
+          <span>SO8 QUIRKS</span>
+          <strong class="${so8.active ? "active" : "inactive"}">${so8.active ? "ACTIVE" : "INACTIVE"} ${so8.installedPieces}/8</strong>
+        </div>
+        <div class="omnipod-tooltip-rows">${omnipodTooltipQuirkRows(so8Quirks, !so8.active)}</div>
+      </div>
+    </div>
+  `;
+}
+
 function equipmentTooltipHtml(item) {
   const tone = equipmentTooltipTone(item);
   const groups = equipmentTooltipGroups(item);
@@ -8938,10 +9320,11 @@ function positionEquipmentTooltip(target = activeEquipmentTooltipTarget) {
 
 function showEquipmentTooltip(target) {
   const item = equipmentTooltipItem(target);
+  const omnipod = equipmentTooltipOmnipod(target);
   const tooltip = $("equipment-tooltip");
-  if (!item || !tooltip) return;
+  if ((!item && !omnipod) || !tooltip) return;
   activeEquipmentTooltipTarget = target;
-  tooltip.innerHTML = equipmentTooltipHtml(item);
+  tooltip.innerHTML = omnipod ? omnipodTooltipHtml(omnipod) : equipmentTooltipHtml(item);
   tooltip.hidden = false;
   positionEquipmentTooltip(target);
 }
@@ -9652,7 +10035,7 @@ function removeDraggedItem() {
 
 function bindEvents() {
   window.addEventListener("popstate", applyMechNavigationFromLocation);
-  const tooltipSelector = "[data-item], [data-tooltip-item], [data-loadout-item], [data-engine-heat-sink-item]";
+  const tooltipSelector = "[data-item], [data-tooltip-item], [data-loadout-item], [data-engine-heat-sink-item], [data-omnipod], [data-tooltip-omnipod]";
   document.addEventListener("pointerover", (event) => {
     const target = event.target.closest(tooltipSelector);
     if (!target || target === activeEquipmentTooltipTarget) return;
@@ -9660,7 +10043,6 @@ function bindEvents() {
   });
   document.addEventListener("pointerout", (event) => {
     if (!activeEquipmentTooltipTarget || activeEquipmentTooltipTarget.contains(event.relatedTarget)) return;
-    if ($("equipment-tooltip")?.contains(event.relatedTarget)) return;
     const nextTarget = event.relatedTarget?.closest?.(tooltipSelector);
     if (nextTarget) showEquipmentTooltip(nextTarget);
     else hideEquipmentTooltip();
