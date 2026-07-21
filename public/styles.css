@@ -11,7 +11,8 @@
   --yellow: #e9c94a;
   --red: #df654f;
   --purple: #aa73d7;
-  --missile: #52c98a;
+  --missile: #00aa9d;
+  --ams: #85b82f;
   --compare-mech-column-width: 8.15rem;
 }
 
@@ -257,7 +258,7 @@ h3 {
 .equipment-info-ballistic { --equipment-info-accent: var(--purple); }
 .equipment-info-energy { --equipment-info-accent: var(--yellow); }
 .equipment-info-missile { --equipment-info-accent: var(--missile); }
-.equipment-info-ams { --equipment-info-accent: var(--green); }
+.equipment-info-ams { --equipment-info-accent: var(--ams); }
 .equipment-info-spread-weapons { --equipment-info-accent: #d28bff; }
 .equipment-info-critical-weapons { --equipment-info-accent: #ff9b42; }
 .equipment-info-jam-weapons { --equipment-info-accent: var(--red); }
@@ -477,15 +478,264 @@ h3 {
 }
 
 .mech-browser-layout.mechlab-browse-layout {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(34rem, 1fr) minmax(24rem, 27rem);
 }
 
 .mech-browser-layout.mechlab-browse-layout .sidebar {
-  border-right: 0;
+  border-right: 1px solid var(--line);
 }
 
 .mech-browser-layout.mechlab-browse-layout .tab-content {
   display: none;
+}
+
+.mech-browser-preview {
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+  background: #090d0f;
+}
+
+.mech-browser-preview[hidden] {
+  display: none;
+}
+
+.mech-browser-preview-content {
+  display: grid;
+  align-content: start;
+  min-height: 100%;
+}
+
+.mech-browser-preview-empty {
+  display: grid;
+  place-items: center;
+  min-height: 14rem;
+}
+
+.mech-browser-preview-header {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  padding: 1rem 1.1rem 0.9rem;
+  border-bottom: 1px solid #314149;
+  background: linear-gradient(180deg, #172126 0%, #101719 100%);
+  box-shadow: 0 0.35rem 0.8rem #00000055;
+}
+
+.mech-browser-preview-header h2 {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.2rem 0 0;
+  color: #e8f0f2;
+  font-size: 1.35rem;
+  letter-spacing: 0.025em;
+}
+
+.mech-browser-preview-header > div > span {
+  color: #7196a4;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mech-browser-preview-section {
+  padding: 0.75rem 0.9rem 0.85rem;
+  border-bottom: 1px solid #263036;
+}
+
+.mech-browser-preview-section > h3 {
+  margin: 0 0 0.55rem;
+  color: #6d9caf;
+  font-size: 0.84rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mech-browser-preview-fit-row {
+  display: flex;
+  justify-content: center;
+  padding: 0.65rem 0.9rem;
+  border-bottom: 1px solid #263036;
+  background: #0d1315;
+}
+
+.mech-browser-preview-fit-row .fit-mech-button {
+  width: 100%;
+  min-width: 0;
+}
+
+.mech-browser-hardpoint-visual {
+  width: 100%;
+  margin: 0 auto;
+}
+
+.mech-browser-hardpoint-legend {
+  display: flex;
+  gap: 0.28rem;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 1.35rem;
+  margin-bottom: 0.35rem;
+  flex-wrap: nowrap;
+}
+
+.mech-browser-hardpoint-legend.mech-slot-tags .hardpoint-chip {
+  width: max-content;
+}
+
+.mech-browser-hardpoint-map {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-areas:
+    "orientation orientation orientation orientation orientation"
+    ". . head . ."
+    "right-arm right-torso center left-torso left-arm"
+    ". right-leg . left-leg .";
+  gap: 0.35rem 0.22rem;
+  align-items: stretch;
+  padding: 0.35rem;
+  border: 1px solid #343b3e;
+  background: #171a1b;
+}
+
+.mech-browser-hardpoint-orientation {
+  display: flex;
+  grid-area: orientation;
+  justify-content: space-between;
+  padding: 0 0.3rem;
+  color: #dce2e4;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.mech-browser-hardpoint-location {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+  min-height: 3.25rem;
+  padding: 0.3rem 0.12rem;
+  border: 1px solid #3c464a;
+  background: linear-gradient(180deg, #242a2c 0%, #1b2022 100%);
+  box-shadow: inset 0 0 0 1px #111719;
+}
+
+.mech-browser-hardpoint-location.location-head {
+  grid-area: head;
+}
+
+.mech-browser-hardpoint-location.location-right_arm {
+  grid-area: right-arm;
+}
+
+.mech-browser-hardpoint-location.location-right_torso {
+  grid-area: right-torso;
+}
+
+.mech-browser-hardpoint-location.location-centre_torso {
+  grid-area: center;
+  border-color: #66777e;
+}
+
+.mech-browser-hardpoint-location.location-left_torso {
+  grid-area: left-torso;
+}
+
+.mech-browser-hardpoint-location.location-left_arm {
+  grid-area: left-arm;
+}
+
+.mech-browser-hardpoint-location.location-right_leg {
+  grid-area: right-leg;
+  min-height: 4.2rem;
+}
+
+.mech-browser-hardpoint-location.location-left_leg {
+  grid-area: left-leg;
+  min-height: 4.2rem;
+}
+
+.mech-browser-hardpoint-values {
+  display: flex;
+  gap: 0.16rem;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.35rem;
+  flex-wrap: nowrap;
+}
+
+.mech-browser-hardpoint-callout {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+  border-radius: 0.1rem;
+  background: var(--hp-tone);
+  color: #101314;
+  font-size: 0.72rem;
+  font-weight: 950;
+  line-height: 1;
+  box-shadow: 0 0 0 1px #0005;
+}
+
+.mech-browser-hardpoint-callout.energy {
+  --hp-tone: var(--yellow);
+}
+
+.mech-browser-hardpoint-callout.missile {
+  --hp-tone: var(--missile);
+}
+
+.mech-browser-hardpoint-callout.ballistic {
+  --hp-tone: var(--purple);
+}
+
+.mech-browser-hardpoint-callout.ams {
+  --hp-tone: var(--ams);
+}
+
+.mech-browser-preview .mech-summary-section {
+  padding: 0.75rem 0.9rem 0.85rem;
+}
+
+.mech-browser-preview .mech-summary-section > h3 {
+  text-transform: uppercase;
+}
+
+.mech-browser-preview .mech-summary-metrics {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mech-browser-preview .mech-summary-metric:last-child:nth-child(odd) {
+  grid-column: auto;
+}
+
+.mech-browser-preview-durability .mech-summary-metrics {
+  grid-template-columns: 1fr;
+}
+
+.mech-browser-preview .mech-summary-metric > span,
+.mech-browser-preview .mech-summary-metric > strong {
+  white-space: nowrap;
+}
+
+.mech-browser-preview-durability .spec-value {
+  width: auto;
+}
+
+.mech-browser-preview-mobility .mech-summary-metric > strong {
+  font-size: 0.84rem;
+}
+
+.mech-browser-preview-mobility .mech-summary-metric.full-row {
+  grid-column: 1 / -1;
+}
+
+.mech-browser-preview-quirks .mech-summary-section:last-child {
+  border-bottom: 0;
 }
 
 .mech-browser-layout.mechlab-focused-layout {
@@ -1081,11 +1331,30 @@ h3 {
 }
 
 .hardpoint-chip.ams {
-  color: var(--green);
+  color: var(--ams);
 }
 
 .hardpoint-chip.ecm {
   color: #ff9b42;
+}
+
+.mech-slot-tags .hardpoint-chip {
+  grid-template-columns: auto auto;
+}
+
+.mech-slot-tags .hardpoint-icon {
+  width: auto;
+  min-width: 1.35rem;
+  padding: 0 0.35rem;
+}
+
+.mech-slot-tags .hardpoint-chip.marker-only {
+  grid-template-columns: auto;
+}
+
+.mech-slot-tags .hardpoint-chip.jumpjet,
+.mech-slot-tags .hardpoint-chip.masc {
+  color: #b9e9ff;
 }
 
 .workspace {
@@ -4519,13 +4788,14 @@ body.simulation-open {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.35rem;
   min-width: 0;
   padding-left: 0.4rem;
 }
 
 .component-armor-side,
 .component-armor-limit-label,
-.component-armor-max-row span {
+.component-armor-max-row > div > span {
   color: #93a4aa;
   font-size: 0.7rem;
   font-weight: 800;
@@ -4539,7 +4809,7 @@ body.simulation-open {
   border: 1px solid #48575e;
   border-radius: 2px;
   background: #111719;
-  color: #e5c84e;
+  color: #f3f4ee;
   font-family: inherit;
   font-size: 1.1rem;
   font-weight: 800;
@@ -4557,6 +4827,22 @@ body.simulation-open {
 .component-armor-value:focus {
   border-color: #e5c84e;
   outline: 1px solid rgba(229, 200, 78, 0.35);
+}
+
+.component-armor-value.empty {
+  color: #667177;
+}
+
+.component-armor-value.quirk-only {
+  color: var(--yellow);
+}
+
+.component-armor-value.allocated {
+  color: #f3f4ee;
+}
+
+.component-armor-value.quirk-applied {
+  color: var(--green);
 }
 
 .component-armor-stepper {
@@ -4591,20 +4877,64 @@ body.simulation-open {
 }
 
 .component-armor-limit {
-  color: #d8bd43;
+  color: #f3f4ee;
   font-size: 0.86rem;
   text-align: right;
 }
 
-.component-armor-value.quirk-tone-armor,
-.component-armor-limit.quirk-tone-armor,
-.component-armor-max-row strong.quirk-tone-armor {
-  color: #f3f4ee;
+.component-armor-maximum {
+  color: #c8d0d3;
+}
+
+.component-armor-limit.quirk-applied > .component-armor-max-final,
+.component-armor-max-value.quirk-applied > .component-armor-max-final {
+  color: var(--green);
+}
+
+.component-armor-max-detail,
+.component-armor-max-base,
+.component-armor-max-operator {
+  color: #93a4aa;
+}
+
+.component-armor-max-bonus {
+  color: var(--yellow);
+}
+
+.component-armor-limit,
+.component-armor-max-value {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 0.22rem;
+  min-width: 0;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.component-armor-max-detail {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.1rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.component-armor-limit.compact,
+.component-armor-max-value.compact {
+  gap: 0.12rem;
+  font-size: 0.72rem;
+}
+
+.component-armor-limit.compact .component-armor-max-detail,
+.component-armor-max-value.compact .component-armor-max-detail {
+  gap: 0.06rem;
+  font-size: 0.58rem;
 }
 
 .component-armor-max-row {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
   align-items: center;
   min-height: 1.55rem;
   padding: 0.18rem 0.35rem;
@@ -4615,6 +4945,8 @@ body.simulation-open {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.35rem;
+  min-width: 0;
   padding-left: 0.4rem;
   border-left: 1px solid #28343a;
 }
@@ -4627,7 +4959,11 @@ body.simulation-open {
   padding: 0.18rem 0.35rem;
 }
 
-.component-armor-max-row strong,
+.component-armor-max-row strong {
+  color: #c8d0d3;
+  font-size: 0.8rem;
+}
+
 .component-structure-row strong {
   color: #c8d0d3;
   font-size: 0.8rem;
@@ -4825,20 +5161,20 @@ body.pointer-drag-active * {
 }
 .slot-item.energy .slot-item-mark { background: #77700b; color: #fff45c; }
 .slot-item.missile {
-  border-color: #2fd486;
-  background: repeating-linear-gradient(to bottom, #0a5736 0, #0a5736 1.65rem, #0f7247 1.65rem, #0f7247 calc(1.65rem + 1px));
+  border-color: var(--missile);
+  background: repeating-linear-gradient(to bottom, #064c47 0, #064c47 1.65rem, #08645d 1.65rem, #08645d calc(1.65rem + 1px));
 }
-.slot-item.missile .slot-item-mark { background: #087e49; color: #a2ffca; }
+.slot-item.missile .slot-item-mark { background: #007c73; color: #9dfff7; }
 .slot-item.ballistic {
   border-color: #b970dd;
   background: repeating-linear-gradient(to bottom, #4f2267 0, #4f2267 1.65rem, #65317e 1.65rem, #65317e calc(1.65rem + 1px));
 }
 .slot-item.ballistic .slot-item-mark { background: #6f358a; color: #edc2ff; }
 .slot-item.ams {
-  border-color: #48cf78;
-  background: repeating-linear-gradient(to bottom, #15502d 0, #15502d 1.65rem, #1d6b3d 1.65rem, #1d6b3d calc(1.65rem + 1px));
+  border-color: var(--ams);
+  background: repeating-linear-gradient(to bottom, #34470f 0, #34470f 1.65rem, #465f16 1.65rem, #465f16 calc(1.65rem + 1px));
 }
-.slot-item.ams .slot-item-mark { background: #17723a; color: #9affbd; }
+.slot-item.ams .slot-item-mark { background: #587b1a; color: #dbff94; }
 .slot-item.ecm {
   border-color: #ff9b42;
   background: repeating-linear-gradient(to bottom, #65300d 0, #65300d 1.65rem, #824313 1.65rem, #824313 calc(1.65rem + 1px));
@@ -4851,22 +5187,22 @@ body.pointer-drag-active * {
   background: repeating-linear-gradient(to bottom, #2c2908 0, #2c2908 1.65rem, #39350a 1.65rem, #39350a calc(1.65rem + 1px));
 }
 .slot-item.missile.ammo {
-  border-color: #287852;
-  background: repeating-linear-gradient(to bottom, #082d1d 0, #082d1d 1.65rem, #0c3d27 1.65rem, #0c3d27 calc(1.65rem + 1px));
+  border-color: #176f69;
+  background: repeating-linear-gradient(to bottom, #052c29 0, #052c29 1.65rem, #073c38 1.65rem, #073c38 calc(1.65rem + 1px));
 }
 .slot-item.ballistic.ammo {
   border-color: #725083;
   background: repeating-linear-gradient(to bottom, #281333 0, #281333 1.65rem, #351a43 1.65rem, #351a43 calc(1.65rem + 1px));
 }
 .slot-item.ams.ammo {
-  border-color: #38704c;
-  background: repeating-linear-gradient(to bottom, #0b2918 0, #0b2918 1.65rem, #103520 1.65rem, #103520 calc(1.65rem + 1px));
+  border-color: #5f7929;
+  background: repeating-linear-gradient(to bottom, #202b0b 0, #202b0b 1.65rem, #2b3a0f 1.65rem, #2b3a0f calc(1.65rem + 1px));
 }
 
 .slot-item.energy.ammo .slot-item-mark { background: #3d390b; color: #c8bd50; }
-.slot-item.missile.ammo .slot-item-mark { background: #0c4028; color: #72c995; }
+.slot-item.missile.ammo .slot-item-mark { background: #07514c; color: #70cfc7; }
 .slot-item.ballistic.ammo .slot-item-mark { background: #3a2047; color: #ad83bf; }
-.slot-item.ams.ammo .slot-item-mark { background: #123c24; color: #76b98d; }
+.slot-item.ams.ammo .slot-item-mark { background: #384c12; color: #a8cc62; }
 
 .slot-item.module,
 .slot-item.masc,
@@ -5660,9 +5996,9 @@ body.pointer-drag-active * {
 }
 
 .omnipod-hardpoint.energy { color: var(--yellow); }
-.omnipod-hardpoint.missile { color: #62dc98; }
+.omnipod-hardpoint.missile { color: var(--missile); }
 .omnipod-hardpoint.ballistic { color: #c8a1dd; }
-.omnipod-hardpoint.ams { color: var(--green); }
+.omnipod-hardpoint.ams { color: var(--ams); }
 .omnipod-hardpoint.ecm { color: #ff9b42; }
 
 .item-row-name {
@@ -5693,17 +6029,17 @@ body.pointer-drag-active * {
 }
 
 .item-row.energy .item-type-mark { background: #4c4815; color: var(--yellow); }
-.item-row.missile .item-type-mark { background: #0c5c38; color: #92f5ba; }
+.item-row.missile .item-type-mark { background: #075f58; color: #8cf7ef; }
 .item-row.ballistic .item-type-mark { background: #402b50; color: #c8a1dd; }
-.item-row.ams .item-type-mark { background: #214a31; color: var(--green); }
+.item-row.ams .item-type-mark { background: #435b16; color: #d2f58c; }
 .item-row.ecm .item-type-mark { background: #91470f; color: #ffe0bd; }
 .item-row.module .item-type-mark,
 .item-row.masc .item-type-mark,
 .item-row.jumpjet .item-type-mark { background: #176b9e; color: #b9e9ff; }
 .item-row.energy.ammo .item-type-mark { background: #3d390b; color: #c8bd50; }
-.item-row.missile.ammo .item-type-mark { background: #0c4028; color: #72c995; }
+.item-row.missile.ammo .item-type-mark { background: #073f3b; color: #68bdb7; }
 .item-row.ballistic.ammo .item-type-mark { background: #3a2047; color: #ad83bf; }
-.item-row.ams.ammo .item-type-mark { background: #123c24; color: #76b98d; }
+.item-row.ams.ammo .item-type-mark { background: #344511; color: #9fbd61; }
 
 .warnings {
   margin-top: 0.45rem;
@@ -5734,6 +6070,16 @@ body.pointer-drag-active * {
 
   .mech-browser-layout.large-mech-list-layout {
     grid-template-columns: 1fr;
+  }
+
+  .mech-browser-layout.mechlab-browse-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(18rem, 45%) minmax(0, 1fr);
+  }
+
+  .mech-browser-layout.mechlab-browse-layout .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
   }
 
   .sidebar {

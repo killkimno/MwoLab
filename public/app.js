@@ -206,7 +206,7 @@ const TEXT = {
     "equipmentInfo.expectedCooldown": "예상 쿨다운",
     "equipmentInfo.duration": "듀레이션",
     "equipmentInfo.spread": "탄 퍼짐",
-    "equipmentInfo.hpd": "HPD",
+    "equipmentInfo.hpd": "DPH",
     "equipmentInfo.weaponType": "계열",
     "equipmentInfo.spreadWeapons": "탄 퍼짐 무기",
     "equipmentInfo.criticalWeapons": "크리티컬 무기",
@@ -369,6 +369,7 @@ const TEXT = {
     "build.noEngineHeatSinkSlots": "이 엔진에는 추가 히트싱크 슬롯이 없습니다",
     "build.heatSinkMismatch": "{item}은(는) 현재 히트싱크 업그레이드와 호환되지 않습니다",
     "build.jumpJetFull": "점프젯 장착 한도를 초과합니다 ({used}/{limit})",
+    "build.jumpJetLocation": "점프젯은 좌·중앙·우 몸통 또는 다리에만 장착할 수 있습니다",
     "build.equipmentGroupFull": "{group} 장착 한도를 초과합니다 ({used}/{limit})",
     "build.artemisRequired": "{item}은(는) 아르테미스 업그레이드가 필요합니다",
     "build.standardGuidanceRequired": "{item}은(는) 스탠다드 유도 장치에서만 사용할 수 있습니다",
@@ -591,7 +592,7 @@ const TEXT = {
     "equipmentInfo.expectedCooldown": "Expected Cooldown",
     "equipmentInfo.duration": "Duration",
     "equipmentInfo.spread": "Spread",
-    "equipmentInfo.hpd": "HPD",
+    "equipmentInfo.hpd": "DPH",
     "equipmentInfo.weaponType": "Type",
     "equipmentInfo.spreadWeapons": "Spread Weapons",
     "equipmentInfo.criticalWeapons": "Critical Weapons",
@@ -754,6 +755,7 @@ const TEXT = {
     "build.noEngineHeatSinkSlots": "This engine has no additional heat sink slots",
     "build.heatSinkMismatch": "{item} is incompatible with the current heat sink upgrade",
     "build.jumpJetFull": "Jump jet limit exceeded ({used}/{limit})",
+    "build.jumpJetLocation": "Jump jets can only be installed in the side/center torsos or legs",
     "build.equipmentGroupFull": "{group} limit exceeded ({used}/{limit})",
     "build.artemisRequired": "{item} requires the Artemis upgrade",
     "build.standardGuidanceRequired": "{item} can only be used with Standard guidance",
@@ -920,6 +922,17 @@ const COMPONENT_NAMES = {
   right_leg: t("component.rightLeg"),
 };
 
+const MECHLAB_COMPONENT_NAMES = {
+  head: "HEAD",
+  left_arm: "LEFT ARM",
+  left_torso: "LEFT TORSO",
+  centre_torso: "CENTER TORSO",
+  right_torso: "RIGHT TORSO",
+  right_arm: "RIGHT ARM",
+  left_leg: "LEFT LEG",
+  right_leg: "RIGHT LEG",
+};
+
 const HARDPOINT_ORDER = ["energy", "missile", "ballistic", "ams", "ecm"];
 const HARDPOINT_LABELS = {
   energy: "E",
@@ -941,6 +954,13 @@ const INFO_COMPONENTS = [
 ];
 const ENGINE_COMPONENTS = new Set(["centre_torso"]);
 const ENGINE_SIDE_COMPONENTS = new Set(["left_torso", "right_torso"]);
+const JUMP_JET_COMPONENTS = new Set([
+  "left_torso",
+  "centre_torso",
+  "right_torso",
+  "left_leg",
+  "right_leg",
+]);
 const FIXED_ARMOR_SLOT_ID = 1912;
 const FIXED_STRUCTURE_SLOT_ID = 1913;
 const MOVABLE_UPGRADE_SLOT_IDS = new Set([FIXED_ARMOR_SLOT_ID, FIXED_STRUCTURE_SLOT_ID]);
@@ -1002,8 +1022,8 @@ const STATS_DURABILITY_SCOPES = [
 const STATS_MOBILITY_CATEGORIES = [
   { key: "acceleration", label: t("info.acceleration"), metaLabel: t("info.acceleration"), movementKey: "acceleration", digits: 1, unit: " kph/s" },
   { key: "deceleration", label: t("info.deceleration"), metaLabel: t("info.deceleration"), movementKey: "deceleration", digits: 1, unit: " kph/s" },
-  { key: "turnSpeed", label: t("info.turnSpeed"), metaLabel: t("info.turnSpeed"), movementKey: "turnSpeed", digits: 2, unit: " deg/s" },
-  { key: "torsoSpeedX", label: t("info.torsoSpeed"), metaLabel: t("info.torsoSpeed"), movementKey: "torsoSpeed", digits: 1, unit: " deg/s" },
+  { key: "turnSpeed", label: t("info.turnSpeed"), metaLabel: t("info.turnSpeed"), movementKey: "turnSpeed", digits: 2, unit: " °/s" },
+  { key: "torsoSpeedX", label: t("info.torsoSpeed"), metaLabel: t("info.torsoSpeed"), movementKey: "torsoSpeed", digits: 1, unit: " °/s" },
 ];
 
 const STATS_QUIRK_CATEGORIES = [
@@ -1185,6 +1205,8 @@ const state = {
   mechFilterWeightClasses: new Set(),
   mechListSummaryCache: new Map(),
   mechHardpointBadgeCache: new Map(),
+  mechSlotBadgeCache: new Map(),
+  mechBrowserHoverMechId: null,
   mechHardpointTypeCache: new Map(),
   mechlabQuirkValuesCache: new Map(),
   weaponQuirkTypeCache: null,
@@ -1703,6 +1725,11 @@ function isAmsWeapon(item) {
     && (item?.ctype === "WeaponAMS" || equipmentHardpointType(item) === "ams");
 }
 
+function fixedItemConsumesHardpoint(item, mech = state.selectedMech) {
+  return Boolean(equipmentHardpointType(item))
+    && !(hasFixedOmnipods(mech) && item?.item_type === "weapon");
+}
+
 function isHitscanWeapon(item) {
   return item?.item_type === "weapon"
     && !String(item?.stats?.projectileclass || "").trim();
@@ -1877,6 +1904,40 @@ function stockHardpointBadges(mech) {
   const badges = hardpointBadges(mech, buildFromLoadout(mech));
   state.mechHardpointBadgeCache.set(key, badges);
   return badges;
+}
+
+function mechSlotBadge(type, label, count = null) {
+  const markerOnly = count === null;
+  return `
+    <span class="hardpoint-chip ${type} mech-slot-tag${markerOnly ? " marker-only" : ""}" title="${type}">
+      <span class="hardpoint-icon">${label}</span>
+      ${markerOnly ? "" : `<span class="hardpoint-count">${number(count)}</span>`}
+    </span>
+  `;
+}
+
+function mechSlotBadges(mech) {
+  const key = String(mech?.id || "");
+  if (!key) return "";
+  const cached = state.mechSlotBadgeCache.get(key);
+  if (cached !== undefined) return cached;
+
+  const build = buildFromLoadout(mech);
+  const counts = hardpointCountsFromDefinition(effectiveDefinition(mech, build));
+  const badges = HARDPOINT_ORDER
+    .filter((type) => number(counts[type]) > 0)
+    .map((type) => mechSlotBadge(type, HARDPOINT_LABELS[type] || type[0].toUpperCase(), counts[type]));
+  const jumpJets = maximumJumpJets(mech, build);
+  if (jumpJets > 0) badges.push(mechSlotBadge("jumpjet", "JJ", jumpJets));
+
+  const stats = currentDefinition(mech).stats || {};
+  if (number(stats.CanEquipMASC) > 0 || number(stats.CanEquipMasc) > 0) {
+    badges.push(mechSlotBadge("masc", "MASC"));
+  }
+
+  const html = badges.join("");
+  state.mechSlotBadgeCache.set(key, html);
+  return html;
 }
 
 function stockHardpointTypes(mech) {
@@ -2881,9 +2942,9 @@ function specAnglePair(baseTorso, finalTorso, arm, axis, digits = 1, applyQuirks
   const torso = applyQuirks && torsoChanged ? finalTorso : baseTorso;
   const torsoClass = applyQuirks && torsoChanged ? "spec-angle-boosted" : "";
   return specMobilityText(`
-    <span class="${torsoClass}">${formatInfoNumber(torso, digits)}</span>
+    <span class="${torsoClass}">${formatInfoNumber(torso, digits)}°</span>
     <span class="spec-speed-sep">/</span>
-    <span>${formatInfoNumber(arm, digits)}</span>
+    <span>${formatInfoNumber(arm, digits)}°</span>
   `, false, applyQuirks);
 }
 
@@ -4283,10 +4344,10 @@ function renderInfoPanel() {
       [t("info.maxSpeed"), specMobilitySpeed(movement.baseMaxSpeed, movement.baseReverseSpeed, movement.maxSpeed, movement.reverseSpeed, 1, " kph")],
       [t("info.acceleration"), specMobilityValue(movement.baseAcceleration, movement.acceleration, 1, " kph/s")],
       [t("info.deceleration"), specMobilityValue(movement.baseDeceleration, movement.deceleration, 1, " kph/s")],
-      [t("info.turnSpeed"), specMobilityValue(movement.baseTurnSpeed, movement.turnSpeed, 2, " deg/s")],
+      [t("info.turnSpeed"), specMobilityValue(movement.baseTurnSpeed, movement.turnSpeed, 2, " °/s")],
       [t("info.angleX"), specAnglePair(movement.baseAngleX[0], movement.angleX[0], movement.angleX[1], "X", 1)],
       [t("info.angleY"), specAnglePair(movement.baseAngleY[0], movement.angleY[0], movement.angleY[1], "Y", 1)],
-      [t("info.torsoSpeed"), specMobilityValue(movement.baseTorsoSpeed, movement.torsoSpeed, 1, " deg/s")],
+      [t("info.torsoSpeed"), specMobilityValue(movement.baseTorsoSpeed, movement.torsoSpeed, 1, " °/s")],
     ]),
     renderInfoTable(t("info.structureInfo"), [t("info.part"), t("common.value")], [
       [t("info.structureTotal"), specValue(structureBaseTotal, structureTotal, 0)],
@@ -4329,10 +4390,10 @@ function renderStatsInfoDetail(mech) {
       [t("info.maxSpeed"), specMobilitySpeed(data.movement.baseMaxSpeed, data.movement.baseReverseSpeed, data.movement.maxSpeed, data.movement.reverseSpeed, 1, " kph", applyQuirks)],
       [t("info.acceleration"), specMobilityValue(data.movement.baseAcceleration, data.movement.acceleration, 1, " kph/s", applyQuirks)],
       [t("info.deceleration"), specMobilityValue(data.movement.baseDeceleration, data.movement.deceleration, 1, " kph/s", applyQuirks)],
-      [t("info.turnSpeed"), specMobilityValue(data.movement.baseTurnSpeed, data.movement.turnSpeed, 2, " deg/s", applyQuirks)],
+      [t("info.turnSpeed"), specMobilityValue(data.movement.baseTurnSpeed, data.movement.turnSpeed, 2, " °/s", applyQuirks)],
       [t("info.angleX"), specAnglePair(data.movement.baseAngleX[0], data.movement.angleX[0], data.movement.angleX[1], "X", 1, applyQuirks)],
       [t("info.angleY"), specAnglePair(data.movement.baseAngleY[0], data.movement.angleY[0], data.movement.angleY[1], "Y", 1, applyQuirks)],
-      [t("info.torsoSpeed"), specMobilityValue(data.movement.baseTorsoSpeed, data.movement.torsoSpeed, 1, " deg/s", applyQuirks)],
+      [t("info.torsoSpeed"), specMobilityValue(data.movement.baseTorsoSpeed, data.movement.torsoSpeed, 1, " °/s", applyQuirks)],
     ]),
     renderInfoTable(t("info.structureInfo"), [t("info.part"), t("common.value")], [
       [t("info.structureTotal"), specValue(data.structureBaseTotal, data.structureTotal, 0, "", applyQuirks)],
@@ -4907,7 +4968,9 @@ function calculateBuild() {
       itemTonnage += itemTons(item);
       heat += itemHeat(item);
       const mountType = equipmentHardpointType(item);
-      if (mountType) usage.hardpoints[mountType] = (usage.hardpoints[mountType] || 0) + 1;
+      if (mountType && fixedItemConsumesHardpoint(item, mech)) {
+        usage.hardpoints[mountType] = (usage.hardpoints[mountType] || 0) + 1;
+      }
       if (item.item_type === "weapon" && !isAmsWeapon(item)) {
         alpha += weaponTotalDamage(item);
       }
@@ -4928,6 +4991,9 @@ function calculateBuild() {
       }
       if (item.item_type === "engine" && !ENGINE_COMPONENTS.has(name)) {
         usage.warnings.push(t("build.engineTorsoOnly"));
+      }
+      if (item.item_type === "jumpjet" && !JUMP_JET_COMPONENTS.has(name)) {
+        usage.warnings.push(t("build.jumpJetLocation"));
       }
       const mismatch = guidanceMismatch(item);
       if (mismatch) usage.warnings.push(mismatch);
@@ -5013,7 +5079,7 @@ function calculateBuild() {
 
   for (const [name, usage] of Object.entries(componentUsage)) {
     for (const warning of usage.warnings) {
-      warnings.push(`${COMPONENT_NAMES[name] || name}: ${warning}`);
+      warnings.push(`${MECHLAB_COMPONENT_NAMES[name] || name}: ${warning}`);
     }
   }
 
@@ -5209,6 +5275,7 @@ function renderMechList() {
   layout.classList.toggle("mechlab-focused-layout", mechlabFocused);
   layout.classList.toggle("large-mech-list-layout", state.largeMechList && !isMechlab);
   list.classList.toggle("mech-list-large", useLargeList);
+  renderMechBrowserPreview();
   if (toggle) {
     toggle.hidden = isMechlab;
     toggle.classList.toggle("active", state.largeMechList);
@@ -5351,7 +5418,11 @@ function renderMechSummaryAmmo(weapons) {
   `;
 }
 
-function renderMechSummaryQuirks(quirks, mech = state.selectedMech) {
+function renderMechSummaryQuirks(
+  quirks,
+  mech = state.selectedMech,
+  build = state.currentBuild,
+) {
   const renderSection = (title, entries, showEmpty = false) => entries.length || showEmpty ? `
     <section class="mech-summary-section mech-summary-quirks-section">
       <h3>${title}</h3>
@@ -5367,7 +5438,7 @@ function renderMechSummaryQuirks(quirks, mech = state.selectedMech) {
   ` : "";
 
   if (hasFixedOmnipods(mech)) {
-    const groups = omnipodDisplayQuirkGroups(quirks);
+    const groups = omnipodDisplayQuirkGroups(quirks, mech, build);
     return [
       renderSection("CT - FIXED QUIRKS", groups.fixedCt, true),
       renderSection("QUIRKS", groups.regular, true),
@@ -5379,6 +5450,129 @@ function renderMechSummaryQuirks(quirks, mech = state.selectedMech) {
 
   const displayQuirks = partitionDisplayQuirks(quirks);
   return `${renderSection("QUIRKS", displayQuirks.regular, true)}${renderSection(t("info.ammoQuirks"), displayQuirks.ammo)}`;
+}
+
+function renderMechBrowserHardpoints(mech, build) {
+  const definition = effectiveDefinition(mech, build);
+  const hardpointOrder = ["energy", "missile", "ballistic", "ams"];
+  const previewLabels = {
+    energy: "ENERGY",
+    missile: "MISSILE",
+    ballistic: "BALLISTIC",
+    ams: "AMS",
+  };
+  const totals = hardpointCountsFromDefinition(definition);
+  const maxJumpJets = maximumJumpJets(mech, build);
+  const stats = currentDefinition(mech).stats || {};
+  const canEquipMasc = number(stats.CanEquipMASC) > 0 || number(stats.CanEquipMasc) > 0;
+  const legend = hardpointOrder
+    .filter((type) => number(totals[type]) > 0)
+    .map((type) => mechSlotBadge(
+      type,
+      HARDPOINT_LABELS[type] || type[0].toUpperCase(),
+      totals[type],
+    ))
+    .join("");
+  const specialTags = [];
+  if (number(totals.ecm) > 0) {
+    specialTags.push(mechSlotBadge("ecm", "ECM", totals.ecm));
+  }
+  if (maxJumpJets > 0) {
+    specialTags.push(mechSlotBadge("jumpjet", "JJ", maxJumpJets));
+  }
+  if (canEquipMasc) {
+    specialTags.push(mechSlotBadge("masc", "MASC"));
+  }
+  const locations = INFO_COMPONENTS.map((location) => {
+    const counts = hardpointCountsFromHardpoints(
+      definition.components?.[location.key]?.hardpoints || [],
+    );
+    const hardpoints = hardpointOrder
+      .filter((type) => number(counts[type]) > 0)
+      .map((type) => `
+        <span class="mech-browser-hardpoint-callout ${type}" aria-label="${previewLabels[type]} ${number(counts[type])}">${number(counts[type])}</span>
+      `)
+      .join("");
+    return `
+      <section class="mech-browser-hardpoint-location location-${location.key}" title="${escapeHtml(location.label)}">
+        <div class="mech-browser-hardpoint-values">${hardpoints}</div>
+      </section>
+    `;
+  }).join("");
+  return `
+    <div class="mech-browser-hardpoint-visual">
+      <div class="mech-browser-hardpoint-legend mech-slot-tags">${legend}${specialTags.join("")}</div>
+      <div class="mech-browser-hardpoint-map">
+        <div class="mech-browser-hardpoint-orientation" aria-hidden="true"><span>R</span><span>L</span></div>
+        ${locations}
+      </div>
+    </div>
+  `;
+}
+
+function renderMechBrowserPreview() {
+  const panel = $("mech-browser-preview");
+  const content = $("mech-browser-preview-content");
+  if (!panel || !content) return;
+
+  const visible = state.activeMainTab === "mechlab" && state.mechlabBrowseMode;
+  panel.hidden = !visible;
+  if (!visible) {
+    state.mechBrowserHoverMechId = null;
+    return;
+  }
+
+  const mech = mechById(state.mechBrowserHoverMechId) || state.selectedMech;
+  if (!mech) {
+    content.innerHTML = `<div class="empty mech-browser-preview-empty">${t("info.selectMechHint")}</div>`;
+    return;
+  }
+
+  const data = infoDataForMech(mech, true);
+  const movement = data.movement;
+  const stats = data.stats || {};
+  content.innerHTML = `
+    <header class="mech-browser-preview-header">
+      <div>
+        <span>${factionLabel(mech.faction)} · ${WEIGHT_CLASS_LABELS[mech.weight_class] || mech.weight_class || t("common.unknown")} · ${stats.MaxTons || "?"}t</span>
+        <h2>${omnipodIcon(mech)}${escapeHtml(mech.display_name || variantCode(mech))}</h2>
+      </div>
+    </header>
+    <section class="mech-browser-preview-section mech-browser-hardpoint-section">
+      <h3>${t("stats.hardpoints")}</h3>
+      ${renderMechBrowserHardpoints(mech, data.build)}
+    </section>
+    <div class="mech-browser-preview-fit-row">
+      <button class="fit-mech-button" type="button" data-fit-browser-mech="${mech.id}">${t("stats.fit")}</button>
+    </div>
+    ${mechSummarySection(t("info.durability"), [
+      [t("info.maxArmorTotal"), specValue(data.armorBaseTotal, data.armorTotal, 0, "", true)],
+      [t("info.structureTotal"), specValue(data.structureBaseTotal, data.structureTotal, 0, "", true)],
+    ], "mech-browser-preview-durability")}
+    ${mechSummarySection(t("info.engine"), [
+      [t("info.minEngine"), formatInfoNumber(number(stats.MinEngineRating), 0)],
+      [t("info.maxEngine"), formatInfoNumber(number(stats.MaxEngineRating), 0)],
+    ], "mech-browser-preview-engine")}
+    ${mechSummarySection(t("info.mobility"), [
+      [t("info.maxSpeed"), specMobilityValue(movement.baseMaxSpeed, movement.maxSpeed, 1, " kph", true), "full-row"],
+      [t("info.acceleration"), specMobilityValue(movement.baseAcceleration, movement.acceleration, 1, " kph/s", true)],
+      [t("info.deceleration"), specMobilityValue(movement.baseDeceleration, movement.deceleration, 1, " kph/s", true)],
+      [t("info.turnSpeed"), specMobilityValue(movement.baseTurnSpeed, movement.turnSpeed, 2, " °/s", true)],
+      [t("info.torsoSpeed"), specMobilityValue(movement.baseTorsoSpeed, movement.torsoSpeed, 1, " °/s", true)],
+      [t("info.angleX"), specAnglePair(movement.baseAngleX[0], movement.angleX[0], movement.angleX[1], "X", 1, true)],
+      [t("info.angleY"), specAnglePair(movement.baseAngleY[0], movement.angleY[0], movement.angleY[1], "Y", 1, true)],
+    ], "mech-browser-preview-mobility")}
+    <div class="mech-browser-preview-quirks">
+      ${renderMechSummaryQuirks(data.quirks, mech, data.build)}
+    </div>
+  `;
+}
+
+function setMechBrowserPreviewHover(mechId = null) {
+  const nextId = mechById(mechId) ? String(mechId) : null;
+  if (state.mechBrowserHoverMechId === nextId) return;
+  state.mechBrowserHoverMechId = nextId;
+  renderMechBrowserPreview();
 }
 
 function renderMechSummary(calc = null) {
@@ -6744,7 +6938,7 @@ function renderVariantRow(mech) {
       <span class="row-title">
         <span class="mech-title-main">${omnipodIcon(mech)}<strong>${variantCode(mech)}</strong></span>
       </span>
-      <span class="badge-line">${stockHardpointBadges(mech)}</span>
+      <span class="badge-line mech-slot-tags">${mechSlotBadges(mech)}</span>
     </button>
   `;
 }
@@ -6795,7 +6989,7 @@ function renderMechCard(mech) {
         <span><span>${t("info.acceleration")}/${t("info.deceleration")}</span><strong><span class="${accelerationBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.acceleration, 0)}</span> / <span class="${decelerationBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.deceleration, 0)}</span></strong></span>
         <span><span>${t("info.turnSpeed")}</span><strong class="${turnBoosted ? "boosted" : ""}">${formatInfoNumber(data.movement.turnSpeed, 0)}</strong></span>
       </span>
-      <span class="badge-line">${stockHardpointBadges(mech)}</span>
+      <span class="badge-line mech-slot-tags">${mechSlotBadges(mech)}</span>
     </button>
   `;
 }
@@ -7846,6 +8040,15 @@ function componentDurabilityQuirkValues(name, values) {
   };
 }
 
+function renderArmorMaximum(finalMax, quirkBonus = 0, className = "component-armor-limit") {
+  const baseMax = finalMax - quirkBonus;
+  const compact = `${fmt(finalMax)}(${fmt(baseMax)}${quirkBonus >= 0 ? "+" : "-"}${fmt(Math.abs(quirkBonus))})`.length > 10;
+  const detail = quirkBonus !== 0
+    ? `<span class="component-armor-max-detail">(<span class="component-armor-max-base">${fmt(baseMax)}</span><span class="component-armor-max-operator">${quirkBonus > 0 ? "+" : "-"}</span><span class="component-armor-max-bonus">${fmt(Math.abs(quirkBonus))}</span>)</span>`
+    : "";
+  return `<strong class="${className} component-armor-maximum${quirkBonus !== 0 ? " quirk-applied" : ""}${compact ? " compact" : ""}"><span class="component-armor-max-final">${fmt(finalMax)}</span>${detail}</strong>`;
+}
+
 function renderArmorStepper(
   name,
   side,
@@ -7855,26 +8058,31 @@ function renderArmorStepper(
   showLabel = true,
   quirkBonus = 0,
   finalMax = capacity,
-  maxBoosted = false,
+  maxQuirkBonus = 0,
 ) {
   const available = Math.max(0, capacity - value - pairedValue);
   const label = side === "rear" ? "REAR" : "FRONT";
   const finalValue = value + quirkBonus;
+  const valueTone = value <= 0
+    ? (quirkBonus !== 0 ? "quirk-only" : "empty")
+    : (quirkBonus !== 0 ? "quirk-applied" : "allocated");
   const inputMin = Math.max(0, quirkBonus);
   const inputMax = Math.max(inputMin, capacity - pairedValue + quirkBonus);
   return `
     <div class="component-armor-row">
       <div class="component-armor-allocation">
         <span class="component-armor-side">${showLabel ? label : ""}</span>
-        <input class="component-armor-value${quirkBonus !== 0 ? " quirk-tone-armor" : ""}" type="number" inputmode="numeric" step="1" min="${inputMin}" max="${inputMax}" value="${finalValue}" data-armor-input data-armor-component="${name}" data-armor-side="${side}" data-armor-quirk="${quirkBonus}" aria-label="${COMPONENT_NAMES[name] || name} ${side} armor value">
-        <div class="component-armor-stepper" aria-label="${COMPONENT_NAMES[name] || name} ${side} armor">
+        <input class="component-armor-value ${valueTone}" type="number" inputmode="numeric" step="1" min="${inputMin}" max="${inputMax}" value="${finalValue}" data-armor-input data-armor-component="${name}" data-armor-side="${side}" data-armor-quirk="${quirkBonus}" aria-label="${MECHLAB_COMPONENT_NAMES[name] || name} ${side} armor value">
+        <div class="component-armor-stepper" aria-label="${MECHLAB_COMPONENT_NAMES[name] || name} ${side} armor">
           <button type="button" data-armor-component="${name}" data-armor-side="${side}" data-armor-delta="1" ${available <= 0 ? "disabled" : ""} aria-label="Increase ${side} armor">+</button>
           <button type="button" data-armor-component="${name}" data-armor-side="${side}" data-armor-delta="-1" ${value <= 0 ? "disabled" : ""} aria-label="Decrease ${side} armor">-</button>
         </div>
       </div>
       <div class="component-armor-capacity">
         <span class="component-armor-limit-label">${side === "rear" ? "MAX" : "AVL"}</span>
-        <strong class="component-armor-limit${side === "rear" && maxBoosted ? " quirk-tone-armor" : ""}">${side === "rear" ? fmt(finalMax) : available}</strong>
+        ${side === "rear"
+          ? renderArmorMaximum(finalMax, maxQuirkBonus)
+          : `<strong class="component-armor-limit">${available}</strong>`}
       </div>
     </div>
   `;
@@ -7895,9 +8103,9 @@ function renderComponent(name, calc, quirkValues) {
   const structure = number(compDef.hp);
   const finalStructure = structure + durabilityQuirks.structure;
   const armorControls = torso
-    ? `${renderArmorStepper(name, "front", frontArmor, armorCapacity, rearArmor, true, durabilityQuirks.frontArmor)}${renderArmorStepper(name, "rear", rearArmor, armorCapacity, frontArmor, true, durabilityQuirks.rearArmor, finalArmorMax, totalArmorQuirk !== 0)}`
+    ? `${renderArmorStepper(name, "front", frontArmor, armorCapacity, rearArmor, true, durabilityQuirks.frontArmor)}${renderArmorStepper(name, "rear", rearArmor, armorCapacity, frontArmor, true, durabilityQuirks.rearArmor, finalArmorMax, totalArmorQuirk)}`
     : `${renderArmorStepper(name, "front", frontArmor, armorCapacity, 0, false, durabilityQuirks.frontArmor)}
-      <div class="component-armor-max-row"><span></span><div><span>MAX</span><strong class="${totalArmorQuirk !== 0 ? "quirk-tone-armor" : ""}">${fmt(finalArmorMax)}</strong></div></div>`;
+      <div class="component-armor-max-row"><span></span><div><span>MAX</span>${renderArmorMaximum(finalArmorMax, totalArmorQuirk, "component-armor-max-value")}</div></div>`;
   const hardpointCapacity = hardpointCountsFromHardpoints(compDef.hardpoints || []);
   const remainingHardpoints = Object.fromEntries(Object.entries(hardpointCapacity).map(([type, capacity]) => [
     type,
@@ -7956,7 +8164,7 @@ function renderComponent(name, calc, quirkValues) {
     <article class="component component-location-${name} ${usage.warnings.length ? "invalid" : ""}" data-component-drop="${name}">
         <div class="component-head">
           <div>
-            <div class="component-title">${COMPONENT_NAMES[name] || name}</div>
+            <div class="component-title">${MECHLAB_COMPONENT_NAMES[name] || name}</div>
             <div class="component-stat-title">ARMOR</div>
             <div class="component-armor-controls">${armorControls}</div>
             <div class="component-structure-row">
@@ -8136,7 +8344,7 @@ function renderAll() {
   }
 }
 
-function selectMech(id, { historyMode = "push" } = {}) {
+function selectMech(id, { historyMode = "push", enterFitting = true } = {}) {
   const nextMech = mechById(id) || state.mechs[0];
   const wasMechlabBrowsing = state.activeMainTab === "mechlab" && state.mechlabBrowseMode;
   if (wasMechlabBrowsing) rememberMechListScroll();
@@ -8155,7 +8363,7 @@ function selectMech(id, { historyMode = "push" } = {}) {
     state.selectedItemId = null;
   }
   if (state.selectedChassis) state.expandedChassis.add(state.selectedChassis);
-  if (state.activeMainTab === "mechlab") {
+  if (state.activeMainTab === "mechlab" && enterFitting) {
     state.mechlabBrowseMode = false;
     state.mechlabCompactListOpen = false;
   }
@@ -8163,7 +8371,13 @@ function selectMech(id, { historyMode = "push" } = {}) {
     updateMechNavigation("mech", state.selectedMech.id, historyMode);
   }
   if (wasMechlabBrowsing) {
-    renderMechList();
+    if (enterFitting) {
+      renderMechList();
+    } else {
+      state.mechBrowserHoverMechId = String(state.selectedMech?.id || "");
+      syncMechListActiveStates();
+      renderMechBrowserPreview();
+    }
   } else {
     syncMechListActiveStates();
     renderMechlabCompactList();
@@ -8171,7 +8385,7 @@ function selectMech(id, { historyMode = "push" } = {}) {
   renderEquipmentList();
   renderInfoPanel();
   renderVariant();
-  if (state.activeMainTab === "mechlab") {
+  if (state.activeMainTab === "mechlab" && enterFitting) {
     document.querySelector(".tab-content").scrollTop = 0;
     requestAnimationFrame(updateMechlabScale);
   }
@@ -8901,7 +9115,7 @@ function weaponTooltipStatistics(item, quirks = []) {
       rows.push(["DPS", tooltipQuirkValue(damageRate.base, damageRate.final, 2)]);
     }
     if (baseHeat > 0 && damageRate.base > 0) {
-      rows.push(["HPD", tooltipQuirkValue(
+      rows.push(["DPH", tooltipQuirkValue(
         damageRate.base / baseHeat,
         damageRate.final / finalHeat,
         2,
@@ -8917,7 +9131,7 @@ function weaponTooltipStatistics(item, quirks = []) {
     rows.push(["DPS", tooltipQuirkValue(totalDamage / baseCycle, totalDamage / finalCycle, 2)]);
   }
   if (baseHeat > 0 && totalDamage > 0) {
-    rows.push(["HPD", tooltipQuirkValue(totalDamage / baseHeat, totalDamage / finalHeat, 2)]);
+    rows.push(["DPH", tooltipQuirkValue(totalDamage / baseHeat, totalDamage / finalHeat, 2)]);
   }
   if (hasCooldown && baseHeat > 0 && baseCycle > 0 && finalCycle > 0) {
     rows.push(["HPS", tooltipQuirkValue(baseHeat / baseCycle, finalHeat / finalCycle, 2)]);
@@ -9488,6 +9702,7 @@ function dropValidation(item, component, source = null) {
   if (!equipmentMatchesSelectedMechCapabilities(item)) return t("build.noAutoInstallLocation");
   const movingInstalledItem = source?.source === "component";
   if (item.item_type === "jumpjet") {
+    if (!JUMP_JET_COMPONENTS.has(component)) return t("build.jumpJetLocation");
     const limit = maximumJumpJets();
     const current = installedMechItems("jumpjet").length;
     const next = current - (movingInstalledItem ? 1 : 0) + 1;
@@ -9549,7 +9764,12 @@ function dropValidation(item, component, source = null) {
       const installed = itemById(entry.item_id);
       return count + (equipmentHardpointType(installed) === type ? 1 : 0);
     }, (compDef.fixed || []).reduce((count, itemId) => (
-      count + (equipmentHardpointType(itemById(itemId)) === type ? 1 : 0)
+      count + (
+        equipmentHardpointType(itemById(itemId)) === type
+        && fixedItemConsumesHardpoint(itemById(itemId))
+          ? 1
+          : 0
+      )
     ), 0));
     if (used + 1 > capacity) return `${type} hardpoints ${used + 1}/${capacity}`;
   }
@@ -10332,6 +10552,10 @@ function bindEvents() {
   $("fit-info-mech").addEventListener("click", () => {
     if (state.selectedMech) openMechFitting(state.selectedMech.id);
   });
+  $("mech-browser-preview").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-fit-browser-mech]");
+    if (button) openMechFitting(button.dataset.fitBrowserMech);
+  });
   $("mech-list-view-toggle").addEventListener("click", () => {
     state.largeMechList = !state.largeMechList;
     renderMechList();
@@ -10569,10 +10793,27 @@ function bindEvents() {
     if (button) {
       if (state.compareMode) {
         toggleCompareMech(button.dataset.mech);
+      } else if (state.activeMainTab === "mechlab" && state.mechlabBrowseMode) {
+        selectMech(button.dataset.mech, { historyMode: "none", enterFitting: false });
       } else {
         selectMech(button.dataset.mech);
       }
     }
+  });
+  $("mech-list").addEventListener("dblclick", (event) => {
+    const button = event.target.closest("[data-mech]");
+    if (!button || state.compareMode) return;
+    event.preventDefault();
+    openMechFitting(button.dataset.mech);
+  });
+  $("mech-list").addEventListener("pointerover", (event) => {
+    const button = event.target.closest("[data-mech]");
+    if (!button || button.contains(event.relatedTarget)) return;
+    setMechBrowserPreviewHover(button.dataset.mech);
+  });
+  $("mech-list").addEventListener("focusin", (event) => {
+    const button = event.target.closest("[data-mech]");
+    if (button) setMechBrowserPreviewHover(button.dataset.mech);
   });
   $("mech-list").addEventListener("scroll", rememberMechListScroll, { passive: true });
   $("mechlab-compact-list").addEventListener("click", (event) => {
