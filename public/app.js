@@ -10811,9 +10811,21 @@ function bindEvents() {
     if (!button || button.contains(event.relatedTarget)) return;
     setMechBrowserPreviewHover(button.dataset.mech);
   });
+  $("mech-list").addEventListener("pointerout", (event) => {
+    const button = event.target.closest("[data-mech]");
+    if (!button || button.contains(event.relatedTarget)) return;
+    const nextButton = event.relatedTarget?.closest?.("[data-mech]");
+    setMechBrowserPreviewHover(nextButton?.dataset.mech || null);
+  });
   $("mech-list").addEventListener("focusin", (event) => {
     const button = event.target.closest("[data-mech]");
     if (button) setMechBrowserPreviewHover(button.dataset.mech);
+  });
+  $("mech-list").addEventListener("focusout", (event) => {
+    const button = event.target.closest("[data-mech]");
+    if (!button || button.contains(event.relatedTarget)) return;
+    const nextButton = event.relatedTarget?.closest?.("[data-mech]");
+    setMechBrowserPreviewHover(nextButton?.dataset.mech || null);
   });
   $("mech-list").addEventListener("scroll", rememberMechListScroll, { passive: true });
   $("mechlab-compact-list").addEventListener("click", (event) => {
