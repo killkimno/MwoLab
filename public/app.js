@@ -6111,6 +6111,7 @@ function collectSimulationWeapons() {
           directDamage > 0 ? (directDamage + splashDamage * 2) / directDamage : 1
         ),
         heat: simulationWeaponHeat(item, quirks),
+        ghostHeatHslBonus: ghostHeatHslBonus(item, quirks),
         continuous: isSimulationMachineGun(item)
           || isSimulationContinuousDamagePerSecondWeapon(item),
         chargeTime: Math.max(0, number(item.stats?.chargeTime)),
@@ -6153,6 +6154,7 @@ function collectSimulationWeapons() {
           directDamage > 0 ? (directDamage + splashDamage * 2) / directDamage : 1
         ),
         heat: simulationWeaponHeat(item, quirks),
+        ghostHeatHslBonus: ghostHeatHslBonus(item, quirks),
         continuous: isSimulationMachineGun(item)
           || isSimulationContinuousDamagePerSecondWeapon(item),
         chargeTime: Math.max(0, number(item.stats?.chargeTime)),
@@ -6317,14 +6319,30 @@ function addSimulationHeat(weapon, shotCount = 1) {
   state.simulation.currentHeat += number(weapon.heat) * shotCount;
 }
 
-function ghostHeatWeaponExtra(item, weaponCount, heat = itemHeat(item)) {
+function ghostHeatHslBonus(item, quirks = effectiveQuirks(state.selectedMech, state.currentBuild)) {
+  const suffix = "_minheatpenaltylevel_additive";
+  const weaponType = equipmentHardpointType(item);
+  return quirks.reduce((sum, quirk) => {
+    const name = String(quirk.name || "").toLowerCase();
+    if (!name.endsWith(suffix)) return sum;
+    const prefix = normalizeLookupKey(name.slice(0, -suffix.length));
+    const matches = ["all", "weapon", "weapons"].includes(prefix)
+      || prefix === normalizeLookupKey(weaponType)
+      || simulationSpecificQuirkMatchesItem(prefix, item);
+    return matches ? sum + Math.max(0, number(quirk.value)) : sum;
+  }, 0);
+}
+
+function ghostHeatWeaponExtra(item, weaponCount, heat = itemHeat(item), hslBonus = 0) {
   const stats = item?.stats || {};
   const threshold = Math.trunc(number(stats.minheatpenaltylevel));
+  const activationThreshold = threshold + Math.max(0, Math.trunc(number(hslBonus)));
   const penalty = Math.max(0, number(stats.heatpenalty)) / 100;
   const lastSupportedCount = GHOST_HEAT_LEVEL_MULTIPLIERS.length - 1;
   const cappedCount = Math.min(Math.max(0, Math.trunc(weaponCount)), lastSupportedCount);
-  if (threshold < 1 || cappedCount < threshold || !(penalty > 0) || !(heat > 0)) return 0;
+  if (threshold < 1 || cappedCount < activationThreshold || !(penalty > 0) || !(heat > 0)) return 0;
   let scale = 0;
+  // HSL delays activation only. Once active, retain every original escalation level through the current weapon count.
   for (let count = threshold; count <= cappedCount; count += 1) {
     scale += GHOST_HEAT_LEVEL_MULTIPLIERS[count] || 0;
   }
@@ -6341,6 +6359,7 @@ function ghostHeatGroupKey(item) {
 
 function mechlabGhostHeatWarnings() {
   const groups = new Map();
+  const quirks = effectiveQuirks(state.selectedMech, state.currentBuild);
   installedMechItems("weapon").forEach((item) => {
     const groupKey = ghostHeatGroupKey(item);
     if (!groupKey) return;
@@ -6352,7 +6371,7 @@ function mechlabGhostHeatWarnings() {
     const weaponCount = weapons.length;
     const extraHeat = weapons.reduce((highest, item) => Math.max(
       highest,
-      ghostHeatWeaponExtra(item, weaponCount),
+      ghostHeatWeaponExtra(item, weaponCount, itemHeat(item), ghostHeatHslBonus(item, quirks)),
     ), 0);
     if (!(extraHeat > 0)) continue;
     const counts = new Map();
@@ -6393,7 +6412,12 @@ function addSimulationGhostHeat(shots) {
     const weapons = Array.from(weaponsByKey.values());
     const extraHeat = weapons.reduce((highest, weapon) => Math.max(
       highest,
-      ghostHeatWeaponExtra(weapon.item, weapons.length, weapon.heat),
+      ghostHeatWeaponExtra(
+        weapon.item,
+        weapons.length,
+        weapon.heat,
+        weapon.ghostHeatHslBonus,
+      ),
     ), 0);
     simulation.currentHeat += extraHeat;
   }
@@ -6909,7 +6933,12 @@ function updateSimulationContinuousDamage(now) {
   for (const entries of ghostHeatByGroup.values()) {
     const extraHeat = entries.reduce((highest, { weapon, elapsed }) => Math.max(
       highest,
-      ghostHeatWeaponExtra(weapon.item, entries.length, weapon.heat / weapon.cycle) * elapsed,
+      ghostHeatWeaponExtra(
+        weapon.item,
+        entries.length,
+        weapon.heat / weapon.cycle,
+        weapon.ghostHeatHslBonus,
+      ) * elapsed,
     ), 0);
     simulation.currentHeat += extraHeat;
   }
