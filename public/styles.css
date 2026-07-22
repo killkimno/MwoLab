@@ -5920,6 +5920,16 @@ body.pointer-drag-active * {
   font-weight: 900;
 }
 
+.ghost-heat-capacity-percent {
+  color: #ffb18f;
+  font-weight: 900;
+}
+
+.ghost-heat-total-value {
+  color: #fff;
+  font-weight: 900;
+}
+
 .equipment-tooltip-title {
   margin: 0.88rem;
   padding: 0.462rem 0.605rem;

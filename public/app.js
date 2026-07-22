@@ -135,7 +135,7 @@ const TEXT = {
     "mechlab.showList": "멕 리스트",
     "mechlab.ghostHeatWarning": "고스트 힛 발생 가능",
     "mechlab.ghostHeatWarningTitle": "GHOST HEAT WARNING",
-    "mechlab.ghostHeatWarningLine": "{weapons} 동시 발사 시 추가 발열 {heat}이 발생합니다.",
+    "mechlab.ghostHeatWarningLine": "{weapons} : 발열 {percent} (최종: {totalHeat}, 고스트 힛: {ghostHeat})",
     "simulation.open": "시뮬레이션",
     "simulation.title": "DPS 시뮬레이션",
     "simulation.hint": "버튼 또는 숫자 키 1~4를 누르고 있는 동안 해당 그룹을 발사합니다.",
@@ -535,7 +535,7 @@ const TEXT = {
     "mechlab.showList": "Mech List",
     "mechlab.ghostHeatWarning": "Ghost heat possible",
     "mechlab.ghostHeatWarningTitle": "GHOST HEAT WARNING",
-    "mechlab.ghostHeatWarningLine": "Firing {weapons} simultaneously generates {heat} extra heat.",
+    "mechlab.ghostHeatWarningLine": "{weapons}: heat {percent} (final: {totalHeat}, ghost heat: {ghostHeat})",
     "simulation.open": "Simulation",
     "simulation.title": "DPS Simulation",
     "simulation.hint": "Hold buttons or number keys 1-4 to fire the assigned weapon groups.",
@@ -6092,6 +6092,7 @@ function collectSimulationWeapons() {
     fixed.forEach((itemId, index) => {
       const item = itemById(itemId);
       if (item?.item_type !== "weapon" || isAmsWeapon(item)) return;
+      const baseTiming = simulationWeaponTiming(item, []);
       const timing = simulationWeaponTiming(item, quirks);
       const expectedCooldown = weaponExpectedCooldown(item, quirks);
       const targetComputer = targetComputerWeaponModifiers(item);
@@ -6111,6 +6112,8 @@ function collectSimulationWeapons() {
           directDamage > 0 ? (directDamage + splashDamage * 2) / directDamage : 1
         ),
         heat: simulationWeaponHeat(item, quirks),
+        ghostHeatBase: itemHeat(item),
+        ghostHeatBasePerSecond: itemHeat(item) / Math.max(0.016, baseTiming.cycle),
         ghostHeatHslBonus: ghostHeatHslBonus(item, quirks),
         continuous: isSimulationMachineGun(item)
           || isSimulationContinuousDamagePerSecondWeapon(item),
@@ -6135,6 +6138,7 @@ function collectSimulationWeapons() {
     (state.currentBuild.components?.[component]?.items || []).forEach((entry, index) => {
       const item = itemById(entry.item_id);
       if (item?.item_type !== "weapon" || isAmsWeapon(item)) return;
+      const baseTiming = simulationWeaponTiming(item, []);
       const timing = simulationWeaponTiming(item, quirks);
       const expectedCooldown = weaponExpectedCooldown(item, quirks);
       const targetComputer = targetComputerWeaponModifiers(item);
@@ -6154,6 +6158,8 @@ function collectSimulationWeapons() {
           directDamage > 0 ? (directDamage + splashDamage * 2) / directDamage : 1
         ),
         heat: simulationWeaponHeat(item, quirks),
+        ghostHeatBase: itemHeat(item),
+        ghostHeatBasePerSecond: itemHeat(item) / Math.max(0.016, baseTiming.cycle),
         ghostHeatHslBonus: ghostHeatHslBonus(item, quirks),
         continuous: isSimulationMachineGun(item)
           || isSimulationContinuousDamagePerSecondWeapon(item),
@@ -6374,6 +6380,10 @@ function mechlabGhostHeatWarnings() {
       ghostHeatWeaponExtra(item, weaponCount, itemHeat(item), ghostHeatHslBonus(item, quirks)),
     ), 0);
     if (!(extraHeat > 0)) continue;
+    const weaponHeat = weapons.reduce(
+      (sum, item) => sum + Math.max(0, simulationWeaponHeat(item, quirks)),
+      0,
+    );
     const counts = new Map();
     weapons.forEach((item) => {
       const name = item.display_name || item.name || "WEAPON";
@@ -6382,6 +6392,8 @@ function mechlabGhostHeatWarnings() {
     warnings.push({
       groupKey,
       extraHeat,
+      weaponHeat,
+      totalHeat: weaponHeat + extraHeat,
       weapons: Array.from(counts, ([name, count]) => `${name} ×${count}`).join(" + "),
     });
   }
@@ -6415,7 +6427,7 @@ function addSimulationGhostHeat(shots) {
       ghostHeatWeaponExtra(
         weapon.item,
         weapons.length,
-        weapon.heat,
+        weapon.ghostHeatBase,
         weapon.ghostHeatHslBonus,
       ),
     ), 0);
@@ -6936,7 +6948,7 @@ function updateSimulationContinuousDamage(now) {
       ghostHeatWeaponExtra(
         weapon.item,
         entries.length,
-        weapon.heat / weapon.cycle,
+        weapon.ghostHeatBasePerSecond,
         weapon.ghostHeatHslBonus,
       ) * elapsed,
     ), 0);
@@ -9982,17 +9994,25 @@ function equipmentTooltipHtml(item, ghostHeatExtra = 0) {
 
 function ghostHeatWarningTooltipHtml() {
   const warnings = mechlabGhostHeatWarnings();
+  const heatCapacity = simulationHeatSystem().maxHeat;
   return `
     <div class="equipment-tooltip-card tooltip-ghost-heat">
       <div class="equipment-tooltip-title">${escapeHtml(t("mechlab.ghostHeatWarningTitle"))}</div>
       <div class="ghost-heat-warning-tooltip-lines">
         ${warnings.map((warning) => {
-          const heat = equipmentInfoValue(warning.extraHeat, 2);
-          const marker = "__GHOST_HEAT_VALUE__";
+          const percent = heatCapacity > 0 ? warning.totalHeat / heatCapacity * 100 : 0;
+          const percentMarker = "__GHOST_HEAT_PERCENT__";
+          const totalMarker = "__GHOST_HEAT_TOTAL__";
+          const ghostMarker = "__GHOST_HEAT_VALUE__";
           const line = escapeHtml(t("mechlab.ghostHeatWarningLine", {
             weapons: warning.weapons,
-            heat: marker,
-          })).replace(marker, `<strong class="ghost-heat-extra-value">${escapeHtml(heat)}</strong>`);
+            percent: percentMarker,
+            totalHeat: totalMarker,
+            ghostHeat: ghostMarker,
+          }))
+            .replace(percentMarker, `<strong class="ghost-heat-capacity-percent">${escapeHtml(equipmentInfoValue(percent, 1, "%"))}</strong>`)
+            .replace(totalMarker, `<strong class="ghost-heat-total-value">${escapeHtml(equipmentInfoValue(warning.totalHeat, 2))}</strong>`)
+            .replace(ghostMarker, `<strong class="ghost-heat-extra-value">${escapeHtml(equipmentInfoValue(warning.extraHeat, 2))}</strong>`);
           return `<p>${line}</p>`;
         }).join("")}
       </div>
