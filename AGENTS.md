@@ -10,6 +10,7 @@
 
 ## Quirk Parsing Rules
 
+- Unless the user explicitly requests different colors, when a UI already displays both a quirk-adjusted final value and its quirk contribution, color the final value green and the quirk contribution yellow. Keep the base value, parentheses, and operators in the surrounding stat's normal base color. This is a color rule only; it does not require any particular calculation, text format, decomposition, ordering, or layout.
 - Quirk names are parsed case-insensitively. Normalize quirk names and weapon lookup keys before matching.
 - A multiplier quirk whose benefit is a reduction, such as cooldown, heat, duration, and spread, is stored as a negative value. Convert it to a positive summary value with `Math.max(0, -value)`.
 - A multiplier quirk whose benefit is an increase, such as range, velocity, heat dissipation, and ROF, is stored as a positive value. Convert it with `Math.max(0, value)`.

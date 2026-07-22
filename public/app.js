@@ -206,7 +206,7 @@ const TEXT = {
     "equipmentInfo.expectedCooldown": "예상 쿨다운",
     "equipmentInfo.duration": "듀레이션",
     "equipmentInfo.spread": "탄 퍼짐",
-    "equipmentInfo.hpd": "DPH",
+    "equipmentInfo.hpd": "HPD",
     "equipmentInfo.weaponType": "계열",
     "equipmentInfo.spreadWeapons": "탄 퍼짐 무기",
     "equipmentInfo.criticalWeapons": "크리티컬 무기",
@@ -592,7 +592,7 @@ const TEXT = {
     "equipmentInfo.expectedCooldown": "Expected Cooldown",
     "equipmentInfo.duration": "Duration",
     "equipmentInfo.spread": "Spread",
-    "equipmentInfo.hpd": "DPH",
+    "equipmentInfo.hpd": "HPD",
     "equipmentInfo.weaponType": "Type",
     "equipmentInfo.spreadWeapons": "Spread Weapons",
     "equipmentInfo.criticalWeapons": "Critical Weapons",
@@ -1835,6 +1835,34 @@ function ammoHardpointType(item) {
   return state.ammoHardpointTypeCache.get(
     normalizeLookupKey(item.stats?.type || item.name),
   ) || "";
+}
+
+function ammoCapacityQuirkKey(item) {
+  return normalizeLookupKey(item?.stats?.type || item?.name)
+    .replaceAll("ammo", "")
+    .replace(/^clan/, "c")
+    .replace("hyperassaultgauss", "hag")
+    .replace("silverbulletgauss", "silverbullet")
+    .replace(/(lb\d+x)ac/, "$1");
+}
+
+function ammoCapacityQuirkBonus(item, quirks = []) {
+  if (item?.item_type !== "ammo") return 0;
+  const ammoKey = ammoCapacityQuirkKey(item);
+  if (!ammoKey) return 0;
+  return quirks.reduce((sum, quirk) => {
+    const name = String(quirk?.name || "").toLowerCase();
+    if (!name.startsWith("ammocapacity_") || !name.endsWith("_additive")) return sum;
+    const prefix = normalizeLookupKey(name.slice("ammocapacity_".length, -"_additive".length));
+    if (prefix !== ammoKey) return sum;
+    return sum + Math.max(0, number(quirk.value));
+  }, 0);
+}
+
+function effectiveAmmoShots(item, quirks = []) {
+  const baseShots = Math.max(0, number(item?.stats?.numShots));
+  const capacityBonus = ammoCapacityQuirkBonus(item, quirks) * Math.max(0, itemTons(item));
+  return Math.floor(baseShots + capacityBonus + 0.000001);
 }
 
 function hardpointSlots(hardpoint) {
@@ -4082,7 +4110,7 @@ function renderCompareTable(mechs) {
     return `<div class="empty compare-empty">${t("compare.empty")}</div>`;
   }
 
-  const data = mechs.map(infoDataForMech);
+  const data = mechs.map((mech) => infoDataForMech(mech));
   const bodyRows = INFO_COMPONENTS.map((component, index) => ({
     label: component.label,
     combined: (entry) => compareNumber(entry.combinedRows[index].total, 0),
@@ -4898,6 +4926,7 @@ function calculateBuild() {
   let alpha = 0;
   let ammo = 0;
   let armor = 0;
+  const quirks = effectiveQuirks(mech, state.currentBuild);
   const engine = installedEngine();
   const structureUpgrade = itemById(state.currentBuild.upgrades?.structure?.ItemID);
   const selectedGuidanceUpgrade = guidanceUpgrade();
@@ -4974,7 +5003,7 @@ function calculateBuild() {
       if (item.item_type === "weapon" && !isAmsWeapon(item)) {
         alpha += weaponTotalDamage(item);
       }
-      if (item.item_type === "ammo") ammo += number(item.stats?.numShots);
+      if (item.item_type === "ammo") ammo += effectiveAmmoShots(item, quirks);
       if (isHeatSink(item)) installedHeatSinkCount += 1;
     }
     for (const entry of buildComp.items) {
@@ -5010,7 +5039,7 @@ function calculateBuild() {
         alpha += weaponTotalDamage(item);
       }
       if (item.item_type === "ammo") {
-        ammo += number(item.stats?.numShots);
+        ammo += effectiveAmmoShots(item, quirks);
       }
       if (isHeatSink(item)) {
         installedHeatSinkCount += 1;
@@ -5368,6 +5397,7 @@ function ammoGroupWeaponLabel(weapons) {
 
 function mechSummaryAmmoGroups(weapons) {
   const groups = new Map();
+  const quirks = effectiveQuirks(state.selectedMech, state.currentBuild);
   weapons.forEach((weapon) => {
     const ammoType = activeWeaponAmmoType(weapon.item);
     const key = normalizeLookupKey(ammoType);
@@ -5377,7 +5407,7 @@ function mechSummaryAmmoGroups(weapons) {
   });
   installedMechItems("ammo").forEach((ammo) => {
     const key = normalizeLookupKey(ammo.stats?.type || ammo.name);
-    if (groups.has(key)) groups.get(key).rounds += Math.max(0, number(ammo.stats?.numShots));
+    if (groups.has(key)) groups.get(key).rounds += effectiveAmmoShots(ammo, quirks);
   });
   return Array.from(groups.values())
     .map((group) => {
@@ -5594,7 +5624,7 @@ function renderMechSummary(calc = null) {
   const alphaHeat = weapons.reduce((sum, weapon) => sum + number(weapon.heat), 0);
   const dps = weapons.reduce((sum, weapon) => sum + number(weapon.damage) / Math.max(0.016, number(weapon.cycle, 0.016)), 0);
   const hps = weapons.reduce((sum, weapon) => sum + number(weapon.heat) / Math.max(0.016, number(weapon.cycle, 0.016)), 0);
-  const dph = alphaHeat > 0 ? calc.alpha / alphaHeat : null;
+  const hpd = calc.alpha > 0 ? alphaHeat / calc.alpha : null;
   const heatEfficiency = hps <= heatSystem.coolingRate + 0.0001
     ? 100
     : Math.max(0, Math.min(100, heatSystem.coolingRate / hps * 100));
@@ -5651,7 +5681,7 @@ function renderMechSummary(calc = null) {
     ${mechSummarySection("WEAPON", [
       ["FIREPOWER", fmt(calc.alpha, 2)],
       ["DPS", fmt(dps, 2)],
-      ["DPH", dph === null ? "-" : fmt(dph, 2)],
+      ["HPD", hpd === null ? "-" : fmt(hpd, 2)],
       ["HPS", fmt(hps, 2)],
       ["ALPHA HEAT", `${fmt(alphaHeat, 2)} (${fmt(alphaHeatPercent, 1)}%)`],
     ])}
@@ -7085,7 +7115,7 @@ function equipmentInfoWeaponRow(item, index) {
   const totalDamage = damage + splashDamage;
   const heat = itemHeat(item);
   const expectedCooldown = weaponExpectedCooldown(item, []) ?? timing.cooldown;
-  const hpd = heat > 0 ? totalDamage / heat : Number.NaN;
+  const hpd = totalDamage > 0 ? heat / totalDamage : Number.NaN;
   const spread = weaponSpreadValues(item, [])?.final ?? Number.NaN;
   const criticalChanceValues = weaponCriticalChanceValues(item);
   const criticalChance = criticalChanceValues.find((value) => Math.abs(value) > 0.000001) ?? Number.NaN;
@@ -9115,9 +9145,9 @@ function weaponTooltipStatistics(item, quirks = []) {
       rows.push(["DPS", tooltipQuirkValue(damageRate.base, damageRate.final, 2)]);
     }
     if (baseHeat > 0 && damageRate.base > 0) {
-      rows.push(["DPH", tooltipQuirkValue(
-        damageRate.base / baseHeat,
-        damageRate.final / finalHeat,
+      rows.push(["HPD", tooltipQuirkValue(
+        baseHeat / damageRate.base,
+        finalHeat / damageRate.final,
         2,
       )]);
     }
@@ -9131,7 +9161,7 @@ function weaponTooltipStatistics(item, quirks = []) {
     rows.push(["DPS", tooltipQuirkValue(totalDamage / baseCycle, totalDamage / finalCycle, 2)]);
   }
   if (baseHeat > 0 && totalDamage > 0) {
-    rows.push(["DPH", tooltipQuirkValue(totalDamage / baseHeat, totalDamage / finalHeat, 2)]);
+    rows.push(["HPD", tooltipQuirkValue(baseHeat / totalDamage, finalHeat / totalDamage, 2)]);
   }
   if (hasCooldown && baseHeat > 0 && baseCycle > 0 && finalCycle > 0) {
     rows.push(["HPS", tooltipQuirkValue(baseHeat / baseCycle, finalHeat / finalCycle, 2)]);
@@ -9357,8 +9387,9 @@ function equipmentTooltipGroups(item) {
       ["ADDITIONAL HEAT SINKS", tooltipNumber(engineAdditionalHeatSinkCapacity(item), 0)],
     ]);
   } else if (item.item_type === "ammo") {
+    const finalShots = effectiveAmmoShots(item, quirks);
     groups.push([
-      ["AMMO", tooltipNumber(stats.numShots, 0)],
+      ["AMMO", tooltipQuirkValue(stats.numShots, finalShots, 0)],
       ["INTERNAL DAMAGE", tooltipNumber(stats.internalDamage, 2)],
     ]);
   } else if (item.item_type === "jumpjet") {
