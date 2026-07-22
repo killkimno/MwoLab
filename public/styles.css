@@ -262,6 +262,100 @@ h3 {
 .equipment-info-spread-weapons { --equipment-info-accent: #d28bff; }
 .equipment-info-critical-weapons { --equipment-info-accent: #ff9b42; }
 .equipment-info-jam-weapons { --equipment-info-accent: var(--red); }
+.equipment-info-ghost-heat {
+  --equipment-info-accent: #ff8d5c;
+  min-width: 76rem;
+}
+
+.equipment-info-ghost-heat .equipment-info-table {
+  min-width: 76rem;
+}
+
+.equipment-info-ghost-heat .equipment-info-table td:not(:first-child):not(:nth-child(2)) {
+  color: #ffb18f;
+  font-weight: 900;
+}
+
+.equipment-info-ghost-rules {
+  width: min(76rem, 100%);
+  padding: 1rem 1.1rem 1.15rem;
+  border: 1px solid #4b3a32;
+  border-left: 4px solid #ff8d5c;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #1b1716, #11181b 72%);
+}
+
+.equipment-info-ghost-rules header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+}
+
+.equipment-info-ghost-rules header span {
+  color: #ff8d5c;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.14rem;
+}
+
+.equipment-info-ghost-rules h3,
+.equipment-info-ghost-example h4 {
+  margin: 0;
+  color: var(--text);
+}
+
+.equipment-info-ghost-summary {
+  display: grid;
+  gap: 0.25rem;
+  color: #c6d0d3;
+  line-height: 1.55;
+}
+
+.equipment-info-ghost-summary p {
+  margin: 0;
+}
+
+.equipment-info-ghost-examples {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.equipment-info-ghost-example {
+  padding: 0.85rem;
+  border: 1px solid #35464c;
+  border-radius: 4px;
+  background: #0d1416;
+}
+
+.equipment-info-ghost-example h4 {
+  margin-bottom: 0.55rem;
+  color: #ffb18f;
+  font-size: 0.9rem;
+}
+
+.equipment-info-ghost-example p {
+  margin: 0.28rem 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.equipment-info-ghost-example strong {
+  display: block;
+  margin-top: 0.55rem;
+  color: var(--yellow);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 900px) {
+  .equipment-info-ghost-examples {
+    grid-template-columns: 1fr;
+  }
+}
 .equipment-info-modules {
   --equipment-info-accent: var(--purple);
   width: max-content;
@@ -4663,6 +4757,7 @@ body.simulation-open {
 }
 
 .components-panel {
+  position: relative;
   overflow: auto;
   padding-right: 0.15rem;
 }
@@ -4673,6 +4768,38 @@ body.simulation-open {
   color: #aebdc2;
   font-size: 0.85rem;
   line-height: 1.8rem;
+}
+
+.ghost-heat-warning {
+  position: absolute;
+  z-index: 8;
+  top: 0.2rem;
+  left: 0.4rem;
+  display: grid;
+  width: 1.55rem;
+  height: 1.45rem;
+  margin: 0;
+  padding: 0;
+  place-items: center;
+  border: 1px solid #ff8d5c;
+  border-radius: 3px;
+  background: #301a14;
+  box-shadow: inset 0 0 0 1px #ff8d5c24;
+  color: #ffc0a3;
+  cursor: help;
+  font: 900 0.9rem/1 sans-serif;
+}
+
+.ghost-heat-warning[hidden] {
+  display: none;
+}
+
+.ghost-heat-warning:hover,
+.ghost-heat-warning:focus-visible {
+  border-color: #ffd1bc;
+  background: #482219;
+  color: #fff;
+  outline: none;
 }
 
 .mechlab-workspace .hardpoint-chip {
@@ -5096,6 +5223,14 @@ body.simulation-open {
 
 .slot-item:active {
   cursor: grabbing;
+}
+
+.component-items .slot-item.ghost-heat-triggered,
+.critical-slot.fixed-slot.ghost-heat-triggered {
+  border-color: #ff4938;
+  outline: 2px solid #ff4938;
+  outline-offset: -2px;
+  box-shadow: 0 0 0.42rem rgba(255, 73, 56, 0.72);
 }
 
 .slot-item.dragging {
@@ -5736,6 +5871,13 @@ body.pointer-drag-active * {
   display: none;
 }
 
+.equipment-tooltip.ghost-heat-tooltip-open {
+  width: max-content;
+  min-width: min(32rem, calc(100vw - 1rem));
+  max-width: calc(100vw - 1rem);
+  overflow-x: auto;
+}
+
 .equipment-tooltip-card {
   --tooltip-accent: #b9c8cd;
   overflow: hidden;
@@ -5753,6 +5895,30 @@ body.pointer-drag-active * {
 .equipment-tooltip-card.tooltip-ammo { --tooltip-accent: #ff842d; }
 .equipment-tooltip-card.tooltip-heatsink { --tooltip-accent: #45aaff; }
 .equipment-tooltip-card.tooltip-engine { --tooltip-accent: #ff5555; }
+.equipment-tooltip-card.tooltip-ghost-heat {
+  --tooltip-accent: #ff8d5c;
+  width: max-content;
+  min-width: 100%;
+}
+
+.ghost-heat-warning-tooltip-lines {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.75rem;
+}
+
+.ghost-heat-warning-tooltip-lines p {
+  margin: 0;
+  color: #e7edef;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.ghost-heat-extra-value {
+  color: #ffc0a3;
+  font-weight: 900;
+}
 
 .equipment-tooltip-title {
   margin: 0.88rem;
@@ -5829,6 +5995,11 @@ body.pointer-drag-active * {
 .equipment-tooltip-stats strong .equipment-tooltip-quirk-value {
   color: var(--yellow);
   font-weight: 800;
+}
+
+.equipment-tooltip-stats strong .equipment-tooltip-ghost-heat {
+  color: #ff4938;
+  font-weight: 900;
 }
 
 .equipment-tooltip-stats strong .equipment-tooltip-splash {

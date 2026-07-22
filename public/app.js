@@ -9,6 +9,27 @@ let mechlabScaleFrame = 0;
 let mechNavigationReady = false;
 let mechFilterTrigger = null;
 const LOCAL_BUILDS_STORAGE_KEY = "mwolab:local-builds:v1";
+const MAIN_TAB_NAMES = new Set(["mechlab", "equipment-info", "info", "compare", "stats"]);
+// Fixed MWO escalation curve. Weapon-specific heat, penalty, threshold, and group values come from equipment.json.
+const GHOST_HEAT_LEVEL_MULTIPLIERS = Object.freeze([0, 0, 8, 18, 30, 45, 60, 80, 110, 150, 200, 300, 500]);
+const GHOST_HEAT_GROUPS = Object.freeze([
+  [9, "AC/20 GROUP"],
+  [8, "AC/10 GROUP"],
+  [7, "CLAN SRM GROUP"],
+  [6, "CLAN LRM GROUP"],
+  [5, "STREAK SRM GROUP"],
+  [4, "IS MRM/SRM GROUP"],
+  [3, "LARGE LASER GROUP"],
+  [2, "IS LRM/THUNDERBOLD GROUP"],
+  [17, "ROCKET LAUNCHER GROUP"],
+  [15, "SMALL CLAN LRM GROUP"],
+  [13, "AC/5 GROUP"],
+  [12, "MEDIUM LASER GROUP"],
+  [11, "IS ROTARY AC GROUP"],
+  [10, "CLAN SMALL/MEDIUM LASER GROUP"],
+  [1, "GAUSS/PPC GROUP"],
+  ["singleton", ""],
+]);
 
 function normalizeLanguage(value) {
   const language = String(value || "").trim().toLowerCase();
@@ -112,6 +133,9 @@ const TEXT = {
     "loadout.invalidOmnipod": "{component}의 옵니포드 ID가 올바르지 않습니다: {id}",
     "loadout.codecUnavailable": "MWO 코드 모듈을 불러오지 못했습니다.",
     "mechlab.showList": "멕 리스트",
+    "mechlab.ghostHeatWarning": "고스트 힛 발생 가능",
+    "mechlab.ghostHeatWarningTitle": "GHOST HEAT WARNING",
+    "mechlab.ghostHeatWarningLine": "{weapons} 동시 발사 시 추가 발열 {heat}이 발생합니다.",
     "simulation.open": "시뮬레이션",
     "simulation.title": "DPS 시뮬레이션",
     "simulation.hint": "버튼 또는 숫자 키 1~4를 누르고 있는 동안 해당 그룹을 발사합니다.",
@@ -198,6 +222,17 @@ const TEXT = {
     "equipmentInfo.weapons": "무기",
     "equipmentInfo.modules": "모듈",
     "equipmentInfo.ghostHeat": "고스트 힛",
+    "equipmentInfo.ghostHeatRules": "고스트 힛 규칙",
+    "equipmentInfo.ghostHeatRuleSummary1": "같은 그룹의 무기를 동시에 발사해 제한 수를 넘으면 고스트 힛이 발생합니다.",
+    "equipmentInfo.ghostHeatRuleSummary2": "무기별 추가 발열 후보 중 가장 높은 값 하나만 기본 발열 합계에 더합니다.",
+    "equipmentInfo.ghostHeatExampleAc20": "AC/20 계열 예시",
+    "equipmentInfo.ghostHeatExampleAc10": "AC/10 계열 예시",
+    "equipmentInfo.ghostHeatExampleComposition": "{weapons} 동시 발사 · 총 {count}문",
+    "equipmentInfo.ghostHeatExampleCandidates": "무기별 추가 발열 후보: {candidates}",
+    "equipmentInfo.ghostHeatExampleCandidate": "{weapon} ({threshold}문부터 발생) {heat}",
+    "equipmentInfo.ghostHeatExampleResult": "적용 결과: 기본 발열 {baseHeat} + 가장 높은 추가 발열 {extraHeat} = 총 발열 {totalHeat}",
+    "equipmentInfo.individualGroup": "개별 그룹",
+    "equipmentInfo.individualGroupNote": "개별 그룹으로 서로 영향 없음",
     "equipmentInfo.noResults": "표시할 장비가 없습니다.",
     "equipmentInfo.comingSoon": "고스트 힛 정보는 추후 개발 예정입니다.",
     "equipmentInfo.name": "이름",
@@ -498,6 +533,9 @@ const TEXT = {
     "loadout.invalidOmnipod": "Invalid omnipod ID for {component}: {id}",
     "loadout.codecUnavailable": "The MWO code module could not be loaded.",
     "mechlab.showList": "Mech List",
+    "mechlab.ghostHeatWarning": "Ghost heat possible",
+    "mechlab.ghostHeatWarningTitle": "GHOST HEAT WARNING",
+    "mechlab.ghostHeatWarningLine": "Firing {weapons} simultaneously generates {heat} extra heat.",
     "simulation.open": "Simulation",
     "simulation.title": "DPS Simulation",
     "simulation.hint": "Hold buttons or number keys 1-4 to fire the assigned weapon groups.",
@@ -584,6 +622,17 @@ const TEXT = {
     "equipmentInfo.weapons": "Weapons",
     "equipmentInfo.modules": "Modules",
     "equipmentInfo.ghostHeat": "Ghost Heat",
+    "equipmentInfo.ghostHeatRules": "Ghost Heat Rules",
+    "equipmentInfo.ghostHeatRuleSummary1": "Ghost heat occurs when simultaneously fired weapons in the same group exceed their limit.",
+    "equipmentInfo.ghostHeatRuleSummary2": "Only the single highest weapon-specific extra-heat candidate is added to the combined base heat.",
+    "equipmentInfo.ghostHeatExampleAc20": "AC/20 family example",
+    "equipmentInfo.ghostHeatExampleAc10": "AC/10 family example",
+    "equipmentInfo.ghostHeatExampleComposition": "Fire {weapons} simultaneously · {count} weapons total",
+    "equipmentInfo.ghostHeatExampleCandidates": "Extra-heat candidates: {candidates}",
+    "equipmentInfo.ghostHeatExampleCandidate": "{weapon} (starts at {threshold}) {heat}",
+    "equipmentInfo.ghostHeatExampleResult": "Applied result: {baseHeat} base heat + {extraHeat} highest extra heat = {totalHeat} total heat",
+    "equipmentInfo.individualGroup": "INDIVIDUAL GROUP",
+    "equipmentInfo.individualGroupNote": "separate groups with no interaction",
     "equipmentInfo.noResults": "No equipment to display.",
     "equipmentInfo.comingSoon": "Ghost Heat information is coming later.",
     "equipmentInfo.name": "Name",
@@ -820,9 +869,36 @@ function languageUrl(language) {
 
 function mechNavigationUrl(mechId = "") {
   const url = new URL(window.location.href);
+  url.searchParams.delete("tab");
   if (mechId) url.searchParams.set("mech", mechId);
   else url.searchParams.delete("mech");
   return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function mainTabNavigationUrl(tabName, mechId = null) {
+  const url = new URL(window.location.href);
+  if (tabName === "mechlab") url.searchParams.delete("tab");
+  else url.searchParams.set("tab", tabName);
+  if (mechId !== null) {
+    if (mechId) url.searchParams.set("mech", mechId);
+    else url.searchParams.delete("mech");
+  }
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+function updateMainTabNavigation(tabName, mode = "push", mechId = null) {
+  const normalizedTab = MAIN_TAB_NAMES.has(tabName) ? tabName : "mechlab";
+  const normalizedMechId = mechId === null
+    ? new URL(window.location.href).searchParams.get("mech") || ""
+    : String(mechId || "");
+  const historyState = {
+    mwolab: true,
+    tab: normalizedTab,
+    mechId: normalizedMechId,
+  };
+  const url = mainTabNavigationUrl(normalizedTab, mechId);
+  if (mode === "replace") window.history.replaceState(historyState, "", url);
+  else window.history.pushState(historyState, "", url);
 }
 
 function updateMechNavigation(view, mechId = "", mode = "push") {
@@ -1223,6 +1299,7 @@ const state = {
   activeEquipmentCategory: "weapons",
   activeEquipmentInfoView: "weapons",
   equipmentInfoSortByTable: new Map(),
+  equipmentInfoHtmlCache: new Map(),
   collapsedWarehouseSections: new Set(),
   omnipodDefinitionCache: new Map(),
   currentBuild: null,
@@ -1736,6 +1813,7 @@ function isHitscanWeapon(item) {
 }
 
 function equipmentLimitGroup(item) {
+  if (isCaseEquipment(item)) return "case";
   if (!isTargetComputerEquipment(item)) return "";
   const key = normalizeLookupKey(`${item?.name || ""} ${item?.display_name || ""}`);
   if (key.includes("activeprobe") || key.includes("beagleprobe")) return "active-probe";
@@ -1748,6 +1826,7 @@ function isAdvancedSensorPackage(item) {
 }
 
 function equipmentLimitGroupLabel(group) {
+  if (group === "case") return "C.A.S.E.";
   return group === "active-probe" ? "ACTIVE PROBE" : "TARGET COMPUTER";
 }
 
@@ -2642,6 +2721,7 @@ function effectiveDefinition(mech = state.selectedMech, build = state.currentBui
 }
 
 function setMainTab(tabName) {
+  if (!MAIN_TAB_NAMES.has(tabName)) tabName = "mechlab";
   const isCompareTab = tabName === "compare";
   state.activeMainTab = tabName;
   state.compareMode = isCompareTab;
@@ -2668,11 +2748,15 @@ function setMainTab(tabName) {
   });
   $("mech-browser-layout").hidden = ["stats", "equipment-info"].includes(tabName);
   $("summary-strip").hidden = tabName !== "mechlab";
-  renderMechList();
-  renderEquipmentInfo();
-  renderInfoPanel();
-  renderComparePanel();
-  renderStatsPanel();
+  if (tabName === "equipment-info") {
+    renderEquipmentInfo();
+  } else if (tabName === "stats") {
+    renderStatsPanel();
+  } else {
+    renderMechList();
+    if (tabName === "info") renderInfoPanel();
+    if (tabName === "compare") renderComparePanel();
+  }
   updateCompareOverlay();
   if (tabName === "mechlab") requestAnimationFrame(updateMechlabScale);
   if (tabName === "mechlab" && state.mechlabBrowseMode) $("mech-search").focus();
@@ -5024,6 +5108,9 @@ function calculateBuild() {
       if (item.item_type === "jumpjet" && !JUMP_JET_COMPONENTS.has(name)) {
         usage.warnings.push(t("build.jumpJetLocation"));
       }
+      if (item.item_type !== "jumpjet" && !itemAllowedInComponent(item, name)) {
+        usage.warnings.push(t("build.noAutoInstallLocation"));
+      }
       const mismatch = guidanceMismatch(item);
       if (mismatch) usage.warnings.push(mismatch);
       const artemisWeapon = isArtemisWeapon(item) && artemisEquipped();
@@ -5117,7 +5204,7 @@ function calculateBuild() {
   if (installedJumpJetCount > jumpJetLimit) {
     warnings.push(t("build.jumpJetFull", { used: installedJumpJetCount, limit: jumpJetLimit }));
   }
-  ["target-computer", "active-probe"].forEach((group) => {
+  ["target-computer", "active-probe", "case"].forEach((group) => {
     const installed = installedEquipmentLimitGroupItems(group);
     const limit = equipmentLimitGroupMaximum(group);
     if (installed.length > limit) {
@@ -5624,7 +5711,7 @@ function renderMechSummary(calc = null) {
   const alphaHeat = weapons.reduce((sum, weapon) => sum + number(weapon.heat), 0);
   const dps = weapons.reduce((sum, weapon) => sum + number(weapon.damage) / Math.max(0.016, number(weapon.cycle, 0.016)), 0);
   const hps = weapons.reduce((sum, weapon) => sum + number(weapon.heat) / Math.max(0.016, number(weapon.cycle, 0.016)), 0);
-  const hpd = calc.alpha > 0 ? alphaHeat / calc.alpha : null;
+  const hpd = alphaHeat > 0 ? calc.alpha / alphaHeat : null;
   const heatEfficiency = hps <= heatSystem.coolingRate + 0.0001
     ? 100
     : Math.max(0, Math.min(100, heatSystem.coolingRate / hps * 100));
@@ -6230,6 +6317,88 @@ function addSimulationHeat(weapon, shotCount = 1) {
   state.simulation.currentHeat += number(weapon.heat) * shotCount;
 }
 
+function ghostHeatWeaponExtra(item, weaponCount, heat = itemHeat(item)) {
+  const stats = item?.stats || {};
+  const threshold = Math.trunc(number(stats.minheatpenaltylevel));
+  const penalty = Math.max(0, number(stats.heatpenalty)) / 100;
+  const lastSupportedCount = GHOST_HEAT_LEVEL_MULTIPLIERS.length - 1;
+  const cappedCount = Math.min(Math.max(0, Math.trunc(weaponCount)), lastSupportedCount);
+  if (threshold < 1 || cappedCount < threshold || !(penalty > 0) || !(heat > 0)) return 0;
+  let scale = 0;
+  for (let count = threshold; count <= cappedCount; count += 1) {
+    scale += GHOST_HEAT_LEVEL_MULTIPLIERS[count] || 0;
+  }
+  return heat * penalty * scale;
+}
+
+function ghostHeatGroupKey(item) {
+  const sharedGroupId = Math.trunc(number(item?.stats?.heatPenaltyID));
+  if (sharedGroupId > 0) return `shared:${sharedGroupId}`;
+  if (ghostHeatWeaponExtra(item, 12) <= 0) return "";
+  const weaponKey = normalizeLookupKey(item?.name).replace(/artemis$/, "");
+  return weaponKey ? `singleton:${weaponKey}` : "";
+}
+
+function mechlabGhostHeatWarnings() {
+  const groups = new Map();
+  installedMechItems("weapon").forEach((item) => {
+    const groupKey = ghostHeatGroupKey(item);
+    if (!groupKey) return;
+    if (!groups.has(groupKey)) groups.set(groupKey, []);
+    groups.get(groupKey).push(item);
+  });
+  const warnings = [];
+  for (const [groupKey, weapons] of groups) {
+    const weaponCount = weapons.length;
+    const extraHeat = weapons.reduce((highest, item) => Math.max(
+      highest,
+      ghostHeatWeaponExtra(item, weaponCount),
+    ), 0);
+    if (!(extraHeat > 0)) continue;
+    const counts = new Map();
+    weapons.forEach((item) => {
+      const name = item.display_name || item.name || "WEAPON";
+      counts.set(name, (counts.get(name) || 0) + 1);
+    });
+    warnings.push({
+      groupKey,
+      extraHeat,
+      weapons: Array.from(counts, ([name, count]) => `${name} ×${count}`).join(" + "),
+    });
+  }
+  return warnings.sort((left, right) => left.groupKey.localeCompare(right.groupKey, undefined, { numeric: true }));
+}
+
+function renderMechlabGhostHeatWarning() {
+  const warning = $("ghost-heat-warning");
+  if (!warning) return;
+  const warnings = state.selectedMech && state.currentBuild ? mechlabGhostHeatWarnings() : [];
+  warning.hidden = !warnings.length;
+  warning.setAttribute("aria-label", t("mechlab.ghostHeatWarning"));
+}
+
+function addSimulationGhostHeat(shots) {
+  const simulation = state.simulation;
+  const weaponByKey = new Map(simulation.weapons.map((weapon) => [weapon.key, weapon]));
+  const simultaneousGroups = new Map();
+  shots.filter((shot) => shot.ghostHeat).forEach((shot) => {
+    const weapon = weaponByKey.get(shot.weaponKey);
+    const groupKey = ghostHeatGroupKey(weapon?.item);
+    if (!weapon || !groupKey) return;
+    const eventKey = `${shot.at}:${groupKey}`;
+    if (!simultaneousGroups.has(eventKey)) simultaneousGroups.set(eventKey, new Map());
+    simultaneousGroups.get(eventKey).set(weapon.key, weapon);
+  });
+  for (const weaponsByKey of simultaneousGroups.values()) {
+    const weapons = Array.from(weaponsByKey.values());
+    const extraHeat = weapons.reduce((highest, weapon) => Math.max(
+      highest,
+      ghostHeatWeaponExtra(weapon.item, weapons.length, weapon.heat),
+    ), 0);
+    simulation.currentHeat += extraHeat;
+  }
+}
+
 function simulationNetCoolingRate() {
   const simulation = state.simulation;
   const temperatureModifier = SIMULATION_MAP_COOLING_MODIFIERS[simulation.mapTemperature]
@@ -6570,6 +6739,7 @@ function queueSimulationVolley(weapon, startsAt) {
       weaponKey: weapon.key,
       at: startsAt + index * weapon.shotDelay * 1000,
       shotFraction: eventShots / shotCount,
+      ghostHeat: index === 0,
     });
   }
 }
@@ -6578,7 +6748,7 @@ function scheduleSimulationWeaponCycle(weapon, triggerAt) {
   const simulation = state.simulation;
   const firesAt = triggerAt + weapon.chargeTime * 1000;
   if (weapon.duration > 0) {
-    simulation.pendingShots.push({ weaponKey: weapon.key, at: firesAt, burn: true });
+    simulation.pendingShots.push({ weaponKey: weapon.key, at: firesAt, burn: true, ghostHeat: true });
     const cooldownStart = firesAt + weapon.duration * 1000;
     simulation.cooldownStartAt.set(weapon.key, cooldownStart);
     simulation.nextFireAt.set(weapon.key, cooldownStart + weapon.cooldown * 1000);
@@ -6614,6 +6784,7 @@ function processSimulationPendingShots(now) {
   const simulation = state.simulation;
   if (!simulation.pendingShots.length) return;
   const pending = [];
+  const due = [];
   simulation.pendingShots
     .sort((left, right) => left.at - right.at)
     .forEach((shot) => {
@@ -6621,20 +6792,24 @@ function processSimulationPendingShots(now) {
         pending.push(shot);
         return;
       }
-      const weapon = simulation.weapons.find((entry) => entry.key === shot.weaponKey);
-      if (!weapon) return;
-      if (shot.burn) {
-        startSimulationBurn(weapon, shot.at, now, simulation.targetVisible);
-        return;
-      }
-      const damage = simulationWeaponDamage(weapon, shot.shotFraction);
-      if (simulation.targetVisible && damage > 0) {
-        simulation.totalDamage += damage;
-        showSimulationHitEffect(weapon, damage);
-      }
-      addSimulationHeat(weapon, shot.shotFraction);
-      markSimulationWeaponFiring(weapon, shot.at);
+      due.push(shot);
     });
+  addSimulationGhostHeat(due);
+  due.forEach((shot) => {
+    const weapon = simulation.weapons.find((entry) => entry.key === shot.weaponKey);
+    if (!weapon) return;
+    if (shot.burn) {
+      startSimulationBurn(weapon, shot.at, now, simulation.targetVisible);
+      return;
+    }
+    const damage = simulationWeaponDamage(weapon, shot.shotFraction);
+    if (simulation.targetVisible && damage > 0) {
+      simulation.totalDamage += damage;
+      showSimulationHitEffect(weapon, damage);
+    }
+    addSimulationHeat(weapon, shot.shotFraction);
+    markSimulationWeaponFiring(weapon, shot.at);
+  });
   simulation.pendingShots = pending;
 }
 
@@ -6700,6 +6875,7 @@ function updateSimulationBurnDamage(now, damageAllowed = state.simulation.target
 
 function updateSimulationContinuousDamage(now) {
   const simulation = state.simulation;
+  const ghostHeatByGroup = new Map();
   for (const [weaponKey, lastUpdatedAt] of simulation.continuousFireAt) {
     const weapon = simulation.weapons.find((entry) => entry.key === weaponKey);
     if (!weapon || !simulationWeaponIsHeld(weapon) || simulation.finished || simulation.overheated) {
@@ -6723,7 +6899,19 @@ function updateSimulationContinuousDamage(now) {
       }
     }
     simulation.currentHeat += (weapon.heat / weapon.cycle) * elapsed;
+    const ghostHeatGroup = ghostHeatGroupKey(weapon.item);
+    if (ghostHeatGroup) {
+      if (!ghostHeatByGroup.has(ghostHeatGroup)) ghostHeatByGroup.set(ghostHeatGroup, []);
+      ghostHeatByGroup.get(ghostHeatGroup).push({ weapon, elapsed });
+    }
     simulation.continuousFireAt.set(weaponKey, now);
+  }
+  for (const entries of ghostHeatByGroup.values()) {
+    const extraHeat = entries.reduce((highest, { weapon, elapsed }) => Math.max(
+      highest,
+      ghostHeatWeaponExtra(weapon.item, entries.length, weapon.heat / weapon.cycle) * elapsed,
+    ), 0);
+    simulation.currentHeat += extraHeat;
   }
 }
 
@@ -6767,17 +6955,18 @@ function simulationTick(now) {
   if (!simulation.finished) updateSimulationScenario(tickNow);
   syncSimulationContinuousFire(tickNow);
   if (!simulation.finished && !simulation.overheated) {
-    for (const weapon of simulation.weapons) {
-      if (weapon.continuous) continue;
-      if (!simulationWeaponIsHeld(weapon)) continue;
-      let nextFire = simulation.nextFireAt.get(weapon.key) ?? tickNow;
-      let scheduled = 0;
-      while (nextFire <= tickNow && scheduled < 100) {
-        scheduleSimulationWeaponCycle(weapon, nextFire);
-        processSimulationPendingShots(tickNow);
-        nextFire = simulation.nextFireAt.get(weapon.key) ?? Number.POSITIVE_INFINITY;
-        scheduled += 1;
-      }
+    let scheduled = 0;
+    while (scheduled < 100) {
+      const ready = simulation.weapons
+        .filter((weapon) => !weapon.continuous && simulationWeaponIsHeld(weapon))
+        .map((weapon) => ({ weapon, at: simulation.nextFireAt.get(weapon.key) ?? tickNow }))
+        .filter((entry) => entry.at <= tickNow);
+      if (!ready.length) break;
+      const earliest = Math.min(...ready.map((entry) => entry.at));
+      const batch = ready.filter((entry) => Math.abs(entry.at - earliest) < 0.001);
+      batch.forEach(({ weapon, at }) => scheduleSimulationWeaponCycle(weapon, at));
+      scheduled += batch.length;
+      processSimulationPendingShots(tickNow);
     }
   }
   applySimulationOverheat();
@@ -7115,7 +7304,7 @@ function equipmentInfoWeaponRow(item, index) {
   const totalDamage = damage + splashDamage;
   const heat = itemHeat(item);
   const expectedCooldown = weaponExpectedCooldown(item, []) ?? timing.cooldown;
-  const hpd = totalDamage > 0 ? heat / totalDamage : Number.NaN;
+  const hpd = heat > 0 ? totalDamage / heat : Number.NaN;
   const spread = weaponSpreadValues(item, [])?.final ?? Number.NaN;
   const criticalChanceValues = weaponCriticalChanceValues(item);
   const criticalChance = criticalChanceValues.find((value) => Math.abs(value) > 0.000001) ?? Number.NaN;
@@ -7592,6 +7781,118 @@ function renderEquipmentInfoModules(items) {
   return targetComputerTable + activeProbeTable + ecmTable + mascTable + jumpJetTable + heatSinkTable;
 }
 
+function renderEquipmentInfoGhostHeat(items) {
+  const weapons = items.filter((item) => (
+    item.item_type === "weapon"
+    && ghostHeatGroupKey(item)
+    && !isArtemisWeapon(item)
+    && !normalizeLookupKey(item.name).startsWith("dropship")
+  ));
+  const countColumns = Array.from({ length: 12 }, (_, index) => ({
+    key: `count${index + 1}`,
+    label: String(index + 1),
+  }));
+  const columns = [
+    { key: "index", label: "#" },
+    { key: "name", label: t("equipmentInfo.name") },
+    ...countColumns,
+  ];
+  return GHOST_HEAT_GROUPS.map(([groupId, label]) => {
+    const groupWeapons = weapons
+      .filter((item) => groupId === "singleton"
+        ? ghostHeatGroupKey(item).startsWith("singleton:")
+        : ghostHeatGroupKey(item) === `shared:${groupId}`)
+      .sort(sortEquipmentInfoItems);
+    const rows = groupWeapons.map((item, index) => {
+      const name = item.display_name || item.name || "-";
+      const values = { index: index + 1, name };
+      const cells = { index: String(index + 1), name };
+      countColumns.forEach((column, countIndex) => {
+        const extraHeat = ghostHeatWeaponExtra(item, countIndex + 1);
+        values[column.key] = extraHeat > 0 ? extraHeat : Number.POSITIVE_INFINITY;
+        cells[column.key] = extraHeat > 0 ? equipmentInfoValue(extraHeat, 2) : "-";
+      });
+      return { values, cells };
+    });
+    return rows.length
+      ? equipmentInfoTable(
+        groupId === "singleton"
+          ? `${t("equipmentInfo.individualGroup")} - ${t("equipmentInfo.individualGroupNote")}`
+          : label,
+        columns,
+        rows,
+        "equipment-info-ghost-heat",
+        `ghost-heat-${groupId}`,
+      )
+      : "";
+  }).join("");
+}
+
+function ghostHeatRuleExample(items, titleKey, specifications) {
+  const entries = specifications.map(({ name, quantity }) => ({
+    item: items.find((item) => item.name === name),
+    quantity,
+  }));
+  if (entries.some(({ item }) => !item)) return "";
+  const weaponCount = entries.reduce((sum, { quantity }) => sum + quantity, 0);
+  const candidates = entries.map(({ item, quantity }) => ({
+    item,
+    quantity,
+    extraHeat: ghostHeatWeaponExtra(item, weaponCount),
+  }));
+  const baseHeat = entries.reduce((sum, { item, quantity }) => sum + itemHeat(item) * quantity, 0);
+  const extraHeat = candidates.reduce((highest, candidate) => Math.max(highest, candidate.extraHeat), 0);
+  const weapons = entries.map(({ item, quantity }) => (
+    `${item.display_name || item.name} ×${quantity}`
+  )).join(" + ");
+  const candidateText = candidates.map(({ item, extraHeat: candidateHeat }) => t(
+    "equipmentInfo.ghostHeatExampleCandidate",
+    {
+      weapon: item.display_name || item.name,
+      threshold: Math.trunc(number(item.stats?.minheatpenaltylevel)),
+      heat: equipmentInfoValue(candidateHeat, 2),
+    },
+  )).join(" / ");
+  return `
+    <article class="equipment-info-ghost-example">
+      <h4>${escapeHtml(t(titleKey))}</h4>
+      <p>${escapeHtml(t("equipmentInfo.ghostHeatExampleComposition", { weapons, count: weaponCount }))}</p>
+      <p>${escapeHtml(t("equipmentInfo.ghostHeatExampleCandidates", { candidates: candidateText }))}</p>
+      <strong>${escapeHtml(t("equipmentInfo.ghostHeatExampleResult", {
+        baseHeat: equipmentInfoValue(baseHeat, 2),
+        extraHeat: equipmentInfoValue(extraHeat, 2),
+        totalHeat: equipmentInfoValue(baseHeat + extraHeat, 2),
+      }))}</strong>
+    </article>
+  `;
+}
+
+function renderGhostHeatRules(items) {
+  const examples = [
+    ghostHeatRuleExample(items, "equipmentInfo.ghostHeatExampleAc20", [
+      { name: "AutoCannon20", quantity: 1 },
+      { name: "UltraAutoCannon20", quantity: 1 },
+    ]),
+    ghostHeatRuleExample(items, "equipmentInfo.ghostHeatExampleAc10", [
+      { name: "AutoCannon10", quantity: 2 },
+      { name: "UltraAutoCannon10", quantity: 1 },
+    ]),
+  ].join("");
+  return `
+    <section class="equipment-info-ghost-rules">
+      <header>
+        <span>GHOST HEAT</span>
+        <h3>${escapeHtml(t("equipmentInfo.ghostHeatRules"))}</h3>
+      </header>
+      <div class="equipment-info-ghost-summary">
+        <p>${escapeHtml(t("equipmentInfo.ghostHeatRuleSummary1"))}</p>
+        <p>${escapeHtml(t("equipmentInfo.ghostHeatRuleSummary2"))}</p>
+      </div>
+      <div class="equipment-info-ghost-examples">${examples}</div>
+    </section>
+  `;
+}
+
 function renderEquipmentInfo() {
   const content = $("equipment-info-content");
   if (!content) return;
@@ -7600,13 +7901,14 @@ function renderEquipmentInfo() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-selected", String(active));
   });
-  if (state.activeEquipmentInfoView === "ghostheat") {
-    content.innerHTML = `
-      <div class="equipment-info-coming-soon">
-        <span>GHOST HEAT</span>
-        <strong>${t("equipmentInfo.comingSoon")}</strong>
-      </div>
-    `;
+  if (state.activeMainTab !== "equipment-info") return;
+  const sortKey = Array.from(state.equipmentInfoSortByTable.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([table, sort]) => `${table}:${sort.key}:${sort.direction}`)
+    .join("|");
+  const cacheKey = `${state.activeEquipmentInfoView}|${sortKey}`;
+  if (state.equipmentInfoHtmlCache.has(cacheKey)) {
+    content.innerHTML = state.equipmentInfoHtmlCache.get(cacheKey);
     return;
   }
   const items = Object.values(state.equipment?.items || {});
@@ -7614,10 +7916,20 @@ function renderEquipmentInfo() {
     content.innerHTML = "";
     return;
   }
-  const html = state.activeEquipmentInfoView === "modules"
-    ? renderEquipmentInfoModules(items)
-    : renderEquipmentInfoWeapons(items.filter((item) => item.item_type === "weapon"));
-  content.innerHTML = html || `<div class="empty equipment-info-empty">${t("equipmentInfo.noResults")}</div>`;
+  let html = "";
+  if (state.activeEquipmentInfoView === "ghostheat") {
+    const tables = renderEquipmentInfoGhostHeat(items);
+    html = tables
+      ? renderGhostHeatRules(items) + tables
+      : `<div class="empty equipment-info-empty">${t("equipmentInfo.noResults")}</div>`;
+  } else {
+    html = state.activeEquipmentInfoView === "modules"
+      ? renderEquipmentInfoModules(items)
+      : renderEquipmentInfoWeapons(items.filter((item) => item.item_type === "weapon"));
+    html ||= `<div class="empty equipment-info-empty">${t("equipmentInfo.noResults")}</div>`;
+  }
+  state.equipmentInfoHtmlCache.set(cacheKey, html);
+  content.innerHTML = html;
 }
 
 function isTargetComputerEquipment(item) {
@@ -7626,6 +7938,20 @@ function isTargetComputerEquipment(item) {
     || key.includes("activeprobe")
     || key.includes("advancedsensorpackage")
     || key.includes("beagleprobe");
+}
+
+function isCaseEquipment(item) {
+  return [item?.name, item?.display_name]
+    .map(normalizeLookupKey)
+    .includes("case");
+}
+
+function itemAllowedInComponent(item, component) {
+  const configured = String(item?.stats?.components || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  return !configured.length || configured.includes(String(component || "").toLowerCase());
 }
 
 function isEquipmentInfoTargetComputer(item) {
@@ -7680,7 +8006,7 @@ function warehouseItemSection(item, category, isOmniMech) {
   }
   if (isHeatSink(item)) return "heatsinks";
   if (isTargetComputerEquipment(item)) return "target-computers";
-  if (isEcm(item) || item.item_type === "masc" || item.item_type === "jumpjet") return "equipment";
+  if (isCaseEquipment(item) || isEcm(item) || item.item_type === "masc" || item.item_type === "jumpjet") return "equipment";
   if (engineCanBeInstalledOnSelectedMech(item, isOmniMech)) return engineWarehouseSection(item);
   return null;
 }
@@ -8118,7 +8444,7 @@ function renderArmorStepper(
   `;
 }
 
-function renderComponent(name, calc, quirkValues) {
+function renderComponent(name, calc, quirkValues, ghostHeatGroups = new Set()) {
   const buildComp = state.currentBuild.components[name] || { items: [] };
   const compDef = effectiveComponentDefinition(state.selectedMech, state.currentBuild, name);
   const usage = calc.componentUsage[name] || { slots: 0, warnings: [] };
@@ -8160,14 +8486,14 @@ function renderComponent(name, calc, quirkValues) {
     : `<div class="hardpoint-line component-hardpoint-line${hps ? "" : " empty"}">${hps}</div>`;
   const internalRows = (compDef.internals || [])
     .filter((itemId) => hasFixedOmnipods(state.selectedMech) || !MOVABLE_UPGRADE_SLOT_IDS.has(Number(itemId)))
-    .map((itemId) => renderFixedSlot(itemId))
+    .map((itemId) => renderFixedSlot(itemId, ghostHeatGroups))
     .join("");
   const fixedEquipmentRows = (compDef.fixed || [])
     .filter((itemId) => {
       const item = itemById(itemId);
       return item?.item_type !== "engine" && !(name === "centre_torso" && isHeatSink(item));
     })
-    .map((itemId) => renderFixedSlot(itemId))
+    .map((itemId) => renderFixedSlot(itemId, ghostHeatGroups))
     .join("");
   const fixedEngineRows = usage.fixedEngineSlots
     ? renderFixedEngine(calc.engine, usage.fixedEngineSlots, calc)
@@ -8183,10 +8509,10 @@ function renderComponent(name, calc, quirkValues) {
     ? buildComp.items.findIndex((entry) => itemById(entry.item_id)?.item_type === "engine")
     : -1;
   const itemRows = buildComp.items
-    .map((entry, index) => index === installedEngineIndex ? "" : renderLoadoutItem(name, entry, index))
+    .map((entry, index) => index === installedEngineIndex ? "" : renderLoadoutItem(name, entry, index, null, ghostHeatGroups))
     .join("");
   const installedEngineRow = installedEngineIndex >= 0
-    ? renderLoadoutItem(name, buildComp.items[installedEngineIndex], installedEngineIndex, calc)
+    ? renderLoadoutItem(name, buildComp.items[installedEngineIndex], installedEngineIndex, calc, ghostHeatGroups)
     : "";
   const emptySlots = Math.max(0, slotLimit - usage.slots - number(usage.movableUpgradeSlots));
   const emptyRows = Array.from({ length: emptySlots }, () => `<div class="critical-slot empty-slot">-</div>`).join("");
@@ -8214,8 +8540,9 @@ function renderComponent(name, calc, quirkValues) {
 
 function renderComponents(calc = calculateBuild()) {
   const quirkValues = mechlabQuirkValues();
+  const ghostHeatGroups = new Set(mechlabGhostHeatWarnings().map(({ groupKey }) => groupKey));
   const rendered = Object.fromEntries(
-    COMPONENT_ORDER.map((name) => [name, renderComponent(name, calc, quirkValues)]),
+    COMPONENT_ORDER.map((name) => [name, renderComponent(name, calc, quirkValues, ghostHeatGroups)]),
   );
   const columns = [
     { className: "right-arm", components: ["right_arm"] },
@@ -8232,12 +8559,15 @@ function renderComponents(calc = calculateBuild()) {
   `).join("");
 }
 
-function renderFixedSlot(itemId) {
+function renderFixedSlot(itemId, ghostHeatGroups = new Set()) {
   const item = itemById(itemId);
   const name = item?.display_name || item?.name || "Fixed Structure Slot";
   const slots = Math.max(1, itemSlots(item));
   const tooltipItem = item ? ` data-tooltip-item="${item.id}"` : "";
-  return `<div class="critical-slot fixed-slot"${tooltipItem} style="--slot-span:${slots}" aria-label="${escapeHtml(name)} / ${slots} slots">${name}</div>`;
+  const ghostHeatClass = item?.item_type === "weapon" && ghostHeatGroups.has(ghostHeatGroupKey(item))
+    ? " ghost-heat-triggered"
+    : "";
+  return `<div class="critical-slot fixed-slot${ghostHeatClass}"${tooltipItem} style="--slot-span:${slots}" aria-label="${escapeHtml(name)} / ${slots} slots">${name}</div>`;
 }
 
 function renderEngineSideSlots(engine, slots) {
@@ -8304,12 +8634,15 @@ function renderEngineHeatSinkBay(engine, calc) {
   `;
 }
 
-function renderLoadoutItem(component, entry, index, engineBayCalc = null) {
+function renderLoadoutItem(component, entry, index, engineBayCalc = null, ghostHeatGroups = new Set()) {
   const item = itemById(entry.item_id);
   if (!item) return `<div class="slot-item missing-item">${t("build.missing", { id: entry.item_id })}</div>`;
   const slots = Math.max(1, effectiveItemSlots(item));
   const mountType = item.item_type === "ammo" ? ammoHardpointType(item) : equipmentHardpointType(item);
   const ammoClass = item.item_type === "ammo" ? " ammo" : "";
+  const ghostHeatClass = item.item_type === "weapon" && ghostHeatGroups.has(ghostHeatGroupKey(item))
+    ? " ghost-heat-triggered"
+    : "";
   if (item.item_type === "engine" && engineBayCalc) {
     const higherEngine = adjacentEngineRating(item, 1);
     const lowerEngine = adjacentEngineRating(item, -1);
@@ -8329,7 +8662,7 @@ function renderLoadoutItem(component, entry, index, engineBayCalc = null) {
     `;
   }
   const row = `
-    <div class="slot-item ${mountType || item.item_type}${ammoClass}" data-loadout-item="${component}:${index}" style="--slot-span:${slots}" aria-label="${escapeHtml(item.display_name)} / ${slots} slots / ${fmt(itemTons(item))} tons">
+    <div class="slot-item ${mountType || item.item_type}${ammoClass}${ghostHeatClass}" data-loadout-item="${component}:${index}" style="--slot-span:${slots}" aria-label="${escapeHtml(item.display_name)} / ${slots} slots / ${fmt(itemTons(item))} tons">
       <span class="slot-item-mark">${HARDPOINT_LABELS[mountType] || String(item.item_type || "?")[0].toUpperCase()}</span>
       <strong>${item.display_name}</strong>
       <span class="slot-item-slots">${slots}S</span>
@@ -8348,6 +8681,7 @@ function renderVariant() {
   $("data-status").textContent = calc.warnings.length ? calc.warnings.join(" - ") : t("status.loadedData", { count: state.index.counts.mechs });
   renderSummary(calc);
   renderMechSummary(calc);
+  renderMechlabGhostHeatWarning();
   renderComponents(calc);
   if (state.activeEquipmentCategory === "ammo") renderEquipmentList();
 }
@@ -8357,21 +8691,31 @@ function renderSelectionPrompt() {
   $("variant-meta").textContent = t("info.selectMechHint");
   renderSummary();
   renderMechSummary();
+  renderMechlabGhostHeatWarning();
   $("components").innerHTML = `<div class="empty">${t("info.componentsPrompt")}</div>`;
 }
 
 function renderAll() {
-  renderMechList();
-  renderEquipmentList();
-  renderEquipmentInfo();
-  renderInfoPanel();
-  renderComparePanel();
-  renderStatsPanel();
-  if (state.selectedMech) {
-    renderVariant();
-  } else {
-    renderSelectionPrompt();
+  if (state.activeMainTab === "equipment-info") {
+    renderEquipmentInfo();
+    return;
   }
+  if (state.activeMainTab === "stats") {
+    renderStatsPanel();
+    return;
+  }
+  renderMechList();
+  if (state.activeMainTab === "info") {
+    renderInfoPanel();
+    return;
+  }
+  if (state.activeMainTab === "compare") {
+    renderComparePanel();
+    return;
+  }
+  renderEquipmentList();
+  if (state.selectedMech) renderVariant();
+  else renderSelectionPrompt();
 }
 
 function selectMech(id, { historyMode = "push", enterFitting = true } = {}) {
@@ -8398,7 +8742,11 @@ function selectMech(id, { historyMode = "push", enterFitting = true } = {}) {
     state.mechlabCompactListOpen = false;
   }
   if (historyMode !== "none" && state.selectedMech) {
-    updateMechNavigation("mech", state.selectedMech.id, historyMode);
+    if (state.activeMainTab === "mechlab") {
+      updateMechNavigation("mech", state.selectedMech.id, historyMode);
+    } else {
+      updateMainTabNavigation(state.activeMainTab, historyMode, state.selectedMech.id);
+    }
   }
   if (wasMechlabBrowsing) {
     if (enterFitting) {
@@ -8412,9 +8760,12 @@ function selectMech(id, { historyMode = "push", enterFitting = true } = {}) {
     syncMechListActiveStates();
     renderMechlabCompactList();
   }
-  renderEquipmentList();
-  renderInfoPanel();
-  renderVariant();
+  if (state.activeMainTab === "mechlab") {
+    renderEquipmentList();
+    renderVariant();
+  } else if (state.activeMainTab === "info") {
+    renderInfoPanel();
+  }
   if (state.activeMainTab === "mechlab" && enterFitting) {
     document.querySelector(".tab-content").scrollTop = 0;
     requestAnimationFrame(updateMechlabScale);
@@ -8423,8 +8774,18 @@ function selectMech(id, { historyMode = "push", enterFitting = true } = {}) {
 
 function applyMechNavigationFromLocation() {
   if (!mechNavigationReady) return;
-  const requestedMechId = new URL(window.location.href).searchParams.get("mech");
+  const params = new URL(window.location.href).searchParams;
+  const tabParam = params.get("tab");
+  const requestedTab = MAIN_TAB_NAMES.has(tabParam) ? tabParam : "mechlab";
+  const requestedMechId = params.get("mech");
   const requestedMech = requestedMechId ? mechById(requestedMechId) : null;
+  if (requestedTab !== "mechlab") {
+    if (state.activeMainTab !== requestedTab) setMainTab(requestedTab);
+    if (requestedMech && String(state.selectedMech?.id || "") !== String(requestedMech.id)) {
+      selectMech(requestedMech.id, { historyMode: "none", enterFitting: false });
+    }
+    return;
+  }
   if (state.activeMainTab !== "mechlab") setMainTab("mechlab");
   if (requestedMech) {
     selectMech(requestedMech.id, { historyMode: "none" });
@@ -8439,9 +8800,16 @@ function applyMechNavigationFromLocation() {
 
 function initializeMechNavigation() {
   mechNavigationReady = true;
-  const requestedMechId = new URL(window.location.href).searchParams.get("mech");
+  const params = new URL(window.location.href).searchParams;
+  const tabParam = params.get("tab");
+  const requestedTab = MAIN_TAB_NAMES.has(tabParam) ? tabParam : "mechlab";
+  const requestedMechId = params.get("mech");
   const requestedMech = requestedMechId ? mechById(requestedMechId) : null;
-  updateMechNavigation(requestedMech ? "mech" : "list", requestedMech?.id, "replace");
+  if (requestedTab === "mechlab") {
+    updateMechNavigation(requestedMech ? "mech" : "list", requestedMech?.id, "replace");
+  } else {
+    updateMainTabNavigation(requestedTab, "replace");
+  }
   applyMechNavigationFromLocation();
 }
 
@@ -8980,6 +9348,22 @@ function tooltipQuirkValue(base, final, digits = 2, unit = "") {
   };
 }
 
+function tooltipGhostHeatValue(base, final, ghostHeat, digits = 2, unit = "") {
+  const baseNumber = Number(base);
+  const finalNumber = Number(final);
+  const ghostHeatNumber = Number(ghostHeat);
+  if (!Number.isFinite(baseNumber) || !Number.isFinite(finalNumber) || !(ghostHeatNumber > 0)) return "-";
+  const delta = finalNumber - baseNumber;
+  return {
+    final: tooltipNumber(finalNumber, digits, unit),
+    base: formatInfoNumber(baseNumber, digits),
+    operator: delta >= 0 ? "+" : "-",
+    quirk: formatInfoNumber(Math.abs(delta), digits),
+    quirkApplied: Math.abs(delta) >= 0.0001,
+    ghostHeat: tooltipNumber(ghostHeatNumber, digits, unit),
+  };
+}
+
 function tooltipFinalQuirkValue(base, final, digits = 2, unit = "") {
   const baseNumber = Number(base);
   const finalNumber = Number(final);
@@ -8994,6 +9378,19 @@ function tooltipFinalQuirkValue(base, final, digits = 2, unit = "") {
 function tooltipValueHtml(value) {
   if (!value || typeof value !== "object") return escapeHtml(value);
   if (typeof value.html === "string") return value.html;
+  if (value.ghostHeat !== undefined) {
+    const finalClass = value.quirkApplied
+      ? "equipment-tooltip-final quirk-applied"
+      : "equipment-tooltip-final";
+    const finalValue = `<span class="${finalClass}">${escapeHtml(value.final)}</span>`;
+    const ghostHeatValue = `<span class="equipment-tooltip-ghost-heat">+ ${escapeHtml(value.ghostHeat)}</span>`;
+    const finalAndGhostHeat = `${finalValue}${ghostHeatValue}`;
+    if (!value.quirkApplied || state.quirkValueDisplayMode === "final") return finalAndGhostHeat;
+    if (state.quirkValueDisplayMode === "quirk") {
+      return `${finalValue}<span class="equipment-tooltip-quirk-detail">(<span class="equipment-tooltip-quirk-value">${escapeHtml(`${value.operator}${value.quirk}`)}</span>)</span>${ghostHeatValue}`;
+    }
+    return `${finalValue}<span class="equipment-tooltip-quirk-detail">(<span class="equipment-tooltip-base">${escapeHtml(value.base)}</span> <span class="equipment-tooltip-operator">${escapeHtml(value.operator)}</span> <span class="equipment-tooltip-quirk-value">${escapeHtml(value.quirk)}</span>)</span>${ghostHeatValue}`;
+  }
   if (state.quirkValueDisplayMode === "final") {
     return `<span class="equipment-tooltip-final quirk-applied">${escapeHtml(value.final)}</span>`;
   }
@@ -9144,10 +9541,10 @@ function weaponTooltipStatistics(item, quirks = []) {
     if (damageRate.base > 0) {
       rows.push(["DPS", tooltipQuirkValue(damageRate.base, damageRate.final, 2)]);
     }
-    if (baseHeat > 0 && damageRate.base > 0) {
+    if (baseHeat > 0 && finalHeat > 0 && damageRate.base > 0 && damageRate.final > 0) {
       rows.push(["HPD", tooltipQuirkValue(
-        baseHeat / damageRate.base,
-        finalHeat / damageRate.final,
+        damageRate.base / baseHeat,
+        damageRate.final / finalHeat,
         2,
       )]);
     }
@@ -9160,8 +9557,8 @@ function weaponTooltipStatistics(item, quirks = []) {
   if (hasCooldown && totalDamage > 0 && baseCycle > 0 && finalCycle > 0) {
     rows.push(["DPS", tooltipQuirkValue(totalDamage / baseCycle, totalDamage / finalCycle, 2)]);
   }
-  if (baseHeat > 0 && totalDamage > 0) {
-    rows.push(["HPD", tooltipQuirkValue(baseHeat / totalDamage, finalHeat / totalDamage, 2)]);
+  if (baseHeat > 0 && finalHeat > 0 && totalDamage > 0) {
+    rows.push(["HPD", tooltipQuirkValue(totalDamage / baseHeat, totalDamage / finalHeat, 2)]);
   }
   if (hasCooldown && baseHeat > 0 && baseCycle > 0 && finalCycle > 0) {
     rows.push(["HPS", tooltipQuirkValue(baseHeat / baseCycle, finalHeat / finalCycle, 2)]);
@@ -9218,6 +9615,32 @@ function engineTooltipMaxSpeed(engine) {
   return number(definition?.movement?.MaxMovementSpeed) * number(engine?.stats?.rating) / tons;
 }
 
+function mascTooltipMovementGroups(item, quirkValues = mechlabQuirkValues()) {
+  const stats = item?.stats || {};
+  const movement = movementInfo(quirkValues);
+  const engine = installedEngine();
+  const quirkFinalSpeed = engine
+    ? engineTooltipMaxSpeed(engine) * quirkMultiplier(quirkValues, ["mechtopspeed_multiplier"])
+    : 0;
+  const definitions = [
+    { label: "SPEED", boost: number(stats.BoostSpeed), value: quirkFinalSpeed, digits: 1, unit: " kph" },
+    { label: "ACCEL", boost: number(stats.BoostAccel), value: movement.acceleration, digits: 1, unit: " kph/s" },
+    { label: "DECEL", boost: number(stats.BoostDecel), value: movement.deceleration, digits: 1, unit: " kph/s" },
+    { label: "TURN", boost: number(stats.BoostTurn), value: movement.turnSpeed, digits: 2, unit: " °/s" },
+  ].filter(({ boost }) => Math.abs(boost) >= 0.0001);
+
+  return [
+    definitions.map(({ label, boost }) => [
+      `${label} BOOST`,
+      tooltipNumber(boost * 100, 1, "%"),
+    ]),
+    definitions.map(({ label, boost, value, digits, unit }) => [
+      `FINAL ${label}`,
+      tooltipNumber(value * (1 + boost), digits, unit),
+    ]),
+  ];
+}
+
 function targetComputerTooltipRows(item) {
   const rows = [];
   const advancedSensorPackage = isAdvancedSensorPackage(item);
@@ -9248,7 +9671,7 @@ function targetComputerTooltipRows(item) {
   return rows;
 }
 
-function equipmentTooltipGroups(item) {
+function equipmentTooltipGroups(item, ghostHeatExtra = 0) {
   const stats = item?.stats || {};
   const quirks = effectiveQuirks(state.selectedMech, state.currentBuild);
   const quirkValues = mechlabQuirkValues();
@@ -9271,14 +9694,12 @@ function equipmentTooltipGroups(item) {
     const velocityBonus = quirkIncrease(quirks, "all_velocity_multiplier")
       + quirkIncrease(quirks, `${type}_velocity_multiplier`)
       + simulationSpecificQuirkTotal(quirks, item, "_velocity_multiplier", "increase");
+    const heatUnit = weaponDamageRate(item, quirks) ? "/s" : "";
     const timingRows = [
       ["DAMAGE", weaponDamageTooltipValue(item, quirks)],
-      ["HEAT", tooltipQuirkValue(
-        itemHeat(item),
-        heat,
-        2,
-        weaponDamageRate(item, quirks) ? "/s" : "",
-      )],
+      ["HEAT", ghostHeatExtra > 0
+        ? tooltipGhostHeatValue(itemHeat(item), heat, ghostHeatExtra, 2, heatUnit)
+        : tooltipQuirkValue(itemHeat(item), heat, 2, heatUnit)],
     ];
     if (number(stats.cooldown) > 0) {
       timingRows.push([
@@ -9400,11 +9821,7 @@ function equipmentTooltipGroups(item) {
       ["FORWARD THRUST", tooltipNumber(stats.boost_fwd, 1)],
     ]);
   } else if (item.item_type === "masc") {
-    groups.push([
-      ["SPEED BOOST", tooltipNumber(number(stats.BoostSpeed) * 100, 1, "%")],
-      ["ACCEL BOOST", tooltipNumber(number(stats.BoostAccel) * 100, 1, "%")],
-      ["TURN BOOST", tooltipNumber(number(stats.BoostTurn) * 100, 1, "%")],
-    ]);
+    groups.push(...mascTooltipMovementGroups(item, quirkValues));
   } else if (equipmentLimitGroup(item) === "target-computer") {
     const advancedSensorPackage = isAdvancedSensorPackage(item);
     if (advancedSensorPackage) groups.push([
@@ -9511,9 +9928,9 @@ function omnipodTooltipHtml(pod) {
   `;
 }
 
-function equipmentTooltipHtml(item) {
+function equipmentTooltipHtml(item, ghostHeatExtra = 0) {
   const tone = equipmentTooltipTone(item);
-  const groups = equipmentTooltipGroups(item);
+  const groups = equipmentTooltipGroups(item, ghostHeatExtra);
   const showDescription = item.item_type !== "weapon"
     && item.item_type !== "ammo"
     && item.item_type !== "engine"
@@ -9530,6 +9947,26 @@ function equipmentTooltipHtml(item) {
         `).join("")}
       </div>
       ${description ? `<p>${escapeHtml(description)}</p>` : ""}
+    </div>
+  `;
+}
+
+function ghostHeatWarningTooltipHtml() {
+  const warnings = mechlabGhostHeatWarnings();
+  return `
+    <div class="equipment-tooltip-card tooltip-ghost-heat">
+      <div class="equipment-tooltip-title">${escapeHtml(t("mechlab.ghostHeatWarningTitle"))}</div>
+      <div class="ghost-heat-warning-tooltip-lines">
+        ${warnings.map((warning) => {
+          const heat = equipmentInfoValue(warning.extraHeat, 2);
+          const marker = "__GHOST_HEAT_VALUE__";
+          const line = escapeHtml(t("mechlab.ghostHeatWarningLine", {
+            weapons: warning.weapons,
+            heat: marker,
+          })).replace(marker, `<strong class="ghost-heat-extra-value">${escapeHtml(heat)}</strong>`);
+          return `<p>${line}</p>`;
+        }).join("")}
+      </div>
     </div>
   `;
 }
@@ -9566,10 +10003,17 @@ function positionEquipmentTooltip(target = activeEquipmentTooltipTarget) {
 function showEquipmentTooltip(target) {
   const item = equipmentTooltipItem(target);
   const omnipod = equipmentTooltipOmnipod(target);
+  const ghostHeatWarning = target?.dataset.ghostHeatWarning !== undefined;
   const tooltip = $("equipment-tooltip");
-  if ((!item && !omnipod) || !tooltip) return;
+  if ((!item && !omnipod && !ghostHeatWarning) || !tooltip) return;
   activeEquipmentTooltipTarget = target;
-  tooltip.innerHTML = omnipod ? omnipodTooltipHtml(omnipod) : equipmentTooltipHtml(item);
+  const ghostHeatExtra = item && target.classList.contains("ghost-heat-triggered")
+    ? mechlabGhostHeatWarnings().find(({ groupKey }) => groupKey === ghostHeatGroupKey(item))?.extraHeat || 0
+    : 0;
+  tooltip.innerHTML = ghostHeatWarning
+    ? ghostHeatWarningTooltipHtml()
+    : omnipod ? omnipodTooltipHtml(omnipod) : equipmentTooltipHtml(item, ghostHeatExtra);
+  tooltip.classList.toggle("ghost-heat-tooltip-open", ghostHeatWarning);
   tooltip.hidden = false;
   positionEquipmentTooltip(target);
 }
@@ -9577,7 +10021,10 @@ function showEquipmentTooltip(target) {
 function hideEquipmentTooltip() {
   const tooltip = $("equipment-tooltip");
   activeEquipmentTooltipTarget = null;
-  if (tooltip) tooltip.hidden = true;
+  if (tooltip) {
+    tooltip.hidden = true;
+    tooltip.classList.remove("ghost-heat-tooltip-open");
+  }
 }
 
 function reflowInstalledEquipment() {
@@ -9739,6 +10186,7 @@ function dropValidation(item, component, source = null) {
     const next = current - (movingInstalledItem ? 1 : 0) + 1;
     if (next > limit) return t("build.jumpJetFull", { used: next, limit });
   }
+  if (!itemAllowedInComponent(item, component)) return t("build.noAutoInstallLocation");
   const limitGroup = equipmentLimitGroup(item);
   if (limitGroup) {
     const limit = equipmentLimitGroupMaximum(limitGroup, item);
@@ -10286,7 +10734,7 @@ function removeDraggedItem() {
 
 function bindEvents() {
   window.addEventListener("popstate", applyMechNavigationFromLocation);
-  const tooltipSelector = "[data-item], [data-tooltip-item], [data-loadout-item], [data-engine-heat-sink-item], [data-omnipod], [data-tooltip-omnipod]";
+  const tooltipSelector = "[data-item], [data-tooltip-item], [data-loadout-item], [data-engine-heat-sink-item], [data-omnipod], [data-tooltip-omnipod], [data-ghost-heat-warning]";
   document.addEventListener("pointerover", (event) => {
     const target = event.target.closest(tooltipSelector);
     if (!target || target === activeEquipmentTooltipTarget) return;
@@ -10518,10 +10966,14 @@ function bindEvents() {
     button.addEventListener("click", () => {
       if (button.dataset.mainTab === "mechlab") {
         rememberMechListScroll();
-        if (state.activeMainTab !== "mechlab") setMainTab("mechlab");
+        const changedTab = state.activeMainTab !== "mechlab";
+        if (changedTab) setMainTab("mechlab");
+        if (changedTab && state.mechlabBrowseMode) updateMechNavigation("list");
         showFullMechlabList();
         return;
       }
+      if (state.activeMainTab === button.dataset.mainTab) return;
+      updateMainTabNavigation(button.dataset.mainTab);
       setMainTab(button.dataset.mainTab);
     });
   });
@@ -11046,6 +11498,7 @@ async function init() {
     ]);
     state.mechs = mechs.filter((mech) => mech.definition && mech.definition.components);
     state.equipment = excludeUnusedEquipment(equipment);
+    state.equipmentInfoHtmlCache.clear();
     state.loadouts = loadouts;
     state.omnipods = omnipods;
     $("data-status").textContent = t("status.loadedData", { count: state.index.counts.mechs });

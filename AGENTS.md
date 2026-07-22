@@ -7,6 +7,12 @@
 
 - Keep simulation controls and HUD placement close to the in-game layout when practical; otherwise prioritize clear sightlines, comfortable reach, and immediate readability.
 - Place elapsed time, total damage, DPS, and heat together immediately above the weapon firing controls.
+- HPD means damage dealt per one point of heat. Calculate it as damage divided by heat (`damage / heat`), not heat divided by damage.
+
+## MASC Tooltip Rules
+
+- Calculate each MASC final mobility value from the quirk-adjusted current value: `quirk final value * (1 + MASC boost)`.
+- Do not display a MASC boost or its corresponding final mobility row when that boost is zero.
 
 ## Quirk Parsing Rules
 
