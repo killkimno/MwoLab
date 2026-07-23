@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>MwoLab</title>
-    <link rel="stylesheet" href="styles.css?v=20260722-10">
+    <link rel="stylesheet" href="styles.css?v=20260723-4">
   </head>
   <body>
     <div id="app">
@@ -19,7 +19,7 @@
         <button class="tab-button" type="button" data-main-tab="info" aria-controls="tab-info" data-i18n="tabs.info">정보</button>
         <button class="tab-button" type="button" data-main-tab="compare" aria-controls="tab-compare" data-i18n="tabs.compare">비교하기</button>
         <button class="tab-button" type="button" data-main-tab="stats" aria-controls="tab-stats" data-i18n="tabs.stats">통계</button>
-        <a class="donate-link" href="https://ko-fi.com/killkimno" target="_blank" rel="noopener noreferrer" aria-label="Ko-fi 후원 페이지 열기" data-i18n="donate.label" data-i18n-aria-label="donate.aria">후원하기</a>
+        <a id="donate-link" class="donate-link" href="https://ko-fi.com/killkimno" target="_blank" rel="noopener noreferrer" aria-label="후원 방법 열기" data-i18n="donate.label" data-i18n-aria-label="donate.aria" aria-haspopup="dialog" aria-controls="donate-overlay">후원하기</a>
         <div class="language-switch" aria-label="언어 선택" data-i18n-aria-label="language.switcher">
           <a href="?lang=kr" data-lang-link="kr" data-i18n="language.kr">한국어</a>
           <a href="?lang=en" data-lang-link="en" data-i18n="language.en">English</a>
@@ -276,6 +276,24 @@
       <div id="compare-overlay-cells" class="compare-header-overlay-cells"></div>
     </div>
 
+    <div id="donate-overlay" class="donate-overlay" hidden>
+      <section class="donate-dialog" role="dialog" aria-modal="true" aria-labelledby="donate-title">
+        <header>
+          <div>
+            <p class="donate-dialog-eyebrow">SUPPORT MWOLAB</p>
+            <h2 id="donate-title" data-i18n="donate.title">후원하기</h2>
+          </div>
+          <button id="close-donate" class="donate-dialog-close" type="button" aria-label="닫기" data-i18n-aria-label="donate.close">×</button>
+        </header>
+        <div class="donate-qr-frame">
+          <img src="assets/kakaopay-donate-qr.png" alt="카카오페이 후원 QR 코드" data-i18n-alt="donate.qrAlt">
+        </div>
+        <div class="donate-dialog-actions">
+          <a href="https://ko-fi.com/killkimno" target="_blank" rel="noopener noreferrer" data-i18n="donate.kofi">Ko-fi로 후원하기</a>
+        </div>
+      </section>
+    </div>
+
     <div id="mech-filter-overlay" class="build-actions-overlay mech-filter-overlay" hidden>
       <section class="build-actions-dialog mech-filter-dialog" role="dialog" aria-modal="true" aria-labelledby="mech-filter-title">
         <header>
@@ -513,6 +531,6 @@
     <div id="equipment-tooltip" class="equipment-tooltip" role="tooltip" hidden></div>
 
     <script src="mwo-codec.js"></script>
-    <script src="app.js?v=20260722-11"></script>
+    <script src="app.js?v=20260723-4"></script>
   </body>
 </html>

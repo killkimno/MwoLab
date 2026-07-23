@@ -197,6 +197,7 @@
           <span class="tag">MWO 코드 입출력</span>
           <span class="tag">사격 시뮬레이션</span>
           <span class="tag">고스트 힛</span>
+          <span class="tag">카카오페이 / Ko-fi 후원</span>
         </p>
         <table>
           <thead><tr><th>항목</th><th>현재 값</th></tr></thead>
@@ -205,7 +206,7 @@
             <tr><td>장비</td><td>751개</td></tr>
             <tr><td>로드아웃</td><td>1,315개</td></tr>
             <tr><td>옵니포드</td><td>1,833개</td></tr>
-            <tr><td>핵심 코드 규모</td><td><code>app.js</code> 약 10,807줄, <code>styles.css</code> 약 5,598줄</td></tr>
+            <tr><td>핵심 코드 규모</td><td><code>app.js</code> 약 11,706줄, <code>styles.css</code> 약 6,668줄</td></tr>
           </tbody>
         </table>
       </section>
@@ -251,6 +252,22 @@
           <li>비교 탭은 선택 멕 중 하나를 기준으로 삼아 상승·하락을 표시하며 고정 헤더를 사용한다.</li>
           <li>정보·비교·통계에서 쿼크 적용 기준이 서로 어긋나지 않아야 한다.</li>
         </ul>
+
+        <h3>통계</h3>
+        <ul>
+          <li>멕 요약은 데이터 로드 후 유휴 시간에 작은 묶음으로 미리 계산하며, 카테고리·필터·집계 조건별 순위 결과는 브라우저 메모리에 캐시한다.</li>
+          <li>순위 조건이 같으면 기존 목록 DOM을 재사용하고, 멕 선택 시 이전 활성 행과 새 활성 행 및 상세 패널만 갱신한다.</li>
+          <li>화면 밖 통계 행은 <code>content-visibility</code>와 레이아웃 격리로 불필요한 배치·페인트를 줄인다.</li>
+          <li>통계의 멕 슬롯 영역은 다른 멕 슬롯과 동일한 하드포인트 태그 렌더링을 사용한다. E·M·B는 짧은 폭, AMS·ECM은 자연스러운 긴 폭을 사용하며 개수, JJ, MASC를 함께 표시한다.</li>
+          <li>체급 배지와 슬롯 영역의 배경색은 통계 전용 표현을 유지하고, 왼쪽 순위 목록에는 기존보다 약 10% 넓은 화면 폭을 할당한다.</li>
+        </ul>
+
+        <h3>후원</h3>
+        <ul>
+          <li>한국어에서 상단 후원하기를 누르면 카카오페이 QR 팝업을 연다. 팝업은 우측 상단 X, 배경 클릭, Esc로 닫는다.</li>
+          <li>영어에서는 팝업을 열지 않고 <code>https://ko-fi.com/killkimno</code>로 바로 이동한다.</li>
+          <li>QR 이미지는 <code>public/assets/kakaopay-donate-qr.png</code>에 포함한다.</li>
+        </ul>
       </section>
 
       <section id="state">
@@ -267,7 +284,7 @@
             <tr><td>무장 정보</td><td>현재 하위 탭, 표별 정렬 상태, 렌더된 HTML 캐시</td></tr>
           </tbody>
         </table>
-        <p>멕 요약, 하드포인트 배지, 슬롯 배지, 쿼크 값, 무기별 쿼크 검색 인덱스, 고정 옵니 엔진, 무장 정보 HTML 등은 <code>Map</code> 또는 재사용 인덱스로 캐시한다. 선택만 바뀔 때 통계 전체 목록을 다시 계산하지 말고 활성 행과 상세 패널만 갱신하는 방향을 유지한다.</p>
+        <p>멕 요약, 하드포인트 배지, 슬롯 배지, 쿼크 값, 무기별 쿼크 검색 인덱스, 고정 옵니 엔진, 무장 정보 HTML 등은 <code>Map</code> 또는 재사용 인덱스로 캐시한다. 통계는 <code>statsEntriesCache</code>에 조건별 순위 결과를 최대 64개까지 보관하고, 동일 조건에서는 <code>data-stats-rows-key</code>로 현재 DOM을 재사용한다. 선택만 바뀔 때 통계 전체 목록을 다시 계산하거나 재생성하지 않는다.</p>
 
         <h3>브라우저 저장</h3>
         <ul>
@@ -338,11 +355,12 @@
         <h3>값 색상</h3>
         <p>기본값과 쿼크 기여도를 함께 표시하는 경우 최종값은 <span class="final-value">초록색</span>, 쿼크 기여도는 <span class="quirk-value">노란색</span>이다. 기본값, 괄호, 연산자는 주변 통계의 기본 색을 유지한다.</p>
 
-        <h3>HPD와 MASC 툴팁</h3>
+        <h3>DPH와 MASC 툴팁</h3>
         <ul>
-          <li>HPD는 열 1점당 피해량이므로 <code>damage / heat</code>로 계산한다.</li>
+          <li>DPH는 발열 1점당 피해량(Damage Per Heat)이므로 <code>damage / heat</code>로 계산한다.</li>
           <li>MASC 최종 기동성은 쿼크가 반영된 현재 값에 MASC 부스트를 곱한다: <code>쿼크 최종값 × (1 + MASC boost)</code>.</li>
           <li>MASC 부스트가 0인 항목은 부스트 행과 최종값 행을 모두 표시하지 않는다.</li>
+          <li>멕 핏팅의 점프젯 높이는 연소시간과 초기 추력 쿼크가 반영된 최종 수치로 계산하며, 요약에는 최종 결과만 표시한다.</li>
         </ul>
 
         <h3>에너지 레이저 예외</h3>
@@ -470,6 +488,7 @@
             <tr><td><code>public/data/equipment.json</code></td><td>무기·탄약·엔진·모듈과 세부 통계</td></tr>
             <tr><td><code>public/data/loadouts.json</code></td><td>기본 장착 장비와 아머</td></tr>
             <tr><td><code>public/data/omnipods.json</code></td><td>옵니포드 컴포넌트, 하드포인트, 세트 쿼크</td></tr>
+            <tr><td><code>public/assets/kakaopay-donate-qr.png</code></td><td>한국어 후원 팝업의 카카오페이 QR 이미지</td></tr>
             <tr><td><code>tools/extract_mwo_data.py</code></td><td>로컬 게임 아카이브를 브라우저 JSON으로 변환</td></tr>
             <tr><td><code>AGENTS.md</code></td><td>현재 작업 규칙과 회귀 기준</td></tr>
           </tbody>
@@ -516,7 +535,7 @@
             <tr><td>2026-07-19</td><td>무장 정보표, 아르테미스 산포, 연속 무기, 레일건 커패시터, 타겟 컴퓨터 규칙</td></tr>
             <tr><td>2026-07-20 ~ 07-21</td><td>이름 있는 로컬 피팅 저장, 장비 정보 확장, 쿼크 표시와 무기 계산 개선</td></tr>
             <tr><td>2026-07-22</td><td>멕 브라우저와 피팅 하드포인트 개선, 호버 선택 복원, 게임 데이터 갱신, 탄약 쿼크·비교 통계 수정</td></tr>
-            <tr><td>2026-07-23</td><td>JSON 기반 고스트 힛 정보표·시뮬레이션·멕랩 경고와 슬롯 툴팁, 발열 허용량 점유율 표시, HSL 임계치 보정, 고스트 힛 쿼크 독립 계산, 탭 히스토리 복원, 활성 탭 지연 렌더링과 무장 정보 캐시, HPD·MASC·장비 제한 보완</td></tr>
+            <tr><td>2026-07-23</td><td>JSON 기반 고스트 힛 정보표·시뮬레이션·멕랩 경고와 슬롯 툴팁, 발열 허용량 점유율 표시, HSL 임계치 보정, 고스트 힛 쿼크 독립 계산, 탭 히스토리 복원, 활성 탭 지연 렌더링과 무장 정보 캐시, DPH·MASC·점프젯 쿼크 계산, 카카오페이·Ko-fi 후원, 통계 순위 캐시·DOM 재사용·화면 밖 행 최적화와 멕 슬롯 태그 통일</td></tr>
           </tbody>
         </table>
       </section>

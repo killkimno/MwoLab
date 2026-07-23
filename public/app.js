@@ -184,7 +184,11 @@ const TEXT = {
     "tabs.compare": "비교하기",
     "tabs.stats": "통계",
     "donate.label": "후원하기",
-    "donate.aria": "Ko-fi 후원 페이지 열기",
+    "donate.aria": "후원 방법 열기",
+    "donate.title": "후원하기",
+    "donate.qrAlt": "카카오페이 후원 QR 코드",
+    "donate.kofi": "Ko-fi로 후원하기",
+    "donate.close": "닫기",
     "search.mechPlaceholder": "기종 또는 변형 검색",
     "search.itemPlaceholder": "장비 검색",
     "list.smallView": "작은 리스트 보기",
@@ -241,7 +245,7 @@ const TEXT = {
     "equipmentInfo.expectedCooldown": "예상 쿨다운",
     "equipmentInfo.duration": "듀레이션",
     "equipmentInfo.spread": "탄 퍼짐",
-    "equipmentInfo.hpd": "HPD",
+    "equipmentInfo.dph": "DPH",
     "equipmentInfo.weaponType": "계열",
     "equipmentInfo.spreadWeapons": "탄 퍼짐 무기",
     "equipmentInfo.criticalWeapons": "크리티컬 무기",
@@ -585,6 +589,10 @@ const TEXT = {
     "tabs.stats": "Stats",
     "donate.label": "Donate",
     "donate.aria": "Open Ko-fi support page",
+    "donate.title": "Support MwoLab",
+    "donate.qrAlt": "KakaoPay support QR code",
+    "donate.kofi": "Support on Ko-fi",
+    "donate.close": "Close",
     "search.mechPlaceholder": "Search chassis or variant",
     "search.itemPlaceholder": "Search equipment",
     "list.smallView": "Small list view",
@@ -641,7 +649,7 @@ const TEXT = {
     "equipmentInfo.expectedCooldown": "Expected Cooldown",
     "equipmentInfo.duration": "Duration",
     "equipmentInfo.spread": "Spread",
-    "equipmentInfo.hpd": "HPD",
+    "equipmentInfo.dph": "DPH",
     "equipmentInfo.weaponType": "Type",
     "equipmentInfo.spreadWeapons": "Spread Weapons",
     "equipmentInfo.criticalWeapons": "Critical Weapons",
@@ -867,6 +875,21 @@ function languageUrl(language) {
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
+function openDonateDialog(event) {
+  if (activeLanguage !== "kr") return;
+  event?.preventDefault();
+  $("donate-overlay").hidden = false;
+  document.body.classList.add("donate-open");
+  $("close-donate").focus();
+}
+
+function closeDonateDialog() {
+  if ($("donate-overlay").hidden) return;
+  $("donate-overlay").hidden = true;
+  document.body.classList.remove("donate-open");
+  $("donate-link").focus();
+}
+
 function mechNavigationUrl(mechId = "") {
   const url = new URL(window.location.href);
   url.searchParams.delete("tab");
@@ -930,12 +953,22 @@ function applyStaticTranslations() {
   document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
     element.setAttribute("aria-label", t(element.dataset.i18nAriaLabel));
   });
+  document.querySelectorAll("[data-i18n-alt]").forEach((element) => {
+    element.setAttribute("alt", t(element.dataset.i18nAlt));
+  });
   document.querySelectorAll("[data-lang-link]").forEach((element) => {
     const language = element.dataset.langLink;
     element.href = languageUrl(language);
     element.classList.toggle("active", language === activeLanguage);
     element.setAttribute("aria-current", language === activeLanguage ? "true" : "false");
   });
+  if (activeLanguage === "kr") {
+    $("donate-link").setAttribute("aria-haspopup", "dialog");
+    $("donate-link").setAttribute("aria-controls", "donate-overlay");
+  } else {
+    $("donate-link").removeAttribute("aria-haspopup");
+    $("donate-link").removeAttribute("aria-controls");
+  }
 }
 
 const COMPONENT_ORDER = [
@@ -1275,6 +1308,8 @@ const state = {
   renderedStatsEntries: [],
   renderedStatsCategory: null,
   renderedStatsValueScale: 1,
+  statsEntriesCache: new Map(),
+  statsSummaryWarmupScheduled: false,
   largeMechList: true,
   mechSort: "default",
   mechFilterFaction: "",
@@ -1422,6 +1457,16 @@ function weaponSplashDamage(item) {
 function weaponTotalDamage(item, includeSplash = true) {
   const directDamage = weaponDirectDamage(item);
   return directDamage + (includeSplash ? weaponSplashDamage(item) * 2 : 0);
+}
+
+function jumpJetFinalStats(item, quirks = []) {
+  const stats = item?.stats || {};
+  return {
+    duration: number(stats.duration) * (1 + quirkIncrease(quirks, "jumpjets_burntime_multiplier")),
+    initialThrust: number(stats.boost_instant) * (1 + quirkIncrease(quirks, "jumpjets_initialthrust_multiplier")),
+    verticalThrust: number(stats.boost_z),
+    forwardThrust: number(stats.boost_fwd),
+  };
 }
 
 function normalizeLookupKey(value) {
@@ -2123,6 +2168,28 @@ function mechListSummary(mech, applyQuirks = state.infoApplyQuirks) {
   };
   state.mechListSummaryCache.set(key, summary);
   return summary;
+}
+
+function scheduleStatsSummaryWarmup() {
+  if (state.statsSummaryWarmupScheduled || !state.mechs.length) return;
+  state.statsSummaryWarmupScheduled = true;
+  let index = 0;
+  const schedule = window.requestIdleCallback
+    ? (callback) => window.requestIdleCallback(callback, { timeout: 500 })
+    : (callback) => window.setTimeout(() => callback({ timeRemaining: () => 0 }), 16);
+  const warmNextBatch = (deadline) => {
+    let processed = 0;
+    while (
+      index < state.mechs.length
+      && (processed < 8 || deadline.timeRemaining() > 3)
+    ) {
+      mechListSummary(state.mechs[index], true);
+      index += 1;
+      processed += 1;
+    }
+    if (index < state.mechs.length) schedule(warmNextBatch);
+  };
+  schedule(warmNextBatch);
 }
 
 function escapeRegex(value) {
@@ -4718,7 +4785,23 @@ function statsChassisHardpointTypes(mechs) {
   mechs.forEach((mech) => {
     stockHardpointTypes(mech).forEach((type) => found.add(type));
   });
-  return ["missile", "energy", "ballistic", "ams", "ecm"].filter((type) => found.has(type));
+  return HARDPOINT_ORDER.filter((type) => found.has(type));
+}
+
+function statsChassisSlotBadges(mechs, hardpointTypes = statsChassisHardpointTypes(mechs)) {
+  const maxJumpJets = mechs.reduce((max, mech) => {
+    const build = buildFromLoadout(mech);
+    return Math.max(max, maximumJumpJets(mech, build));
+  }, 0);
+  const hasMasc = mechs.some((mech) => {
+    const stats = currentDefinition(mech).stats || {};
+    return number(stats.CanEquipMASC) > 0 || number(stats.CanEquipMasc) > 0;
+  });
+  return [
+    hardpointTypeBadges(hardpointTypes),
+    maxJumpJets > 0 ? mechSlotBadge("jumpjet", "JJ", maxJumpJets) : "",
+    hasMasc ? mechSlotBadge("masc", "MASC") : "",
+  ].join("");
 }
 
 function statsChassisEntries(entries) {
@@ -4741,6 +4824,7 @@ function statsChassisEntries(entries) {
       max: maxEntry.total,
       min: minEntry.total,
     };
+    const hardpointTypes = statsChassisHardpointTypes(mechs);
     return {
       key: `chassis:${chassis}`,
       isChassis: true,
@@ -4750,7 +4834,8 @@ function statsChassisEntries(entries) {
       faction: representative?.faction || t("common.unknown"),
       weightClass: representative?.weight_class || "unknown",
       tonsLabel: chassisTonsLabel(mechs),
-      hardpointTypes: statsChassisHardpointTypes(mechs),
+      hardpointTypes,
+      slotBadges: statsChassisSlotBadges(mechs, hardpointTypes),
       total: totals[statsAggregateMode().key],
       average,
       max: maxEntry.total,
@@ -4761,8 +4846,35 @@ function statsChassisEntries(entries) {
   });
 }
 
-function statsEntries() {
-  const category = activeStatsCategory();
+function statsEntriesCacheKey(category) {
+  return JSON.stringify([
+    state.activeStatsView,
+    category.key,
+    category.summaryKey || "",
+    category.movementKey || "",
+    activeStatsDurabilityScope().key,
+    state.statsRankMode,
+    state.statsChassisAggregateMode,
+    state.statsHideZeroQuirks,
+    state.statsDurabilityMode,
+    state.statsConditionFaction,
+    state.statsConditionAxis,
+    Array.from(state.statsConditionWeightClasses).sort(),
+    Array.from(state.statsConditionTons).sort((left, right) => Number(left) - Number(right)),
+  ]);
+}
+
+function cacheStatsEntries(key, entries) {
+  if (state.statsEntriesCache.size >= 64) {
+    state.statsEntriesCache.delete(state.statsEntriesCache.keys().next().value);
+  }
+  state.statsEntriesCache.set(key, entries);
+  return entries;
+}
+
+function statsEntries(category = activeStatsCategory(), cacheKey = statsEntriesCacheKey(category)) {
+  const cached = state.statsEntriesCache.get(cacheKey);
+  if (cached) return cached;
   const entries = state.mechs
     .filter(statsDurabilityFilterMatches)
     .map((mech) => ({
@@ -4773,11 +4885,19 @@ function statsEntries() {
     }))
     .filter((entry) => state.activeStatsView !== "quirks" || !state.statsHideZeroQuirks || Math.abs(entry.total) >= COMPARE_RANK_EPSILON);
   const rankedEntries = state.statsRankMode === "chassis" ? statsChassisEntries(entries) : entries;
-  return rankedEntries.sort((a, b) => b.total - a.total || (a.label || a.mech.display_name || "").localeCompare(b.label || b.mech.display_name || "", undefined, { numeric: true }));
+  return cacheStatsEntries(
+    cacheKey,
+    rankedEntries.sort((a, b) => b.total - a.total || (a.label || a.mech.display_name || "").localeCompare(b.label || b.mech.display_name || "", undefined, { numeric: true })),
+  );
 }
 
-function renderStatsRows(entries, category, valueScale) {
-  $("stats-list").innerHTML = entries.length
+function renderStatsRows(entries, category, valueScale, cacheKey) {
+  const list = $("stats-list");
+  if (list.dataset.statsRowsKey === cacheKey) {
+    updateStatsRowSelection();
+    return;
+  }
+  list.innerHTML = entries.length
     ? entries
         .map((entry, index) => `
           <div class="stats-row ${factionClass(entry.faction || entry.mech.faction)} ${entry.key === state.selectedStatsMechId ? "active" : ""}" data-stats-entry="${entry.key}" role="button" tabindex="0" aria-pressed="${entry.key === state.selectedStatsMechId}">
@@ -4794,20 +4914,28 @@ function renderStatsRows(entries, category, valueScale) {
             </span>
             <span class="stats-extra ${weightClassClass(entry.weightClass || entry.mech.weight_class)}">
               <span class="badge weight-slot ${weightClassClass(entry.weightClass || entry.mech.weight_class)}">${WEIGHT_CLASS_LABELS[entry.weightClass || entry.mech.weight_class] || entry.weightClass || entry.mech.weight_class || t("common.unknown")}</span>
-              <span class="stats-hardpoints">${(entry.isChassis ? hardpointTypeBadges(entry.hardpointTypes) : stockHardpointBadges(entry.mech)) || `<span class="badge">${t("stats.noHardpoints")}</span>`}</span>
+              <span class="stats-hardpoints mech-slot-tags">${(entry.isChassis ? entry.slotBadges : mechSlotBadges(entry.mech)) || `<span class="badge">${t("stats.noHardpoints")}</span>`}</span>
             </span>
           </div>
         `)
         .join("")
     : `<div class="empty">${t("stats.noRows")}</div>`;
+  list.dataset.statsRowsKey = cacheKey;
+  updateStatsRowSelection();
 }
 
 function updateStatsRowSelection() {
-  document.querySelectorAll("#stats-list [data-stats-entry]").forEach((row) => {
-    const active = row.dataset.statsEntry === state.selectedStatsMechId;
-    row.classList.toggle("active", active);
-    row.setAttribute("aria-pressed", String(active));
-  });
+  const list = $("stats-list");
+  const activeRow = list.querySelector(".stats-row.active");
+  if (activeRow && activeRow.dataset.statsEntry !== state.selectedStatsMechId) {
+    activeRow.classList.remove("active");
+    activeRow.setAttribute("aria-pressed", "false");
+  }
+  if (!state.selectedStatsMechId) return;
+  const selectedRow = list.querySelector(`[data-stats-entry="${state.selectedStatsMechId}"]`);
+  if (!selectedRow) return;
+  selectedRow.classList.add("active");
+  selectedRow.setAttribute("aria-pressed", "true");
 }
 
 function renderCurrentStatsSelection() {
@@ -4982,12 +5110,14 @@ function renderStatsPanel() {
     state.renderedStatsCategory = null;
     state.renderedStatsValueScale = 1;
     $("stats-list").innerHTML = "";
+    delete $("stats-list").dataset.statsRowsKey;
     $("stats-detail").innerHTML = "";
     return;
   }
 
-  const entries = statsEntries();
   const category = activeStatsCategory();
+  const cacheKey = statsEntriesCacheKey(category);
+  const entries = statsEntries(category, cacheKey);
   const valueScale = category.scale ?? 1;
   if (entries.length && !entries.some((entry) => entry.key === state.selectedStatsMechId)) {
     state.selectedStatsMechId = null;
@@ -4995,7 +5125,7 @@ function renderStatsPanel() {
   state.renderedStatsEntries = entries;
   state.renderedStatsCategory = category;
   state.renderedStatsValueScale = valueScale;
-  renderStatsRows(entries, category, valueScale);
+  renderStatsRows(entries, category, valueScale, cacheKey);
   renderStatsDetailPanel(entries, category, valueScale);
 }
 
@@ -5711,7 +5841,7 @@ function renderMechSummary(calc = null) {
   const alphaHeat = weapons.reduce((sum, weapon) => sum + number(weapon.heat), 0);
   const dps = weapons.reduce((sum, weapon) => sum + number(weapon.damage) / Math.max(0.016, number(weapon.cycle, 0.016)), 0);
   const hps = weapons.reduce((sum, weapon) => sum + number(weapon.heat) / Math.max(0.016, number(weapon.cycle, 0.016)), 0);
-  const hpd = alphaHeat > 0 ? calc.alpha / alphaHeat : null;
+  const dph = alphaHeat > 0 ? calc.alpha / alphaHeat : null;
   const heatEfficiency = hps <= heatSystem.coolingRate + 0.0001
     ? 100
     : Math.max(0, Math.min(100, heatSystem.coolingRate / hps * 100));
@@ -5727,13 +5857,10 @@ function renderMechSummary(calc = null) {
   const jumpJets = installedMechItems("jumpjet");
   const jumpJetCount = jumpJets.length;
   const maxJumpJets = maximumJumpJets(mech, state.currentBuild);
-  const jumpJetBurnMultiplier = 1 + quirkIncrease(quirks, "jumpjets_burntime_multiplier");
-  const jumpJetInitialMultiplier = 1 + quirkIncrease(quirks, "jumpjets_initialthrust_multiplier");
-  const jumpJetVerticalLift = jumpJets.reduce((sum, item) => sum + number(item.stats?.boost_z), 0);
-  const jumpJetDuration = jumpJets.reduce((max, item) => Math.max(max, number(item.stats?.duration)), 0)
-    * jumpJetBurnMultiplier;
-  const jumpJetInitialThrust = jumpJets.reduce((max, item) => Math.max(max, number(item.stats?.boost_instant)), 0)
-    * jumpJetInitialMultiplier;
+  const jumpJetStats = jumpJets.map((item) => jumpJetFinalStats(item, quirks));
+  const jumpJetVerticalLift = jumpJetStats.reduce((sum, stats) => sum + stats.verticalThrust, 0);
+  const jumpJetDuration = jumpJetStats.reduce((max, stats) => Math.max(max, stats.duration), 0);
+  const jumpJetInitialThrust = jumpJetStats.reduce((max, stats) => Math.max(max, stats.initialThrust), 0);
   const mechMaxTons = Math.max(1, number(currentDefinition(mech).stats?.MaxTons, 1));
   const jumpJetHeight = jumpJetCount > 0
     ? (7.5 * jumpJetVerticalLift + jumpJetDuration * 0.75 * jumpJetInitialThrust) / mechMaxTons
@@ -5768,7 +5895,7 @@ function renderMechSummary(calc = null) {
     ${mechSummarySection("WEAPON", [
       ["FIREPOWER", fmt(calc.alpha, 2)],
       ["DPS", fmt(dps, 2)],
-      ["HPD", hpd === null ? "-" : fmt(hpd, 2)],
+      ["DPH", dph === null ? "-" : fmt(dph, 2)],
       ["HPS", fmt(hps, 2)],
       ["ALPHA HEAT", `${fmt(alphaHeat, 2)} (${fmt(alphaHeatPercent, 1)}%)`],
     ])}
@@ -7345,7 +7472,7 @@ function equipmentInfoWeaponRow(item, index) {
   const totalDamage = damage + splashDamage;
   const heat = itemHeat(item);
   const expectedCooldown = weaponExpectedCooldown(item, []) ?? timing.cooldown;
-  const hpd = heat > 0 ? totalDamage / heat : Number.NaN;
+  const dph = heat > 0 ? totalDamage / heat : Number.NaN;
   const spread = weaponSpreadValues(item, [])?.final ?? Number.NaN;
   const criticalChanceValues = weaponCriticalChanceValues(item);
   const criticalChance = criticalChanceValues.find((value) => Math.abs(value) > 0.000001) ?? Number.NaN;
@@ -7376,7 +7503,7 @@ function equipmentInfoWeaponRow(item, index) {
       velocity: number(stats.speed) > 0 ? number(stats.speed) : Number.POSITIVE_INFINITY,
       dps,
       hps,
-      hpd,
+      dph,
       slots: Number(stats.slots),
       tons: Number(stats.tons),
       health,
@@ -7403,7 +7530,7 @@ function equipmentInfoWeaponRow(item, index) {
       velocity: number(stats.speed) > 0 ? equipmentInfoValue(stats.speed, 0, "m/s") : "-",
       dps: equipmentInfoValue(dps, 2),
       hps: equipmentInfoValue(hps, 2),
-      hpd: equipmentInfoValue(hpd, 2),
+      dph: equipmentInfoValue(dph, 2),
       slots: equipmentInfoValue(stats.slots, 0),
       tons: equipmentInfoValue(stats.tons, 1),
       health: equipmentInfoValue(stats.Health ?? stats.health, 1),
@@ -7652,7 +7779,7 @@ function equipmentInfoBaseWeaponColumns({ duration = false, spread = false, weap
     { key: "maxRange", label: t("equipmentInfo.maxRange") },
     { key: "velocity", label: t("equipmentInfo.velocity") },
     { key: "dps", label: t("equipmentInfo.dps") },
-    { key: "hpd", label: t("equipmentInfo.hpd") },
+    { key: "dph", label: t("equipmentInfo.dph") },
     { key: "hps", label: t("equipmentInfo.hps") },
     { key: "slots", label: t("common.slots") },
     { key: "tons", label: t("common.tons") },
@@ -9583,7 +9710,7 @@ function weaponTooltipStatistics(item, quirks = []) {
       rows.push(["DPS", tooltipQuirkValue(damageRate.base, damageRate.final, 2)]);
     }
     if (baseHeat > 0 && finalHeat > 0 && damageRate.base > 0 && damageRate.final > 0) {
-      rows.push(["HPD", tooltipQuirkValue(
+      rows.push(["DPH", tooltipQuirkValue(
         damageRate.base / baseHeat,
         damageRate.final / finalHeat,
         2,
@@ -9599,7 +9726,7 @@ function weaponTooltipStatistics(item, quirks = []) {
     rows.push(["DPS", tooltipQuirkValue(totalDamage / baseCycle, totalDamage / finalCycle, 2)]);
   }
   if (baseHeat > 0 && finalHeat > 0 && totalDamage > 0) {
-    rows.push(["HPD", tooltipQuirkValue(totalDamage / baseHeat, totalDamage / finalHeat, 2)]);
+    rows.push(["DPH", tooltipQuirkValue(totalDamage / baseHeat, totalDamage / finalHeat, 2)]);
   }
   if (hasCooldown && baseHeat > 0 && baseCycle > 0 && finalCycle > 0) {
     rows.push(["HPS", tooltipQuirkValue(baseHeat / baseCycle, finalHeat / finalCycle, 2)]);
@@ -9855,9 +9982,11 @@ function equipmentTooltipGroups(item, ghostHeatExtra = 0) {
       ["INTERNAL DAMAGE", tooltipNumber(stats.internalDamage, 2)],
     ]);
   } else if (item.item_type === "jumpjet") {
+    const finalStats = jumpJetFinalStats(item, quirks);
     groups.push([
-      ["DURATION", tooltipNumber(stats.duration, 2, " s")],
+      ["DURATION", tooltipQuirkValue(stats.duration, finalStats.duration, 2, " s")],
       ["COOLDOWN", tooltipNumber(stats.cooldown, 2, " s")],
+      ["INITIAL THRUST", tooltipQuirkValue(stats.boost_instant, finalStats.initialThrust, 1)],
       ["VERTICAL THRUST", tooltipNumber(stats.boost_z, 1)],
       ["FORWARD THRUST", tooltipNumber(stats.boost_fwd, 1)],
     ]);
@@ -10808,6 +10937,11 @@ function bindEvents() {
   window.addEventListener("resize", () => {
     if (activeEquipmentTooltipTarget) positionEquipmentTooltip();
   }, { passive: true });
+  $("donate-link").addEventListener("click", openDonateDialog);
+  $("close-donate").addEventListener("click", closeDonateDialog);
+  $("donate-overlay").addEventListener("mousedown", (event) => {
+    if (event.target === $("donate-overlay")) closeDonateDialog();
+  });
   $("close-loadout-code").addEventListener("click", closeLoadoutCodeDialog);
   $("apply-loadout-code").addEventListener("click", applyImportedMwoCode);
   $("copy-loadout-code").addEventListener("click", copyExportedMwoCode);
@@ -10928,6 +11062,13 @@ function bindEvents() {
     renderSimulationGroupStatus();
   });
   document.addEventListener("keydown", (event) => {
+    if (!$("donate-overlay").hidden) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeDonateDialog();
+      }
+      return;
+    }
     if (!$("local-build-overlay").hidden) {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -11550,6 +11691,7 @@ async function init() {
     state.equipmentInfoHtmlCache.clear();
     state.loadouts = loadouts;
     state.omnipods = omnipods;
+    scheduleStatsSummaryWarmup();
     $("data-status").textContent = t("status.loadedData", { count: state.index.counts.mechs });
     initializeMechNavigation();
   } catch (error) {

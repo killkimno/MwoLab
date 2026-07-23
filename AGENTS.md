@@ -7,12 +7,23 @@
 
 - Keep simulation controls and HUD placement close to the in-game layout when practical; otherwise prioritize clear sightlines, comfortable reach, and immediate readability.
 - Place elapsed time, total damage, DPS, and heat together immediately above the weapon firing controls.
-- HPD means damage dealt per one point of heat. Calculate it as damage divided by heat (`damage / heat`), not heat divided by damage.
+- DPH means damage per heat. Calculate it as damage divided by heat (`damage / heat`).
 
 ## MASC Tooltip Rules
 
 - Calculate each MASC final mobility value from the quirk-adjusted current value: `quirk final value * (1 + MASC boost)`.
 - Do not display a MASC boost or its corresponding final mobility row when that boost is zero.
+
+## Jump Jet Rules
+
+- Apply jump jet burn-time and initial-thrust quirks to installed jump jet calculations.
+- In the MechLab fitting summary, calculate the jump height from the quirk-adjusted jump jet values and display only the final result.
+
+## Statistics UI Rules
+
+- Reuse the same complete hardpoint tag rendering used by other mech-slot displays, including hardpoint counts, `JJ`, and `MASC`.
+- Keep the single-letter `E`, `M`, and `B` tags compact while allowing longer tags such as `AMS` and `ECM` to take their natural extra width.
+- Keep the weight-class label and slot-area background as statistics-specific presentation.
 
 ## Quirk Parsing Rules
 
